@@ -8,15 +8,15 @@ version = "0.0.0"
 description = "Data loading API and data visualization of GBM MOSAIC data"
 authors = [
     "Valerie Ducret <valerie.ducret@owkin.com>",
-    "Jonathan  <
-    "Spencer <
+    "Jonathan Bac <jonathan.bac@chuv.com>",
+    "Spencer Watson<spencer.watson@chuv.com>",
 ]
 
 readme = "README.md"
 homepage = "https://github.com/owkin/gbm-collaboration"
 repository = "https://github.com/owkin/gbm-collaboration"
 documentation = "https://owkin.github.io/gbm-collaboration"
-packages = [{ include = "gbmhackathon" }]
+packages = [{ include = "gbmcollaboration" }]
 
 classifiers = [
     "Development Status :: 2 - Pre-Alpha",
@@ -165,7 +165,7 @@ line-length = 88  # Must be consistent with black parameter
 target-version = "py39"  # Must be aligned with the Python lower bound
 
 [tool.ruff.lint.isort]
-known-first-party = ["gbmhackathon"]
+known-first-party = ["gbmcollaboration"]
 lines-after-imports = 2
 
 [tool.ruff.lint.pydocstyle]
