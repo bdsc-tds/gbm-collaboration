@@ -1,20 +1,16 @@
 """Hyperparameters and definitions for the GBM MOSAIC data on abstra."""
 
 import os
-from pathlib import Path
+from gbmcollaboration.utils.env_utils import Path
 
 
 def get_zarr_directories(main_folder):
-    """Get all zarr files in a folder and its subfolders.
+    """Get all zarr files in a folder and its subfolders."""
 
-    Allows to find zarr files available at time of execution.
-    TODO: see when we want to freeze the data and then we specify the paths.
-    """
-    zarr_dirs = []
-    for item in os.listdir(main_folder):
-        item_path = os.path.join(main_folder, item)
-        if os.path.isdir(item_path) and item.endswith(".zarr"):
-            zarr_dirs.append(item_path)
+    folder = Path(main_folder)
+    zarr_dirs = [
+        p for p in folder.iterdir() if p.name.endswith(".zarr")
+    ]
 
     return zarr_dirs
 

@@ -4,15 +4,16 @@
 
 # The current implementation allows to rapidly visualize the data sources available for each cohort (ie. CHUV and UKER).
 
-# + Load packages and classes
+# %% Load packages and classes
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
-from openslide import open_slide
+import openslide
 
+# %%
 from gbmcollaboration import CHUVDataCenter, UKERDataCenter
 
-# + Available constants that can be used to filter the data
+# %% Available constants that can be used to filter the data
 from gbmcollaboration import (
     PATIENTS_IDH1_MUT,
     BAD_QUALITY_UKER_VISIUM,
@@ -59,7 +60,7 @@ source_dict = chuv_center.load_tabular(exclude_idh1_mut=True)
 he = source_dict["he"]["HE files"]
 he.head(2)
 
-# +
+# %%
 # Display a H&E slide
 
 slide_idx = 12  # pick a H&E slide to display
@@ -72,26 +73,24 @@ fig, ax = plt.subplots()
 ax.imshow(slide_img)
 ax.set_axis_off()
 plt.show()
-# -
 
 # H&E AI features
 he_fea = source_dict["he"]["H0 features"]
 he_fea.head(2)
 
+# %%
 # Clinical data
 clin_df = source_dict["clinical"]["processed gbm clinical"]
 clin_df.head(2)
 
 uker_center.load_tabular(exclude_idh1_mut=True)
 
-# + Example with wes loading
+# %% Example with wes loading
 CNVamp = source_dict["wes"]["WES CNV amplification"]
 CNVamp.head(2)
-# -
 
 # ### Access and load Visium spatial data for the given cohort
-
-# +
+# %%
 chuv_spatial_object = chuv_center.load_spatial(
     normalization="raw_count",
     deconvolution_slot_name="deconv_GMBatlas_2steps",
@@ -106,7 +105,7 @@ chuv_spatial_counts = chuv_spatial_object.load_counts_cohort()
 # Information about the barcodes and spatial coordinates
 chuv_spatial_object.coords
 
-# + load the cell type abundance
+# %% load the cell type abundance
 # if you wanted cell fraction instead, use the argument frac=True
 chuv_celltype_abund = chuv_spatial_object.load_deconvolution_cohort()
 common_celltypes = chuv_spatial_object.common_celltypes
