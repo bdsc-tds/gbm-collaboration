@@ -62,6 +62,7 @@ zarr = "*"
 s3fs = "*"
 cloudpathlib = "^0.21.0"
 openslide-bin = "^4.0.0.6"
+boto3 = "^1.37.25"
 
 [tool.poetry.group.dev]
 optional = true
