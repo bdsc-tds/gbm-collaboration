@@ -22,9 +22,9 @@ def get_common_list(
 ) -> list[str]:
     """Get the common elements in multiple lists."""
     if how == "intersection":
-        return sorted(set.intersection(*map(set, lists_of_elem)))
+        return sorted(set().intersection(*map(set, lists_of_elem)))
     elif how == "union":
-        return sorted(set.union(*map(set, lists_of_elem)))
+        return sorted(set().union(*map(set, lists_of_elem)))
     else:
         raise ValueError("how must be either 'intersection' or 'union'")
 

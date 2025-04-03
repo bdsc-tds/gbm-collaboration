@@ -10,7 +10,8 @@ import pandas as pd
 import zarr
 from anndata._io.specs import read_elem
 from scipy.sparse import issparse
-from .env_utils import Path
+#from .env_utils import Path
+from pathlib import Path
 
 
 def glob(path_pattern: str) -> list[Path]:

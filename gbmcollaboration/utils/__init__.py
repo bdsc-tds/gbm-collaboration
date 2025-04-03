@@ -21,13 +21,4 @@ from .io_utils import (
     read_elem,
     read_elem_with_path,
 )
-from .env_utils import (
-    ABSTRA_ROOT_PATH,
-    SAGEMAKER_ROOT_PATH,
-    Path,
-    PathType,
-    am_i_on_abstra,
-    am_i_on_sagemaker,
-    am_i_on_sagemaker_training_job,
-    get_project_root_path,
-)
+from .env_utils import get_s3_path

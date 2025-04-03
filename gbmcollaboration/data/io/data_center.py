@@ -99,7 +99,7 @@ class DataCenter(NamedTuple):
             )
             # Load only the sources that are clinical, bulk_rna
             for source_name, source in self.sources.items()
-            if source_name in ["clinical", "bulk_rna", "wes", "he"]
+            if source_name in ["clinical", "bulk_rna", "wes"]#, "he"]
         }
 
     def load_spatial(
@@ -159,7 +159,9 @@ class DataCenter(NamedTuple):
 
         if source:
             # instantiate VisiumDataLoader
+            print("source files:", source.files)
             path_dataset = source.files.get("cohort zarr files").name  # type: ignore[union-attr]
+            print("path_dataset:", path_dataset)
             data_loader = VisiumCohortLoader(
                 path_dataset=path_dataset,
                 ignore_sample_ids=ignore_sample_ids,
@@ -174,6 +176,7 @@ class DataCenter(NamedTuple):
             print(
                 "Preparing the gene counts dataframe as attribute (spatial_obj.genecounts_df)."
             )
+            print("spot info:", spots_info)
             data_loader.genecounts_df = genecounts_array_to_df(
                 gene_counts_array=data_loader.load_counts_cohort(),
                 gene_names_list=data_loader.common_genes,

@@ -18,8 +18,7 @@ from gbmcollaboration.utils import (
     check_duplicated_block,
     check_path,
     get_common_list,
-    get_object_paths,
-    Path
+    get_object_paths
 )
 
 

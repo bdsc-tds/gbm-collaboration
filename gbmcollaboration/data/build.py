@@ -115,14 +115,6 @@ CHUVDataCenter = DataCenter(
                 ),
             }
         ),
-        SOURCES.spatial: DataSource(
-            files={
-                "cohort zarr files": DataFile(
-                    name=DATA_PATH_CHUV_FILES["Spatial Zarr Files"],
-                    loader=None,
-                ),
-            }
-        ),
         SOURCES.sc_rna: DataSource(
             files={
                 "Single-cell RNA": DataFile(
@@ -155,8 +147,8 @@ CHUVDataCenter = DataCenter(
         ),
         SOURCES.he: DataSource(
             files={
-                "HE files": DataFile(
-                    name=DATA_PATH_CHUV_FILES["HE"],
+                "HE images": DataFile(
+                    name=DATA_PATH_CHUV_FILES["HE_images"],
                     loader=PathsLoader(
                         pattern_files="*_eHnE.svs",
                         data_transformer=MOSAICHEDataCleaner(),
@@ -236,14 +228,6 @@ UKERDataCenter = DataCenter(
                 ),
             }
         ),
-        SOURCES.spatial: DataSource(
-            files={
-                "cohort zarr files": DataFile(
-                    name=DATA_PATH_UKER_FILES["Spatial Zarr Files"],
-                    loader=None,
-                ),
-            }
-        ),
         SOURCES.sc_rna: DataSource(
             files={
                 "Single-cell RNA": DataFile(
@@ -276,8 +260,8 @@ UKERDataCenter = DataCenter(
         ),
         SOURCES.he: DataSource(
             files={
-                "HE files": DataFile(
-                    name=DATA_PATH_UKER_FILES["HE"],
+                "HE images": DataFile(
+                    name=DATA_PATH_UKER_FILES["HE_images"],
                     loader=PathsLoader(
                         pattern_files="*_eHnE.svs",
                         data_transformer=MOSAICHEDataCleaner(),

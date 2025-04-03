@@ -9,8 +9,6 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 import openslide
-
-# %%
 from gbmcollaboration import CHUVDataCenter, UKERDataCenter
 
 # %% Available constants that can be used to filter the data
@@ -56,33 +54,13 @@ uker_center.sources.keys()
 # Note that you can exclude patients with IDH1 mutation by setting exclude_idh1_mut=True
 source_dict = chuv_center.load_tabular(exclude_idh1_mut=True)
 
-# H&E slides
-he = source_dict["he"]["HE files"]
-he.head(2)
-
-# %%
-# Display a H&E slide
-
-slide_idx = 12  # pick a H&E slide to display
-
-slide = open_slide(he.path.values[slide_idx])
-
-# Display the slide
-slide_img = slide.get_thumbnail(slide.level_dimensions[-2])
-fig, ax = plt.subplots()
-ax.imshow(slide_img)
-ax.set_axis_off()
-plt.show()
-
-# H&E AI features
-he_fea = source_dict["he"]["H0 features"]
-he_fea.head(2)
-
 # %%
 # Clinical data
 clin_df = source_dict["clinical"]["processed gbm clinical"]
 clin_df.head(2)
 
+# %%
+# Same thing for UKER data
 uker_center.load_tabular(exclude_idh1_mut=True)
 
 # %% Example with wes loading
@@ -109,3 +87,7 @@ chuv_spatial_object.coords
 # if you wanted cell fraction instead, use the argument frac=True
 chuv_celltype_abund = chuv_spatial_object.load_deconvolution_cohort()
 common_celltypes = chuv_spatial_object.common_celltypes
+
+# %%
+# load the single-cell data
+single_cell_obj = CHUVDataCenter.load_singlecell()

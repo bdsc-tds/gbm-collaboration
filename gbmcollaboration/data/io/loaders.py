@@ -3,6 +3,8 @@
 import anndata as ad
 import pandas as pd
 from gbmcollaboration.data.dataset_classes.visium_cohort import VisiumCohort
+from warnings import warn
+import s3fs
 
 
 class BaseDataLoader:
@@ -224,21 +226,16 @@ class SingleCellLoader:
         """Initialize the SingleCellLoader object."""
         self.path_data = path_data
 
-    def load_h5ad(self):
-        if data_path.startswith("s3://"):
-            s3 = s3fs.S3FileSystem()
-            with s3.open(self.path_data, "rb") as s3_file:
-                return ad.read_h5ad(s3_file)
-        return ad.read_h5ad(self.path_data)
-
-
-    def load_zarr(self):
+    def load_sc_zarr(self):
         try:
-            return ad.read_zarr(self.path_data)
+            # the use of S3FileSystem improve caching
+            s3 = s3fs.S3FileSystem(anon=False)  # Or anon=True if public
+            store = s3fs.S3Map(root=self.path_data, s3=s3)
+            adata = ad.read_zarr(store)
+            return adata
         except ValueError as e:
-            warnings.warn(
+            warn(
                 f"Failed to load data from {self.path_data}: {str(e)}. "
                 "Returning empty AnnData object.",
                 UserWarning,
             )
-            return ad.AnnData()

@@ -59,10 +59,11 @@ ipytree = "*"
 spatialdata = { extras = ["extra"], version = ">=0.2" }
 xarray-dataclasses = ">=1.9.0"
 zarr = "*"
-s3fs = "*"
 cloudpathlib = "^0.21.0"
 openslide-bin = "^4.0.0.6"
-boto3 = "^1.37.25"
+s3fs = "^2023.1.0"
+boto3 = "^1.24.59"
+botocore = ">=1.27.59,<1.28.0"
 
 [tool.poetry.group.dev]
 optional = true
