@@ -19,7 +19,6 @@ def get_zarr_directories(bucket_name, prefix=""):
 
         # Build full paths
         full_zarr_paths = [f"s3://{bucket_name}/{prefix}{zarr_folder}" for zarr_folder in zarr_folders]
-        print("Successfully retrieved the zarr folders:", full_zarr_paths)
         return full_zarr_paths
     except subprocess.CalledProcessError as e:
         print(f"Error: {e}")

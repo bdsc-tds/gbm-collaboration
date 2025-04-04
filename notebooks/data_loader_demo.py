@@ -67,18 +67,16 @@ uker_center.load_tabular(exclude_idh1_mut=True)
 CNVamp = source_dict["wes"]["WES CNV amplification"]
 CNVamp.head(2)
 
-# ### Access and load Visium spatial data for the given cohort
-# %%
+# %% Access and load Visium spatial data for the given cohort
 chuv_spatial_object = chuv_center.load_spatial(
     normalization="raw_count",
     deconvolution_slot_name="deconv_GMBatlas_2steps",
     exclude_low_quality_visium=True,
     exclude_idh1_mut=True)
+# chuv_spatial_object is a dictionary with the samples ID as keys and the counts in each spot as values
 
+# Obtain the counts
 chuv_spatial_counts = chuv_spatial_object.load_counts_cohort()
-
-# This returns a dictionary with the samples ID as keys and the counts in each spot as values
-# -
 
 # Information about the barcodes and spatial coordinates
 chuv_spatial_object.coords
@@ -88,6 +86,7 @@ chuv_spatial_object.coords
 chuv_celltype_abund = chuv_spatial_object.load_deconvolution_cohort()
 common_celltypes = chuv_spatial_object.common_celltypes
 
-# %%
-# load the single-cell data
+# %% Load the single-cell data
 single_cell_obj = chuv_center.load_singlecell()
+
+# look at the single_cell_xplorer.py script to explore more!

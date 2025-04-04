@@ -1,6 +1,6 @@
 # # Script to explore the visium data.
 
-# + -- Import packages and prepare functions
+# %% -- Import packages and prepare functions
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -13,19 +13,19 @@ from gbmcollaboration.viz.visium_heatmap import (
     plot_gene_expression_visium
 )
 
-# + -- Constants
+# %% -- Constants
 # Constants
 center = "UKER" # or "CHUV"
 normalization = "raw_count"  # Can be "raw_count", "log_norm_count", "norm_count", "SCTransform"
 
-# + -- Load spatial data for a given center
+# %% -- Load spatial data for a given center
 # Load spatial data for a given center
 if center == "UKER":
     center_data = UKERDataCenter
 else:
     center_data = CHUVDataCenter
 
-# + -- Load spatial data for the full cohort
+# %% -- Load spatial data for the full cohort
 # Load spatial data for the full cohort
 spatial_object = center_data.load_spatial(
     normalization=normalization,
@@ -41,7 +41,7 @@ spatial_counts_df.head()
 
 # the coordinates of the spots can be found as the last two columns of the dataframes
 
-# + -- Load spatial data for a single sample
+# %% -- Load spatial data for a single sample
 # Load spatial data for a single sample
 sample_id = "ER_G_195a_vis"
 normalization = "raw_count"  # Available methods are "raw_count", "log_norm_count", "norm_count", "SCTransform"
@@ -54,18 +54,18 @@ spatial_object = center_data.load_spatial(
 spatial_counts_df = spatial_object.genecounts_df
 cellabun_df = spatial_object.celltype_df
 
-# + -- Plotting the cell type abundance on Visium image
+# %% -- Plotting the cell type abundance on Visium image
 # Plotting the cell type abundance on Visium image
 plot_celltype_abun_visium(cellabun_df, "ER_G_195a_vis", "Mural cell")
 
-# + -- Plotting the biomarker expression on Visium image
+# %% -- Plotting the biomarker expression on Visium image
 # Plotting the biomarker expression on Visium image
 plot_gene_expression_visium(spatial_counts_df, "ER_G_195a_vis", "CD34")
 # -
 
 # ## Colocalisation of cell types
 
-# + -- Colocalisation of cell types
+# %% -- Colocalisation of cell types
 # First calculate the mean expression to potentially visualize necrosis area
 spatial_counts_df["mean_counts"] = spatial_counts_df.drop(columns=["imagerow", "imagecol"]).mean(axis=1)
 
@@ -83,7 +83,7 @@ SAVE_PDF = False  # by default
 CELL_TYPES = ["AC-like", "MES-like", "OPC-like", "NPC-like"]
 
 
-# + -- Plotting the colocalisation of cell types
+# %% -- Plotting the colocalisation of cell types
 # Function to plot colocalisation
 def _plot_colocalisation(df, sample_id, cell_types):
     fig, axs = plt.subplots(1, len(cell_types), figsize=(20, 5))

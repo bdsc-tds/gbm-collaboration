@@ -15,7 +15,6 @@ from matplotlib.pyplot import rc_context
 
 sc.set_figure_params(dpi=100, color_map="viridis_r")
 sc.settings.verbosity = 0
-sc.logging.print_header()
 
 # %% -- Load data
 center = "CHUV" # or "CHUV"
@@ -30,9 +29,7 @@ single_cell_obj = data_center.load_singlecell()
 
 # %%
 # run infercnv
-# most recent version of gencode gtf file was saved in the omics abstra dataset,
-# other versions can be found at https://genome.ucsc.edu or https://www.gencodegenes.org/
-path_gtf = "/home/owkin/data/dataset-5abe643c-1c3a-4117-b5f5-35783a73b3c7/infercnv/gencode.v47.annotation.gtf"
+path_gtf = "/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/resources/infercnv/gencode.v32.annotation.gtf"
 cnv.io.genomic_position_from_gtf(path_gtf, single_cell_obj)
 
 # create a "reference" column in the obs to extract the healthy reference cells
