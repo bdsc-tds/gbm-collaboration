@@ -115,6 +115,14 @@ CHUVDataCenter = DataCenter(
                 ),
             }
         ),
+        SOURCES.spatial: DataSource(
+            files={
+                "cohort zarr files": DataFile(
+                    name=DATA_PATH_CHUV_FILES["Spatial Zarr Files"],
+                    loader=None,
+                ),
+            }
+        ),
         SOURCES.sc_rna: DataSource(
             files={
                 "Single-cell RNA": DataFile(
@@ -225,6 +233,14 @@ UKERDataCenter = DataCenter(
                     loader=CSVDataLoader(
                         data_transformer=MOSAICBulkRNADataCleaner(), sep="\t"
                     ),
+                ),
+            }
+        ),
+        SOURCES.spatial: DataSource(
+            files={
+                "cohort zarr files": DataFile(
+                    name=DATA_PATH_UKER_FILES["Spatial Zarr Files"],
+                    loader=None,
                 ),
             }
         ),

@@ -20,6 +20,7 @@ from gbmcollaboration.utils import (
     get_common_list,
     get_object_paths
 )
+from cloudpathlib import S3Path
 
 
 class VisiumCohort:
@@ -27,7 +28,7 @@ class VisiumCohort:
 
     Args
     ----
-    path_dataset : str | list[str | Path]
+    path_dataset : str | list[str | S3Path]
         Paths to the zarr stores or a glob pattern.
         '/path/to/dataset/*.zarr'.
     normalization : str
@@ -52,7 +53,7 @@ class VisiumCohort:
 
     def __init__(
         self,
-        path_dataset: str | list[str | Path],
+        path_dataset: str | list[str | S3Path],
         normalization: str,
         radius: int | None = None,
         deconvolution_slot_name: str = "deconv_cohort_level_2",
@@ -74,7 +75,7 @@ class VisiumCohort:
         self._list_path_samples = list_path_samples
 
         if list_sample_ids is None:
-            list_sample_ids = [Path(path).stem for path in list_path_samples]
+            list_sample_ids = [S3Path(path).stem for path in list_path_samples]
         if ignore_sample_ids is not None:
             list_sample_ids = [
                 sample_id

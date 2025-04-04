@@ -6,6 +6,25 @@ from typing import Any
 from gbmcollaboration.utils import get_s3_path
 import boto3
 from urllib.parse import urlparse
+import subprocess
+
+
+def get_zarr_directories(bucket_name, prefix=""):
+    try:
+        command = f"aws s3 ls s3://{bucket_name}/{prefix}"
+        result = subprocess.run(command, shell=True, capture_output=True, text=True, check=True)
+
+        # Filter .zarr folders
+        zarr_folders = [line.split()[-1].rstrip('/') for line in result.stdout.splitlines() if line.endswith('.zarr/')]
+
+        # Build full paths
+        full_zarr_paths = [f"s3://{bucket_name}/{prefix}{zarr_folder}" for zarr_folder in zarr_folders]
+        print("Successfully retrieved the zarr folders:", full_zarr_paths)
+        return full_zarr_paths
+    except subprocess.CalledProcessError as e:
+        print(f"Error: {e}")
+        print(e.output)
+        return []
 
 
 def generate_data_path(
@@ -14,7 +33,7 @@ def generate_data_path(
     wes_id: Path,
     he_images_id: Path,
     he_features_id: Path,
-    #load_zarr_func: list[Path],
+    load_zarr_func: list[Path],
     single_cell_id: Path,
 ):
     """Generate a dictionary of data paths."""
@@ -29,7 +48,7 @@ def generate_data_path(
         "WES mutations": get_s3_path(wes_id, "cohort_level/snv_indel/binary_oncogenic_alteration_status.csv"),
         "HE_images": get_s3_path(he_images_id, "HE"),
         "HE_features_H0": get_s3_path(he_features_id, "image_features/features_H0"),
-        #"Spatial Zarr Files": load_zarr_func,
+        "Spatial Zarr Files": load_zarr_func,
         "Single-cell RNA": str(get_s3_path(single_cell_id, f"v3/dataset_level/dataset-{single_cell_id}/merge_samples/sc_merged_annotated.zarr")),
     }
     return data_paths
@@ -41,7 +60,6 @@ DATA_ID_CHUV = {
     "CHUV_wes": "cf474777-4c58-45d3-8392-cc5482bbc334",
     "CHUV_he_images": "a3857b67-3f28-40e6-b1f9-4842a2ad49af",
     "CHUV_he_features": "b5bd8840-cc6e-4de2-a78a-22315e9d1734",
-    #"CHUV_spatial": DATA_ID / "b5bd8840-cc6e-4de2-a78a-22315e9d1734",
     "CHUV_sc_rna": "34d9d6ca-e701-4f7f-9ea5-3f238a267076"
 }
 
@@ -52,27 +70,24 @@ DATA_ID_UKER = {
     "UKER_wes": "d239b19d-fe6e-4362-8a1c-35b4182c2511",
     "UKER_he_images": "3205eea0-5076-4294-8876-08cf98474603",
     "UKER_he_features": "40ce7e61-5ff6-467e-9972-0c85705f086c",
-    #"UKER_spatial": DATA_ID / "40ce7e61-5ff6-467e-9972-0c85705f086c",
     "UKER_sc_rna": "09ce5d6d-e8de-464a-91c1-c534823200d0"
 }
 
 # Check if running in GitHub Actions
-#IN_GITHUB_ACTIONS = os.getenv("GITHUB_ACTIONS") == "true"
+IN_GITHUB_ACTIONS = os.getenv("GITHUB_ACTIONS") == "true"
 # Conditionally set up the data path dictionary
-#if not IN_GITHUB_ACTIONS:
-#    load_zarr_chuv_files = get_zarr_directories(
-#        #DATA_ID_CHUV["CHUV_spatial"],
-#        bucket_name="pa-bi4jtrdsa151p4d3m-jepjxh9qrwgxphe8hd3r6exicahnoeuw1b-s3alias",
-#        prefix="b5bd8840-cc6e-4de2-a78a-22315e9d1734/"
-#    )
-#    load_zarr_uker_files = get_zarr_directories(
-#        #DATA_ID_UKER["UKER_spatial"]
-#        bucket_name="pa-bi4jtrdsa151p4d3m-jepjxh9qrwgxphe8hd3r6exicahnoeuw1b-s3alias",
-#        prefix="40ce7e61-5ff6-467e-9972-0c85705f086c/"
-#    )
-#else:
-#    load_zarr_chuv_files = []
-#    load_zarr_uker_files = []
+if not IN_GITHUB_ACTIONS:
+    load_zarr_chuv_files = get_zarr_directories(
+        bucket_name="pa-bi4jtrdsa151p4d3m-jepjxh9qrwgxphe8hd3r6exicahnoeuw1b-s3alias",
+        prefix="b5bd8840-cc6e-4de2-a78a-22315e9d1734/v3/without_spotclean/SpatialData/"
+    )
+    load_zarr_uker_files = get_zarr_directories(
+        bucket_name="pa-bi4jtrdsa151p4d3m-jepjxh9qrwgxphe8hd3r6exicahnoeuw1b-s3alias",
+        prefix="40ce7e61-5ff6-467e-9972-0c85705f086c/v3/without_spotclean/SpatialData/"
+    )
+else:
+    load_zarr_chuv_files = []
+    load_zarr_uker_files = []
 
 DATA_PATH_CHUV_FILES = generate_data_path(
     DATA_ID_CHUV["CHUV_clinical"],
@@ -80,7 +95,7 @@ DATA_PATH_CHUV_FILES = generate_data_path(
     DATA_ID_CHUV["CHUV_wes"],
     DATA_ID_CHUV["CHUV_he_images"],
     DATA_ID_CHUV["CHUV_he_features"],
-    #load_zarr_chuv_files,
+    load_zarr_chuv_files,
     DATA_ID_CHUV["CHUV_sc_rna"],
 )
 
@@ -90,7 +105,7 @@ DATA_PATH_UKER_FILES = generate_data_path(
     DATA_ID_UKER["UKER_wes"],
     DATA_ID_UKER["UKER_he_images"],
     DATA_ID_UKER["UKER_he_features"],
-    #load_zarr_uker_files,
+    load_zarr_uker_files,
     DATA_ID_UKER["UKER_sc_rna"],
 )
 

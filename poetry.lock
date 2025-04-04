@@ -560,6 +560,25 @@ html5lib = ["html5lib"]
 lxml = ["lxml"]
 
 [[package]]
+name = "bigtree"
+version = "0.25.4"
+description = "Tree Implementation and Methods for Python, integrated with list, dictionary, pandas and polars DataFrame."
+optional = false
+python-versions = ">=3.8"
+groups = ["main"]
+files = [
+    {file = "bigtree-0.25.4-py3-none-any.whl", hash = "sha256:41fa3f297beb4b3c7a4e0670822e5fc15c307733d301f2599a0806971847db73"},
+    {file = "bigtree-0.25.4.tar.gz", hash = "sha256:c3f4f5105ec05864456462271644a06f915bea466ea4e3995a15295e1f3af264"},
+]
+
+[package.extras]
+all = ["matplotlib", "pandas", "pillow", "polars", "pydot"]
+image = ["pillow", "pydot"]
+matplotlib = ["matplotlib"]
+pandas = ["pandas"]
+polars = ["polars"]
+
+[[package]]
 name = "bleach"
 version = "6.2.0"
 description = "An easy safelist-based HTML-sanitizing tool."
@@ -9041,4 +9060,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<3.12"
-content-hash = "0ae5c5f895653e35dc72f65f556c7ace6f249786655ffce232234055ab47d1ba"
+content-hash = "ca5cd6f3993622d5bdb0ff648c8314270ad714bacf30cc5e7f8e25d1048494cc"

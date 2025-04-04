@@ -35,7 +35,6 @@ def celltype_array_to_df(
         DataFrame containing the cell abundance or fraction for each celltype in each spot
         for each sample, with the coordinates of the spots.
     """
-    print(spots_metadata.head())
     # set the index of the spots_metadata DataFrame
     spots_metadata = spots_metadata.rename(columns={"sample_id": "sample"})
     spots_metadata = spots_metadata.set_index("sample")

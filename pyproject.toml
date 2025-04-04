@@ -64,6 +64,7 @@ openslide-bin = "^4.0.0.6"
 s3fs = "^2023.1.0"
 boto3 = "^1.24.59"
 botocore = ">=1.27.59,<1.28.0"
+bigtree = "^0.25.4"
 
 [tool.poetry.group.dev]
 optional = true

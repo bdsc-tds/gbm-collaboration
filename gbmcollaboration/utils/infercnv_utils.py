@@ -1,7 +1,6 @@
 """Script with utility functions to use with inferCNVpy."""
 
 
-# Functions
 def add_reference_column(
     single_cell_obj,
     cell_type_annotation_key,

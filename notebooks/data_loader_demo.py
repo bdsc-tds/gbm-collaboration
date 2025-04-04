@@ -90,4 +90,4 @@ common_celltypes = chuv_spatial_object.common_celltypes
 
 # %%
 # load the single-cell data
-single_cell_obj = CHUVDataCenter.load_singlecell()
+single_cell_obj = chuv_center.load_singlecell()
