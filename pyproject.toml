@@ -56,6 +56,17 @@ gget = "^0.29.0"
 tiffslide = "^2.4.0"
 tifffile = "^2025.1.10"
 ipytree = "*"
+spatialdata = { extras = ["extra"], version = ">=0.2" }
+xarray-dataclasses = ">=1.9.0"
+zarr = "*"
+cloudpathlib = "^0.21.0"
+openslide-bin = "^4.0.0.6"
+s3fs = "^2023.1.0"
+boto3 = "^1.24.59"
+botocore = ">=1.27.59,<1.28.0"
+bigtree = "^0.25.4"
+infercnvpy = "^0.6.0"
+gtfparse = "^2.5.0"
 
 [tool.poetry.group.dev]
 optional = true
@@ -87,7 +98,6 @@ pandoc = "*"
 docutils = "*"
 pydocstyle = "*"
 sphinxcontrib-fulltoc = "*"
-sphinxcontrib-mockautodoc = "*"
 sphinx-autodoc-typehints = "*"
 sphinx-paramlinks = "*"
 pydata_sphinx_theme = "*"
@@ -108,7 +118,7 @@ types-setuptools = "*"
 types-Jinja2 = "*"
 types-MarkupSafe = "*"
 types-PyYAML = "*"
-typing_extensions = "*"
+typing_extensions = ">=4.6.0"
 
 [tool.poetry.group.testing]
 optional = true
