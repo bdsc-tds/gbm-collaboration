@@ -215,4 +215,4 @@ BAD_QUALITY_UKER_VISIUM = [
 ]
 
 # samples to remove from the CHUV dataset
-BAD_QUALITY_CHUV_VISIUM = ["CH_G_157a_vis", "CH_G_178a_vis"]
+BAD_QUALITY_CHUV_VISIUM = ["CH_G_157a_vis"]
