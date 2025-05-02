@@ -199,20 +199,15 @@ BAD_QUALITY_UKER_VISIUM = [
     "ER_G_267b_vis",
     "ER_G_273a_vis",
     "ER_G_274a_vis",
-    "ER_G_276b_vis",
     "ER_G_278a_vis",
     "ER_G_278b_vis",
     "ER_G_281a_vis",
     "ER_G_282a_vis",
     "ER_G_284a_vis",
     "ER_G_286a_vis",
-    "ER_G_288a_vis",
-    "ER_G_288b_vis",
-    "ER_G_290a_vis",
-    "ER_G_290b_vis",
     "ER_G_292a_vis",
     "ER_G_308b_vis",
 ]
 
 # samples to remove from the CHUV dataset
-BAD_QUALITY_CHUV_VISIUM = ["CH_G_157a_vis", "CH_G_178a_vis"]
+BAD_QUALITY_CHUV_VISIUM = ["CH_G_157a_vis"]
