@@ -31,10 +31,8 @@ def add_reference_column(
         Annotated data object with the reference column.
     """
     # create a "reference" column in the obs to filter the healthy reference cells
-    # use the mapping provided by the user
-    single_cell_obj.obs["reference"] = single_cell_obj.obs[
-        cell_type_annotation_key
-    ].map(celltypes_to_reference)
+
+    single_cell_obj.obs["reference"]  = single_cell_obj.obs["celltype_level2_scanvi"].copy()
 
     # calculate n_genes and n_counts to further remove cells from the reference
     single_cell_obj.obs["n_genes"] = (
@@ -43,6 +41,8 @@ def add_reference_column(
     single_cell_obj.obs["n_counts"] = single_cell_obj.layers["unnormalized_counts"].sum(
         axis=1
     )
+
+    single_cell_obj.obs["reference"] = single_cell_obj.obs["reference"].astype(str)
 
     # now annotate the cells accordingly if the conditions are met
     # therefore they will not be used as the "healthy" reference
