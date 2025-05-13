@@ -232,8 +232,9 @@ def check_duplicated_block(
     samples : list[str]
         List of samples
     """
+    # keep only the first 9 characters
     short_sample_id = [
-        i.replace("_vis", "").replace("_vbu", "").replace("_bu3", "") for i in samples
+        i[:9] for i in samples
     ]
     counter = Counter(short_sample_id)
     duplicates = [item for item, count in counter.items() if count > 1]
