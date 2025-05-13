@@ -29,7 +29,10 @@ else:
 # Load spatial data for the full cohort
 spatial_object = center_data.load_spatial(
     normalization=normalization,
-    deconvolution_slot_name="deconv_GMBatlas_2steps",
+    deconvolution_slot_name="deconv_cohort_level_4",
+    # other deconvolution available: 'deconv_GBMatlas_2steps',
+    # 'deconv_sample_level_custom1', 'deconv_cohort_level_2',
+    # 'deconv_GBMatlas', 'deconv_hipe'
     exclude_low_quality_visium=True,
     exclude_idh1_mut=True,
 )
@@ -47,7 +50,7 @@ sample_id = "ER_G_195a_vis"
 normalization = "raw_count"  # Available methods are "raw_count", "log_norm_count", "norm_count", "SCTransform"
 spatial_object = center_data.load_spatial(
     normalization=normalization,
-    deconvolution_slot_name="deconv_GMBatlas_2steps",
+    deconvolution_slot_name="deconv_cohort_level_4",
     list_sample_id=[sample_id],
 )
 
