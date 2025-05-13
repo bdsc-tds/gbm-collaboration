@@ -4,7 +4,6 @@
 def add_reference_column(
     single_cell_obj,
     cell_type_annotation_key,
-    celltypes_to_reference,
     threshold_n_genes=400,
     threshold_n_counts=10000,
 ):
@@ -18,8 +17,6 @@ def add_reference_column(
         Annotated data object.
     cell_type_annotation_key : str
         Key in the obs to use as the cell type annotation for mapping.
-    celltypes_to_reference : dict
-        Dictionary mapping the cell types to the reference.
     threshold_n_genes : int, optional
         Threshold to consider a cell as low_genes, by default 400.
     threshold_n_counts : int, optional
