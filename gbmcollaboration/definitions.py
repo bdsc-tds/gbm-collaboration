@@ -21,9 +21,7 @@ def get_zarr_directories(bucket_name, prefix=""):
         # Filter .zarr folders
         zarr_folders = [line.split()[-1].rstrip('/') for line in result.stdout.splitlines() if line.endswith('.zarr/')]
 
-        # for UKER data, we need to exclude samples with numbers above 310 (= or below 310)
-        # the name look like this: 40ce7e61-5ff6-467e-9972-0c85705f086c/SpatialData/ER_G_310a_vis.zarr/
-        # and we want to keep only the ones with numbers below 310 (excluding the last later, here a)
+        # for UKER data, we need to exclude samples with numbers above 310
         if "40ce7e61-5ff6-467e-9972-0c85705f086c" in prefix:
             zarr_folders = [
                 folder for folder in zarr_folders if int(folder.split("_")[-2][:-1]) <= 310
