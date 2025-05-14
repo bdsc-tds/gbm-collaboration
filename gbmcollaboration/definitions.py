@@ -26,7 +26,7 @@ def get_zarr_directories(bucket_name, prefix=""):
         # and we want to keep only the ones with numbers below 310 (excluding the last later, here a)
         if "40ce7e61-5ff6-467e-9972-0c85705f086c" in prefix:
             zarr_folders = [
-                folder for folder in zarr_folders if int(folder.split("_")[-1][:-1]) <= 310
+                folder for folder in zarr_folders if int(folder.split("_")[-2][:-1]) <= 310
             ]
 
         # Build full paths
