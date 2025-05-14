@@ -8,6 +8,10 @@ import boto3
 from urllib.parse import urlparse
 import subprocess
 
+# choice of version of the processing for visium
+FOLDER_VERSION = "live"
+# can be v1/v2/v3/live, live is not stable and can change through time
+
 
 def get_zarr_directories(bucket_name, prefix=""):
     try:
@@ -78,11 +82,11 @@ IN_GITHUB_ACTIONS = os.getenv("GITHUB_ACTIONS") == "true"
 if not IN_GITHUB_ACTIONS:
     load_zarr_chuv_files = get_zarr_directories(
         bucket_name="pa-bi4jtrdsa151p4d3m-jepjxh9qrwgxphe8hd3r6exicahnoeuw1b-s3alias",
-        prefix="b5bd8840-cc6e-4de2-a78a-22315e9d1734/v3/without_spotclean/SpatialData/"
+        prefix=f"b5bd8840-cc6e-4de2-a78a-22315e9d1734/{FOLDER_VERSION}/without_spotclean/SpatialData/"
     )
     load_zarr_uker_files = get_zarr_directories(
         bucket_name="pa-bi4jtrdsa151p4d3m-jepjxh9qrwgxphe8hd3r6exicahnoeuw1b-s3alias",
-        prefix="40ce7e61-5ff6-467e-9972-0c85705f086c/v3/without_spotclean/SpatialData/"
+        prefix=f"40ce7e61-5ff6-467e-9972-0c85705f086c/{FOLDER_VERSION}/without_spotclean/SpatialData/"
     )
 else:
     load_zarr_chuv_files = []

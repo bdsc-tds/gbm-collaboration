@@ -17,6 +17,10 @@ from gbmcollaboration.viz.visium_heatmap import (
 # Constants
 center = "UKER" # or "CHUV"
 normalization = "raw_count"  # Can be "raw_count", "log_norm_count", "norm_count", "SCTransform"
+deconvolution_slot_name = "deconv_cohort_level_4"
+# other deconvolution available: 'deconv_GBMatlas_2steps',
+# 'deconv_sample_level_custom1', 'deconv_cohort_level_2',
+# 'deconv_GBMatlas', 'deconv_hipe'
 
 # %% -- Load spatial data for a given center
 # Load spatial data for a given center
@@ -29,7 +33,7 @@ else:
 # Load spatial data for the full cohort
 spatial_object = center_data.load_spatial(
     normalization=normalization,
-    deconvolution_slot_name="deconv_GMBatlas_2steps",
+    deconvolution_slot_name=deconvolution_slot_name,
     exclude_low_quality_visium=True,
     exclude_idh1_mut=True,
 )
@@ -47,7 +51,7 @@ sample_id = "ER_G_195a_vis"
 normalization = "raw_count"  # Available methods are "raw_count", "log_norm_count", "norm_count", "SCTransform"
 spatial_object = center_data.load_spatial(
     normalization=normalization,
-    deconvolution_slot_name="deconv_GMBatlas_2steps",
+    deconvolution_slot_name=deconvolution_slot_name,
     list_sample_id=[sample_id],
 )
 
