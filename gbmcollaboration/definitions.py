@@ -36,6 +36,28 @@ def get_zarr_directories(bucket_name, prefix=""):
         return []
 
 
+def load_wes_sample_level_metrics(bucket_name, search_path="sample_level/snv_indel/sample_level_metrics.csv", prefix=""):
+    try:
+        command = f"aws s3 ls s3://{bucket_name}/{prefix} --recursive"
+        result = subprocess.run(command, shell=True, capture_output=True, text=True, check=True)
+
+        matching_files = []
+        for line in result.stdout.splitlines():
+            parts = line.strip().split()
+            if len(parts) == 4:  # aws s3 ls --recursive gives lines like: date time size path
+                filepath = parts[-1]
+                if filepath.endswith(search_path):
+                    full_path = f"s3://{bucket_name}/{filepath}"
+                    matching_files.append(full_path)
+
+        return matching_files
+
+    except subprocess.CalledProcessError as e:
+        print(f"Error: {e}")
+        print(e.output)
+        return []
+
+
 def generate_data_path(
     clinical_id: Path,
     bulkrna_id: Path,
