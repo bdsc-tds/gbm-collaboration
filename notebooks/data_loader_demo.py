@@ -52,7 +52,7 @@ uker_center.sources.keys()
 
 # Load the tabular data and clinical data
 # Note that you can exclude patients with IDH1 mutation by setting exclude_idh1_mut=True
-source_dict = chuv_center.load_tabular(exclude_idh1_mut=True)
+source_dict = uker_center.load_tabular(exclude_idh1_mut=True)
 
 # %%
 # Clinical data
@@ -66,6 +66,10 @@ uker_center.load_tabular(exclude_idh1_mut=True)
 # %% Example with wes loading
 CNVamp = source_dict["wes"]["WES CNV amplification"]
 CNVamp.head(2)
+
+# %% Or the loading of the TMB values
+TMB = source_dict["wes"]["WES TMB"]
+TMB.head(2)
 
 # %% Access and load Visium spatial data for the given cohort
 chuv_spatial_object = chuv_center.load_spatial(

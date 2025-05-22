@@ -5,6 +5,7 @@ import pandas as pd
 from gbmcollaboration.data.dataset_classes.visium_cohort import VisiumCohort
 from warnings import warn
 import s3fs
+from collections.abc import Iterable
 
 
 class BaseDataLoader:
@@ -94,8 +95,6 @@ class CSVDataLoader(BaseDataLoader):
 
         Parameters
         ----------
-        dataset_name : str, optional
-            Dataset name,
         data_transformer : optional
             An instance of DataCleaner or its subclass for data
             preprocessing, default is None.
@@ -106,22 +105,32 @@ class CSVDataLoader(BaseDataLoader):
         # format as loaded
         super().__init__(data_transformer=data_transformer, **load_data_kwargs)
 
-    def load_data(
-        self,
-        data_path,
-    ):
-        """Transform the input data using pandas.
+    def load_data(self, data_path):
+        """
+        Load and optionally transform data.
+
+        Parameters
+        ----------
+        data_path : str or list of str
+            Path or list of paths to CSV file(s).
 
         Returns
         -------
-        X_csv : DataFrame
-            Loaded and transformed data not including the target columns
-        y : DataFrame
-            Data corresponding to target columns with index as patient ids.
+        data : DataFrame or transformed output
+            Loaded and (optionally) transformed data.
         """
+        # If data_path is a list, pass directly to transformer
+        if isinstance(data_path, Iterable) and not isinstance(data_path, (str, bytes)):
+            if self.data_transformer is not None:
+                return self.data_transformer.transform(data_path)
+            else:
+                raise ValueError("A data_transformer must be provided for list of paths.")
+
+        # Else load a single CSV
         data = pd.read_csv(filepath_or_buffer=data_path, **self.load_data_kwargs)
         if self.data_transformer is not None:
             data = self.data_transformer.transform(data)
+
         return data
 
 

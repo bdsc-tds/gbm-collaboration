@@ -36,11 +36,10 @@ def get_zarr_directories(bucket_name, prefix=""):
         return []
 
 
-def load_wes_sample_level_metrics(bucket_name, search_path="sample_level/snv_indel/sample_level_metrics.csv", prefix=""):
+def load_wes_sample_level_metrics(bucket_name, search_path="sample_level_metrics.csv", prefix=""):
     try:
-        command = f"aws s3 ls s3://{bucket_name}/{prefix} --recursive"
+        command = f"aws s3 ls s3://{bucket_name}/{prefix}/sample_level/snv_indel/ --recursive"
         result = subprocess.run(command, shell=True, capture_output=True, text=True, check=True)
-
         matching_files = []
         for line in result.stdout.splitlines():
             parts = line.strip().split()
@@ -49,7 +48,6 @@ def load_wes_sample_level_metrics(bucket_name, search_path="sample_level/snv_ind
                 if filepath.endswith(search_path):
                     full_path = f"s3://{bucket_name}/{filepath}"
                     matching_files.append(full_path)
-
         return matching_files
 
     except subprocess.CalledProcessError as e:
@@ -66,6 +64,7 @@ def generate_data_path(
     he_features_id: Path,
     load_zarr_func: list[Path],
     single_cell_id: Path,
+    load_tmb_func: list[Path]
 ):
     """Generate a dictionary of data paths."""
     data_paths = {
@@ -81,6 +80,7 @@ def generate_data_path(
         "HE_features_H0": get_s3_path(he_features_id, "image_features/features_H0"),
         "Spatial Zarr Files": load_zarr_func,
         "Single-cell RNA": str(get_s3_path(single_cell_id, f"v3/dataset_level/dataset-{single_cell_id}/merge_samples/sc_merged_annotated.zarr")),
+        "WES TMB": load_tmb_func,
     }
     return data_paths
 
@@ -116,9 +116,19 @@ if not IN_GITHUB_ACTIONS:
         bucket_name="pa-bi4jtrdsa151p4d3m-jepjxh9qrwgxphe8hd3r6exicahnoeuw1b-s3alias",
         prefix=f"40ce7e61-5ff6-467e-9972-0c85705f086c/{FOLDER_VERSION}/without_spotclean/SpatialData/"
     )
+    load_tmb_chuv = load_wes_sample_level_metrics(
+        bucket_name="pa-bi4jtrdsa151p4d3m-jepjxh9qrwgxphe8hd3r6exicahnoeuw1b-s3alias",
+        prefix=DATA_ID_CHUV["CHUV_wes"]
+    )
+    load_tmb_uker = load_wes_sample_level_metrics(
+        bucket_name="pa-bi4jtrdsa151p4d3m-jepjxh9qrwgxphe8hd3r6exicahnoeuw1b-s3alias",
+        prefix=DATA_ID_UKER["UKER_wes"]
+    )
 else:
     load_zarr_chuv_files = []
     load_zarr_uker_files = []
+    load_tmb_chuv = []
+    load_tmb_uker = []
 
 DATA_PATH_CHUV_FILES = generate_data_path(
     DATA_ID_CHUV["CHUV_clinical"],
@@ -128,6 +138,7 @@ DATA_PATH_CHUV_FILES = generate_data_path(
     DATA_ID_CHUV["CHUV_he_features"],
     load_zarr_chuv_files,
     DATA_ID_CHUV["CHUV_sc_rna"],
+    load_tmb_chuv
 )
 
 DATA_PATH_UKER_FILES = generate_data_path(
@@ -138,6 +149,7 @@ DATA_PATH_UKER_FILES = generate_data_path(
     DATA_ID_UKER["UKER_he_features"],
     load_zarr_uker_files,
     DATA_ID_UKER["UKER_sc_rna"],
+    load_tmb_uker,
 )
 
 MOSAIC_DATA_DICT_FILENAME = Path(__file__).parent / "metadata" / "gbm_dict.xlsx"
