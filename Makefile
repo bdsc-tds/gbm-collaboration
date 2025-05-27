@@ -40,7 +40,7 @@ lock: ## Generate a new poetry.lock file (To be done after adding new requiremen
 	poetry lock
 
 install-poetry: ## Install poetry package
-	python -m pip install poetry==1.5.1
+	python -m pip install poetry==2.1.3
 
 install: clean ## Install all package and development dependencies for testing to the active Python's site-packages
 	python -m poetry install --all-extras --with=testing,linting,docs,dev
