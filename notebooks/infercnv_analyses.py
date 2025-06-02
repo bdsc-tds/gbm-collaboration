@@ -67,6 +67,13 @@ cnv.pl.chromosome_heatmap_summary(
     dendrogram=True
 )
 
+# %% -- Create gene expression UMAPs colored by cell type or by cluster
+infercnv_obj.plot_gene_exp_umaps(
+    cell_type_lvl="celltype_level2_scanvi",
+    save_path="/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/results/infercnv_runs/umaps.png",
+    reset_umap=True # reset to False the second time
+    )
+
 # %% -- Recompute genomic window and derive start-end position
 infercnv_obj.get_bin_positions(
     save_path="/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/results/infercnv_runs/genomic_windows.csv"

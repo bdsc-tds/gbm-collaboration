@@ -304,6 +304,48 @@ class InferCNVAnalyzer:
             fig.savefig(save_path, dpi=300)
             logger.info(f"Figure saved to {save_path}")
 
+    def plot_gene_exp_umaps(
+        self,
+        cell_type_lvl: str,
+        save_path: str,
+        reset_umap: bool = True
+    ):
+        """Create UMAPs of gene expression colored by
+        either cell types or leiden clusters.
+
+        Parameters:
+        -----------
+        cell_type_lvl: str
+            cell type level to display
+        reset_umap: bool
+            Recompute pca, neighbors and umap if needed, for example
+            if two single cell datasets were merged.
+            Default True.
+        """
+        if reset_umap:
+            # Reset the pca, neighbors if wanted
+            sc.tl.pca(single_cell_obj)
+            sc.pp.neighbors(single_cell_obj)
+            sc.tl.umap(single_cell_obj)
+
+        # Create umap composite figure
+        fig, ((ax1, ax2)) = plt.subplots(1, 2, figsize=(11, 11))
+
+        # Plot umaps colored by celltypes or leiden clusters
+        sc.pl.umap(single_cell_obj, color=cell_type_lvl, ax=ax1, show=False)
+        sc.pl.umap(single_cell_obj, color="cnv_leiden", ax=ax2, show=False)
+
+        # Set the figure title
+        fig.suptitle("Gene expression UMAPs", fontsize=20)
+
+        # Adjust the layout
+        fig.tight_layout()
+
+        # Save the figure if a path is provided
+        if save_path:
+            fig.savefig(save_path, dpi=300)
+            logger.info(f"Figure saved to {save_path}")
+
     def tumor_clone_annotation(self, save_path: str = None):
         """Return the cluster number and CNV score."""
         if "cnv_score" not in self.adata.obs.columns:
