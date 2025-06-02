@@ -63,16 +63,18 @@ infercnv_obj.tumor_clone_annotation(save_path="/home/sagemaker-user/custom-file-
 cnv.pl.chromosome_heatmap_summary(
     infercnv_obj.adata,
     groupby="cnv_leiden",
-    save="/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/results/infercnv_runs/cnv_heatmap.png",
     dendrogram=True
 )
+fig = plt.gcf()
+fig.savefig("/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/results/infercnv_runs/cnv_heatmap.png", dpi=300, bbox_inches='tight')
+plt.close(fig)
 
 # %% -- Create gene expression UMAPs colored by cell type or by cluster
 infercnv_obj.plot_gene_exp_umaps(
     cell_type_lvl="celltype_level2_scanvi",
-    save_path="/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/results/infercnv_runs/umaps.png",
+    save_path="/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/results/infercnv_runs/umaps_lvl2_CNVcluster.png",
     reset_umap=True # reset to False the second time
-    )
+)
 
 # %% -- Recompute genomic window and derive start-end position
 infercnv_obj.get_bin_positions(

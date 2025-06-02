@@ -20,11 +20,11 @@ class InferCNVAnalyzer:
             for defining the reference cell population
         """
         self.adata = adata
-        self.cnv_result = None
         self.counter = 0
         self.leiden_resolution = 1.0
         self.list_reference_cat: list = []
         self.tumor_clones = pd.DataFrame()
+        self.bins_df = pd.DataFrame()
 
         # add genomic position from GTF file to the AnnData object
         logger.info("Adding genomic position from GTF file to the AnnData object.")
@@ -374,7 +374,7 @@ class InferCNVAnalyzer:
             self.tumor_clones.to_csv(save_path, index=True)
             logger.info(f"Tumor clone annotation saved to {save_path}")
 
-        return tumor_clones
+        return self.tumor_clones
 
     def get_bin_positions(
         self,
@@ -401,7 +401,7 @@ class InferCNVAnalyzer:
         • For chromosomes with < window_size genes, emit exactly one window
             spanning from first to last gene.
         """
-        var = adata.var.copy()
+        var = self.adata.var.copy()
         # replicate infercnvpy’s “natural” sort:
         def alphanum_key(s):
             return [int(t) if t.isdigit() else t.lower()
@@ -439,12 +439,12 @@ class InferCNVAnalyzer:
                     })
                     bin_id += 1
 
-        bin_df = pd.DataFrame(bins)
+        self.bins_df = pd.DataFrame(bins)
 
         logger.info("Genomic windows recomputed successfully.")
 
         if save_path:
-            self.bin_df.to_csv(save_path, index=True)
+            self.bins_df.to_csv(save_path, index=True)
             logger.info(f"Bins dataframe saved to {save_path}")
 
-        return bin_df
+        return self.bins_df
