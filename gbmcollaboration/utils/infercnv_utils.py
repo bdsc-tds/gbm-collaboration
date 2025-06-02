@@ -190,10 +190,14 @@ class InferCNVAnalyzer:
                 )
                 # if resolution is changed, we need to run leiden clustering again
                 self.leiden_resolution = resolution
+                logger.info(
+                    f"Running leiden clustering with resolution {self.leiden_resolution}."
+                )
+                cnv.tl.leiden(self.adata, resolution=self.leiden_resolution)
         elif "cnv_leiden" not in self.adata.obs.columns:
             logger.info("Leiden clustering not run yet.")
             self.leiden_resolution = resolution
-            cnv.tl.leiden(self.adata, resolution=resolution)
+            cnv.tl.leiden(self.adata, resolution=self.leiden_resolution)
 
         self.counter += 1
 
@@ -213,10 +217,6 @@ class InferCNVAnalyzer:
         The score is currently simply defined as the mean of the absolute values
         of the CNV scores in each cluster.
         """
-        if "cnv_score" in self.adata.obs.columns:
-            logger.warning("CNV score already calculated. Skipping.")
-            return
-
         logger.info("Calculating CNV score.")
         cnv.tl.cnv_score(self.adata)
         logger.info("CNV score calculated successfully.")

@@ -35,17 +35,18 @@ infercnv_obj = InferCNVAnalyzer(adata=single_cell_obj)
 # for downstream filtering
 infercnv_obj.add_reference_column(cell_type_annotation_key="celltype_level2_scanvi")
 
+# %%
+# Define the reference categories as the ones that are not malignant
+list_reference_cat = single_cell_obj[
+    ~single_cell_obj.obs["celltype_level1_scanvi"].isin(["Malignant", "Doublet", "Other", "Unknown"])
+].obs["celltype_level2_scanvi"].unique()
+
 # %% -- Run infercnv inference
 import time
 start_time = time.time()
-infercnv_obj.run_infercnv(list_reference_cat=[
-    "MoMac", "Microglia", 'Astrocyte', "Muscle", "T_NK",
-    "Endothelial", "Oligodendrocyte", "B_cell", "Granulocyte",
-    'Excitatory_Glutamatergic', "DC", "Neuron", 'Inhibitory_Cortical_GABAergic',
-    'Plasma', 'Fibroblast', 'Mast'
-    ])
+infercnv_obj.run_infercnv(list_reference_cat=list_reference_cat)
 
-infercnv_obj.run_leiden_clustering(resolution=0.3)
+infercnv_obj.run_leiden_clustering(resolution=0.4)
 
 end_time = time.time()
 print(f"Total time running: {round((end_time-start_time)/60)} minutes")
