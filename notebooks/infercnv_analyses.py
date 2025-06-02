@@ -66,3 +66,8 @@ cnv.pl.chromosome_heatmap_summary(
     save="/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/results/infercnv_runs/cnv_heatmap.png",
     dendrogram=True
 )
+
+# %% -- Recompute genomic window and derive start-end position
+infercnv_obj.get_bin_positions(
+    save_path="/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/results/infercnv_runs/genomic_windows.csv"
+)

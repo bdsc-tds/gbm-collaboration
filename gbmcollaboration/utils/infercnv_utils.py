@@ -127,6 +127,8 @@ class InferCNVAnalyzer:
                 "add_reference_column() first."
             )
         self.list_reference_cat = list_reference_cat
+        self.window_size = window_size
+        self.step = step
         # launch inferCNVpy
         logger.info(
             f"Running inferCNV with reference categories: "
@@ -137,8 +139,8 @@ class InferCNVAnalyzer:
             self.adata,
             reference_key="reference",
             reference_cat=self.list_reference_cat,
-            window_size=window_size,
-            step=step,
+            window_size=self.window_size,
+            step=self.step,
             layer="LogNormalize"
         )
         logger.info(
@@ -330,6 +332,77 @@ class InferCNVAnalyzer:
             self.tumor_clones.to_csv(save_path, index=True)
             logger.info(f"Tumor clone annotation saved to {save_path}")
 
-    def generate_bins_start_end():
-        # Placeholder
-        pass
+        return tumor_clones
+
+    def get_bin_positions(
+        self,
+        save_path: str = None
+    ):
+        """
+        Function that mimic infercnvpy creation of the genomic window
+        (or bins).
+
+
+        Returns:
+        --------
+        pd.DataFrame:
+            Returns a dataframe with one row per bin (starting at bin 0),
+            with columns:
+            - bin:         integer bin index (global, across chromosomes)
+            - chromosome:  chromosome name
+            - start:       genomic start coordinate of that bin
+            - end:         genomic end coordinate of that bin
+
+        Mirrors infercnvpy’s behavior:
+        • For chromosomes with >= window_size genes, slide a window of size
+            window_size in steps of `step` (mode='valid').
+        • For chromosomes with < window_size genes, emit exactly one window
+            spanning from first to last gene.
+        """
+        var = adata.var.copy()
+        # replicate infercnvpy’s “natural” sort:
+        def alphanum_key(s):
+            return [int(t) if t.isdigit() else t.lower()
+                    for t in re.split(r"([0-9]+)", s)]
+        chromosomes = sorted(
+            [c for c in var["chromosome"].unique()
+            if isinstance(c, str) and c.startswith("chr") and c != "chrM"],
+            key=alphanum_key,
+        )
+
+        bins = []
+        bin_id = 0
+        for chrom in chromosomes:
+            df_chr = var[var["chromosome"] == chrom].sort_values("start")
+            n_genes = df_chr.shape[0]
+
+            if n_genes < self.window_size:
+                # single “short” window
+                bins.append({
+                    "bin":        bin_id,
+                    "chromosome": chrom,
+                    "start":      int(df_chr["start"].iat[0]),
+                    "end":        int(df_chr["end"].iat[-1]),
+                })
+                bin_id += 1
+            else:
+                # full sliding windows in steps of `step`
+                n_valid = n_genes - self.window_size + 1
+                for i in range(0, n_valid, self.step):
+                    bins.append({
+                        "bin":        bin_id,
+                        "chromosome": chrom,
+                        "start":      int(df_chr["start"].iat[i]),
+                        "end":        int(df_chr["end"].iat[i + self.window_size - 1]),
+                    })
+                    bin_id += 1
+
+        bin_df = pd.DataFrame(bins)
+
+        logger.info("Genomic windows recomputed successfully.")
+
+        if save_path:
+            self.bin_df.to_csv(save_path, index=True)
+            logger.info(f"Bins dataframe saved to {save_path}")
+
+        return bin_df
