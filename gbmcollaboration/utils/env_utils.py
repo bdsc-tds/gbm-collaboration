@@ -50,6 +50,8 @@ def get_s3_path(dataset_id: str, path: str | None = None):
 
     path = path or ""
     s3_info = manifest["datasets"][dataset_id]
+    if isinstance(s3_info,list) and len(s3_info) == 1:
+        s3_info = s3_info[0]
     s3_base_path = S3Path("s3://") / s3_info["bucket"] / s3_info["prefix"]
     return s3_base_path / path
 
