@@ -9,7 +9,11 @@ from urllib.parse import urlparse
 import subprocess
 
 # choice of version of the processing for visium
-FOLDER_VERSION = "live"
+FOLDER_VERSION = {
+    "sc_rna": "v3",
+    "visium": "live",
+    "clinical": "live"
+}
 # can be v1/v2/v3/live, live is not stable and can change through time
 
 
@@ -68,8 +72,8 @@ def generate_data_path(
 ):
     """Generate a dictionary of data paths."""
     data_paths = {
-        "Processed clinical": get_s3_path(clinical_id, "tables/processed_clinical_data.csv"),
-        "Key events": get_s3_path(clinical_id, "tables/patient_key_events.csv"),
+        "Processed clinical": get_s3_path(clinical_id, f"{FOLDER_VERSION['clinical']}/tables/processed_clinical_data.csv"),
+        "Key events": get_s3_path(clinical_id, f"{FOLDER_VERSION['clinical']}/tables/patient_key_events.csv"),
         "Bulk RNA raw counts": get_s3_path(bulkrna_id, "raw_counts.tsv"),
         "Bulk RNA TPM": get_s3_path(bulkrna_id, "tpm_counts.tsv"),
         "Bulk RNA normalized counts": get_s3_path(bulkrna_id, "deseq2norm_counts.tsv"),
@@ -79,7 +83,7 @@ def generate_data_path(
         "HE_images": get_s3_path(he_images_id, "HE"),
         "HE_features_H0": get_s3_path(he_features_id, "image_features/features_H0"),
         "Spatial Zarr Files": load_zarr_func,
-        "Single-cell RNA": str(get_s3_path(single_cell_id, f"v3/dataset_level/dataset-{single_cell_id}/merge_samples/sc_merged_annotated.zarr")),
+        "Single-cell RNA": str(get_s3_path(single_cell_id, f"{FOLDER_VERSION['sc_rna']}/dataset_level/dataset-{single_cell_id}/merge_samples/sc_merged_annotated.zarr")),
         "WES TMB": load_tmb_func,
     }
     return data_paths
@@ -110,11 +114,11 @@ IN_GITHUB_ACTIONS = os.getenv("GITHUB_ACTIONS") == "true"
 if not IN_GITHUB_ACTIONS:
     load_zarr_chuv_files = get_zarr_directories(
         bucket_name="pa-bi4jtrdsa151p4d3m-jepjxh9qrwgxphe8hd3r6exicahnoeuw1b-s3alias",
-        prefix=f"b5bd8840-cc6e-4de2-a78a-22315e9d1734/{FOLDER_VERSION}/without_spotclean/SpatialData/"
+        prefix=f"b5bd8840-cc6e-4de2-a78a-22315e9d1734/{FOLDER_VERSION['visium']}/without_spotclean/SpatialData/"
     )
     load_zarr_uker_files = get_zarr_directories(
         bucket_name="pa-bi4jtrdsa151p4d3m-jepjxh9qrwgxphe8hd3r6exicahnoeuw1b-s3alias",
-        prefix=f"40ce7e61-5ff6-467e-9972-0c85705f086c/{FOLDER_VERSION}/without_spotclean/SpatialData/"
+        prefix=f"40ce7e61-5ff6-467e-9972-0c85705f086c/{FOLDER_VERSION['visium']}/without_spotclean/SpatialData/"
     )
     load_tmb_chuv = load_wes_sample_level_metrics(
         bucket_name="pa-bi4jtrdsa151p4d3m-jepjxh9qrwgxphe8hd3r6exicahnoeuw1b-s3alias",
