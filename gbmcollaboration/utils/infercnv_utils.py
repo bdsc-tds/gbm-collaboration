@@ -1,5 +1,6 @@
 """Script with utility functions to use with inferCNVpy."""
 
+import re
 import pandas as pd
 import infercnvpy as cnv
 import scanpy as sc
@@ -46,7 +47,7 @@ class InferCNVAnalyzer:
 
         Parameters
         ----------
-        single_cell_obj : anndata object
+        self.adata : anndata object
             Annotated data object.
         cell_type_annotation_key : str
             Key in the obs to use as the cell type annotation for mapping.
@@ -324,16 +325,16 @@ class InferCNVAnalyzer:
         """
         if reset_umap:
             # Reset the pca, neighbors if wanted
-            sc.tl.pca(single_cell_obj)
-            sc.pp.neighbors(single_cell_obj)
-            sc.tl.umap(single_cell_obj)
+            sc.tl.pca(self.adata)
+            sc.pp.neighbors(self.adata)
+            sc.tl.umap(self.adata)
 
         # Create umap composite figure
         fig, ((ax1, ax2)) = plt.subplots(1, 2, figsize=(11, 11))
 
         # Plot umaps colored by celltypes or leiden clusters
-        sc.pl.umap(single_cell_obj, color=cell_type_lvl, ax=ax1, show=False)
-        sc.pl.umap(single_cell_obj, color="cnv_leiden", ax=ax2, show=False)
+        sc.pl.umap(self.adata, color=cell_type_lvl, ax=ax1, show=False)
+        sc.pl.umap(self.adata, color="cnv_leiden", ax=ax2, show=False)
 
         # Set the figure title
         fig.suptitle("Gene expression UMAPs", fontsize=20)
