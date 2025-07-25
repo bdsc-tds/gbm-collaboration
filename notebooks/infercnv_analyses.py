@@ -7,39 +7,55 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import scanpy as sc
 import infercnvpy as cnv
+from pathlib import Path
 
 from gbmcollaboration import CHUVDataCenter, UKERDataCenter
-from gbmcollaboration.utils.infercnv_utils import InferCNVAnalyzer
+from gbmcollaboration.utils.infercnv_utils_fixed import InferCNVAnalyzer
 # from gbmcollaboration.viz import plot_sankey_plot
+
+
+# %% Params
+RESULTS_DIR = Path("/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/results/scRNAseq/infercnv")
+REFERENCE_COLUMN = "celltype_level1_scanvi"
+
+# %% Create results dir
+RESULTS_DIR.mkdir(parents=True,exist_ok=True)
 
 # %% -- Load data
 centers = ["CHUV", "UKER"]
 for center in centers:
     if center == "UKER":
         data_center = UKERDataCenter
-        single_cell_obj_uker = data_center.load_singlecell()
-        single_cell_obj_uker.obs["center"] = "UKER"
+        adata_uker = data_center.load_singlecell()
+        adata_uker.obs["center"] = "UKER"
         # drop samples
         sample_to_exclude = ["ER_G_272a", "ER_G_273a", "ER_G_292a", "ER_G_292b"]
-        single_cell_obj_uker = single_cell_obj_uker[~single_cell_obj_uker.obs["orig.ident"].isin(sample_to_exclude)]
+        adata_uker = adata_uker[~adata_uker.obs["orig.ident"].isin(sample_to_exclude)]
     else:
         data_center = CHUVDataCenter
-        single_cell_obj_chuv = data_center.load_singlecell()
-        single_cell_obj_chuv.obs["center"] = "CHUV"
+        adata_chuv = data_center.load_singlecell()
+        adata_chuv.obs["center"] = "CHUV"
 
-single_cell_obj = single_cell_obj_uker.concatenate(single_cell_obj_chuv)
+adata = adata_uker.concatenate(adata_chuv)
+
+# ensure raw counts are in .X.
+# clear log1p status if present
+if 'log1p' in adata.uns:
+    del adata.uns['log1p']
+adata.X = adata.layers['unnormalized_counts']
 
 # %% -- Initialize the InferCNVAnalyzer class
-infercnv_obj = InferCNVAnalyzer(adata=single_cell_obj)
+infercnv_obj = InferCNVAnalyzer(adata=adata)
+
 # add a "reference" column to add "low_genes" and "high_counts"
 # for downstream filtering
-infercnv_obj.add_reference_column(cell_type_annotation_key="celltype_level2_scanvi")
+infercnv_obj.add_reference_column(cell_type_annotation_key=REFERENCE_COLUMN)
 
 # %%
 # Define the reference categories as the ones that are not malignant
-list_reference_cat = single_cell_obj[
-    ~single_cell_obj.obs["celltype_level1_scanvi"].isin(["Malignant", "Doublet", "Other", "Unknown"])
-].obs["celltype_level2_scanvi"].unique()
+list_reference_cat = adata[
+    ~adata.obs[REFERENCE_COLUMN].isin(["Malignant", "Doublet", "Other", "Unknown"])
+].obs[REFERENCE_COLUMN].unique()
 
 # %% -- Run infercnv inference
 import time
@@ -55,10 +71,10 @@ print(f"Total time running: {round((end_time-start_time)/60)} minutes")
 infercnv_obj.compute_cnv_score()
 
 # %% -- Perform visualizations
-infercnv_obj.composite_plots(run_tl_umap=True, save_path="/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/results/infercnv_runs/cnv_plots.png")
+infercnv_obj.composite_plots(save_path=RESULTS_DIR / "cnv_plots.png")
 
 # %% -- Create the annotation file
-infercnv_obj.tumor_clone_annotation(save_path="/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/results/infercnv_runs/tumor_clone_annotation.csv")
+infercnv_obj.tumor_clone_annotation(save_path=RESULTS_DIR / "tumor_clone_annotation.csv")
 
 # %% -- Save the summary heatmap
 cnv.pl.chromosome_heatmap_summary(
@@ -67,17 +83,17 @@ cnv.pl.chromosome_heatmap_summary(
     dendrogram=True
 )
 fig = plt.gcf()
-fig.savefig("/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/results/infercnv_runs/cnv_heatmap.png", dpi=300, bbox_inches='tight')
+fig.savefig(RESULTS_DIR / "cnv_heatmap.png", dpi=300, bbox_inches='tight')
 plt.close(fig)
 
 # %% -- Create gene expression UMAPs colored by cell type or by cluster
 infercnv_obj.plot_gene_exp_umaps(
     cell_type_lvl="celltype_level2_scanvi",
-    save_path="/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/results/infercnv_runs/umaps_lvl2_CNVcluster.png",
-    reset_umap=True # reset to False the second time
+    save_path=RESULTS_DIR / "umaps_lvl2_CNVcluster.png",
+    reset_umap=False # reset to False the second time
 )
 
 # %% -- Recompute genomic window and derive start-end position
 infercnv_obj.get_bin_positions(
-    save_path="/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/results/infercnv_runs/genomic_windows.csv"
+    save_path=RESULTS_DIR / "genomic_windows.csv"
 )

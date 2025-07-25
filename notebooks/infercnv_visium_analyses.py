@@ -10,7 +10,7 @@ import infercnvpy as cnv
 
 from pathlib import Path
 from gbmcollaboration import CHUVDataCenter, UKERDataCenter
-from gbmcollaboration.utils.infercnv_utils import InferCNVAnalyzer
+from gbmcollaboration.utils.infercnv_utils_fixed import InferCNVAnalyzer
 # from gbmcollaboration.viz import plot_sankey_plot
 
 def load_visium_adata(
@@ -97,10 +97,15 @@ adata = load_visium_adata(
     radius=1,
     deconvolution_slot_name=CELL_TYPE_KEY,
 )
-adata.layers['unnormalized_counts'] = adata.layers.pop('raw_count')
 
-genes_to_keep = adata.var_names[~np.isnan(adata.layers['unnormalized_counts']).any(0)]
-genes_to_drop = adata.var_names[np.isnan(adata.layers['unnormalized_counts']).any(0)]
+# ensure raw counts are in .X.
+# clear log1p status if present
+if 'log1p' in adata.uns:
+    del adata.uns['log1p']
+adata.X = adata.layers['raw_count']
+
+genes_to_keep = adata.var_names[~np.isnan(adata.X).any(0)]
+genes_to_drop = adata.var_names[np.isnan(adata.X).any(0)]
 adata._inplace_subset_var(genes_to_keep)
 print(f"Dropped nan genes:",*genes_to_drop)
 
@@ -115,13 +120,11 @@ print(f"Using {len(healthy_spots)} healthy spots")
 
 # %% -- Initialize the InferCNVAnalyzer class
 infercnv_obj = InferCNVAnalyzer(adata=adata)
+
 # add a "reference" column to add "low_genes" and "high_counts"
 # for downstream filtering
 infercnv_obj.add_reference_column(
     cell_type_annotation_key=REFERENCE_COLUMN)
-
-# prevent infercnv bug
-infercnv_obj.adata.X = adata.layers['LogNormalize']
 
 # %%
 # Define the reference categories as the ones that are not malignant
@@ -141,7 +144,7 @@ print(f"Total time running: {round((end_time-start_time)/60)} minutes")
 infercnv_obj.compute_cnv_score()
 
 # %% -- Perform visualizations
-infercnv_obj.composite_plots(run_tl_umap=True, save_path=RESULTS_DIR / "cnv_plots.png")
+infercnv_obj.composite_plots(save_path=RESULTS_DIR / "cnv_plots.png")
 # infercnv_obj.adata.obsm['X_umap']=infercnv_obj.adata.obsm['X_cnv_umap']
 
 # %% -- Create the annotation file
@@ -161,7 +164,7 @@ plt.close(fig)
 infercnv_obj.plot_gene_exp_umaps(
     cell_type_lvl="celltype_level2_scanvi",
     save_path=RESULTS_DIR / "umaps_lvl2_CNVcluster.png",
-    reset_umap=True # reset to False the second time
+    reset_umap=False # reset to False the second time
 )
 
 # %% -- Recompute genomic window and derive start-end position
