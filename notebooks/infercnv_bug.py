@@ -42,7 +42,6 @@ def prepare_and_run_infercnv(adata, list_reference_cat, layer=None):
     cnv.pp.neighbors(adata)
     cnv.tl.leiden(adata, resolution=0.4)
     cnv.tl.cnv_score(adata)
-    return adata
 
 # make subsample
 adata = sc.pp.subsample(single_cell_obj, n_obs=10_000, copy=True)
@@ -68,9 +67,9 @@ list_reference_cat = adata[
 ].obs["celltype_level2_scanvi"].unique()
 
 # Run inferCNV
-infercnv_obj1 = prepare_and_run_infercnv(adata, list_reference_cat,layer="LogNormalize")
-infercnv_obj2 = prepare_and_run_infercnv(adata2, list_reference_cat,layer="LogNormalize")
-infercnv_obj3 = prepare_and_run_infercnv(adata3, list_reference_cat,layer=None)
+prepare_and_run_infercnv(adata, list_reference_cat,layer="LogNormalize")
+prepare_and_run_infercnv(adata2, list_reference_cat,layer="LogNormalize")
+prepare_and_run_infercnv(adata3, list_reference_cat,layer=None)
 
 
 # %%
