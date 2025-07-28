@@ -162,8 +162,8 @@ plt.close(fig)
 
 # %% -- Create gene expression UMAPs colored by cell type or by cluster
 infercnv_obj.plot_gene_exp_umaps(
-    cell_type_lvl="celltype_level2_scanvi",
-    save_path=RESULTS_DIR / "umaps_lvl2_CNVcluster.png",
+    cell_type_lvl=CELL_TYPE_KEY,
+    save_path=RESULTS_DIR / f"umaps_{CELL_TYPE_KEY}.png",
     reset_umap=False # reset to False the second time
 )
 

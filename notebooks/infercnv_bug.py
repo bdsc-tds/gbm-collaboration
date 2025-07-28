@@ -9,8 +9,7 @@ import scanpy as sc
 import infercnvpy as cnv
 
 from gbmcollaboration import CHUVDataCenter, UKERDataCenter
-from gbmcollaboration.utils.infercnv_utils import InferCNVAnalyzer
-# from gbmcollaboration.viz import plot_sankey_plot
+from gbmcollaboration import PATH_GTF
 
 # %% -- Load data
 centers = ["CHUV", "UKER"]
@@ -30,33 +29,52 @@ for center in centers:
 single_cell_obj = single_cell_obj_uker.concatenate(single_cell_obj_chuv)
 
 # %% -- Run inferCNV with/without layer option
-def prepare_and_run_infercnv(adata, list_reference_cat):
-    infercnv = InferCNVAnalyzer(adata=adata)
-    infercnv.add_reference_column(cell_type_annotation_key="celltype_level2_scanvi")
-    infercnv.run_infercnv(list_reference_cat=list_reference_cat)
-    infercnv.run_leiden_clustering(resolution=0.4)
-    infercnv.compute_cnv_score()
-    return infercnv
+def prepare_and_run_infercnv(adata, list_reference_cat, layer=None):
+    #infercnv
+    cnv.io.genomic_position_from_gtf(PATH_GTF, adata)
+    cnv.tl.infercnv(
+        adata,
+        reference_key="celltype_level2_scanvi",
+        reference_cat=list_reference_cat,
+        layer=layer
+        )
+    cnv.tl.pca(adata)
+    cnv.pp.neighbors(adata)
+    cnv.tl.leiden(adata, resolution=0.4)
+    cnv.tl.cnv_score(adata)
+    return adata
 
 # make subsample
 adata = sc.pp.subsample(single_cell_obj, n_obs=10_000, copy=True)
-list_reference_cat = adata[
-    ~adata.obs["celltype_level1_scanvi"].isin(["Malignant", "Doublet", "Other", "Unknown"])
-].obs["celltype_level2_scanvi"].unique()
+
+# ensure raw counts are in adata.X
+adata.X = adata.layers['unnormalized_counts']
+
+# lognorm
+adata.layers["LogNormalize"] = adata.layers["unnormalized_counts"].copy()
+sc.pp.normalize_total(adata, layer="LogNormalize", target_sum=1e4)
+sc.pp.log1p(adata, layer="LogNormalize")
 
 # copy to test if results change across runs
 adata2 = adata.copy()
 # copy to test if results change with layer option
 adata3 = adata.copy()
+adata3.X = adata.layers['LogNormalize']
+
+
+# define reference cats
+list_reference_cat = adata[
+    ~adata.obs["celltype_level1_scanvi"].isin(["Malignant", "Doublet", "Other", "Unknown"])
+].obs["celltype_level2_scanvi"].unique()
 
 # Run inferCNV
-infercnv_obj1 = prepare_and_run_infercnv(adata, list_reference_cat)
-infercnv_obj2 = prepare_and_run_infercnv(adata2, list_reference_cat)
-
-adata3.X = adata.layers['LogNormalize']
-infercnv_obj3 = prepare_and_run_infercnv(adata3, list_reference_cat)
+infercnv_obj1 = prepare_and_run_infercnv(adata, list_reference_cat,layer="LogNormalize")
+infercnv_obj2 = prepare_and_run_infercnv(adata2, list_reference_cat,layer="LogNormalize")
+infercnv_obj3 = prepare_and_run_infercnv(adata3, list_reference_cat,layer=None)
 
 
 # %%
-assert np.all(infercnv_obj1.adata.obs['cnv_score']==infercnv_obj2.adata.obs['cnv_score']), 'Different results found across infercnv runs'
-assert np.all(infercnv_obj1.adata.obs['cnv_score']==infercnv_obj3.adata.obs['cnv_score']), 'Different results found with infercnv layer parameter'
+assert np.all(adata.obs['cnv_score']==adata2.obs['cnv_score']), 'Different results found across infercnv runs'
+assert np.all(adata.obs['cnv_score']==adata3.obs['cnv_score']), 'Different results found with infercnv layer parameter'
+
+# %%
