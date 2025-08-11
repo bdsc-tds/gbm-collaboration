@@ -11,7 +11,7 @@ import subprocess
 # choice of version of the processing for visium
 FOLDER_VERSION = {
     "sc_rna": "v4",
-    "visium": "live",
+    "visium": "v5",
     "clinical": "live"
 }
 # can be v1/v2/v3/live, live is not stable and can change through time
@@ -29,6 +29,12 @@ def get_zarr_directories(bucket_name, prefix=""):
         if "40ce7e61-5ff6-467e-9972-0c85705f086c" in prefix:
             zarr_folders = [
                 folder for folder in zarr_folders if int(folder.split("_")[-2][:-1]) <= 310
+            ]
+
+        # same for CHUV, exclude samples above 207
+        if "b5bd8840-cc6e-4de2-a78a-22315e9d1734" in prefix:
+            zarr_folders = [
+                folder for folder in zarr_folders if int(folder.split("_")[-2][:-1]) <= 207
             ]
 
         # Build full paths

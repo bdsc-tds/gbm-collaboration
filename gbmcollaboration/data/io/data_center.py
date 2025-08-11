@@ -109,7 +109,7 @@ class DataCenter(NamedTuple):
         list_sample_id: Optional[list[str]] = None,
         normalization: str = "raw_count",
         radius: int = 1,
-        deconvolution_slot_name: str = "deconv_GMBatlas_2steps",
+        deconvolution_slot_name: str = "deconv_cohort_level_4_2steps",
     ):
         """Load spatial data of the full cohort or a list of samples.
 
