@@ -16,6 +16,10 @@ FOLDER_VERSION = {
 }
 # can be v1/v2/v3/live, live is not stable and can change through time
 
+# Specify the maximum ID number for each center to load the data
+UKER_MAX_ID = 310
+CHUV_MAX_ID = 207
+
 
 def get_zarr_directories(bucket_name, prefix=""):
     try:
@@ -28,13 +32,13 @@ def get_zarr_directories(bucket_name, prefix=""):
         # for UKER data, we need to exclude samples with numbers above 310
         if "40ce7e61-5ff6-467e-9972-0c85705f086c" in prefix:
             zarr_folders = [
-                folder for folder in zarr_folders if int(folder.split("_")[-2][:-1]) <= 310
+                folder for folder in zarr_folders if int(folder.split("_")[-2][:-1]) <= UKER_MAX_ID
             ]
 
         # same for CHUV, exclude samples above 207
         if "b5bd8840-cc6e-4de2-a78a-22315e9d1734" in prefix:
             zarr_folders = [
-                folder for folder in zarr_folders if int(folder.split("_")[-2][:-1]) <= 207
+                folder for folder in zarr_folders if int(folder.split("_")[-2][:-1]) <= CHUV_MAX_ID
             ]
 
         # Build full paths
@@ -265,3 +269,84 @@ BAD_QUALITY_UKER_VISIUM = [
 
 # samples to remove from the CHUV dataset
 BAD_QUALITY_CHUV_VISIUM = ["CH_G_157a_vis"]
+
+PROBE_ISSUE_CHUV = [
+    "CH_G_191a",
+    "CH_G_199a",
+    "CH_G_192a",
+    "CH_G_186b",
+    "CH_G_190a",
+    "CH_G_207a",
+    "CH_G_164b",
+    "CH_G_198a",
+    "CH_G_194a",
+    "CH_G_180a",
+    "CH_G_193a",
+    "CH_G_189c",
+    "CH_G_205a",
+    "CH_G_206a",
+    "CH_G_197a",
+    "CH_G_203a",
+    "CH_G_194b",
+    "CH_G_202a",
+    "CH_G_195a",
+    "CH_G_179a",
+    "CH_G_201a",
+    "CH_G_189a",
+    "CH_G_189b",
+    "CH_G_168b",
+    "CH_G_196a",
+    "CH_G_204a",
+    "CH_G_200a",
+    "CH_G_180b",
+]
+
+PROBE_ISSUE_UKER = [
+    "ER_G_276a",
+    "ER_G_288a",
+    "ER_G_308b",
+    "ER_G_265a",
+    "ER_G_310a",
+    "ER_G_299a",
+    "ER_G_195b",
+    "ER_G_210a",
+    "ER_G_295a",
+    "ER_G_280a",
+    "ER_G_267a",
+    "ER_G_274b",
+    "ER_G_278b",
+    "ER_G_297a",
+    "ER_G_278a",
+    "ER_G_272a",
+    "ER_G_303a",
+    "ER_G_208a",
+    "ER_G_303b",
+    "ER_G_270a",
+    "ER_G_298a",
+    "ER_G_306a",
+    "ER_G_308a",
+    "ER_G_296a",
+    "ER_G_285a",
+    "ER_G_273a",
+    "ER_G_286a",
+    "ER_G_292b",
+    "ER_G_196b",
+    "ER_G_288b",
+    "ER_G_290a",
+    "ER_G_276b",
+    "ER_G_266a",
+    "ER_G_209a",
+    "ER_G_274a",
+    "ER_G_310b",
+    "ER_G_292a",
+    "ER_G_290b",
+    "ER_G_267b",
+    "ER_G_269a",
+    "ER_G_281a",
+    "ER_G_300a",
+    "ER_G_284b",
+    "ER_G_282a",
+    "ER_G_294a",
+    "ER_G_282b",
+    "ER_G_284a",
+]

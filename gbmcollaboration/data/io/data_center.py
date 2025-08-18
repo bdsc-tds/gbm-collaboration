@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import functools
 from typing import NamedTuple, Optional
 
@@ -11,6 +12,8 @@ from gbmcollaboration.definitions import (
     BAD_QUALITY_CHUV_VISIUM,
     BAD_QUALITY_UKER_VISIUM,
     PATIENTS_IDH1_MUT,
+    UKER_MAX_ID,
+    CHUV_MAX_ID
 )
 from gbmcollaboration.utils.spatial_obj_to_df import (
     celltype_array_to_df,
@@ -41,65 +44,60 @@ class DataCenter(NamedTuple):
     sources: dict[str, DataSource]
 
     def load_tabular(self, exclude_idh1_mut: bool = False):
-        """Load tabular data.
+        """Load tabular data."""
 
-        Parameters
-        ----------
-        exclude_idh1_mut : bool
-            If True, removes samples from the data whose indices are in the predefined
-            list of IDH1-mutated samples, by default False.
+        def exclude_over_max_id(df: pd.DataFrame) -> pd.DataFrame:
+            def keep_label(label: str) -> bool:
+                # grab the number at the end
+                m = re.search(r"(\d+)$", label)
+                if not m:
+                    return True  # keep if no number found
+                sid = int(m.group(1))
+                if "ER" in label:
+                    return sid <= UKER_MAX_ID
+                else:  # assume CH
+                    return sid <= CHUV_MAX_ID
 
-        Returns
-        -------
-        dict[str, pd.DataFrame]
-            Dictionary of dataframes for each source that are tabular.
-        """
+            # apply filter to index
+            keep_index = [keep_label(str(idx)) for idx in df.index]
+            df = df.loc[keep_index]
 
-        def exclude_idh1mut(df):
-            # remove the suffix from visium
-            mutated_patient = PATIENTS_IDH1_MUT.copy()
-            mutated_patient = [s[:-5] for s in mutated_patient]
-            # convert PATIENTS_IDH1_MUT to a set for faster lookups
+            # also check columns in case samples are columns
+            keep_cols = [keep_label(str(col)) for col in df.columns]
+            df = df.loc[:, keep_cols]
+
+            return df
+
+        def exclude_idh1mut(df: pd.DataFrame) -> pd.DataFrame:
+            mutated_patient = [s[:-5] for s in PATIENTS_IDH1_MUT]
             patients_set = set(mutated_patient)
-            # create a pattern to match any of the patient IDs in the set
-            pattern = "|".join(patients_set)
+            pattern = "|".join(map(re.escape, patients_set))
 
-            # check if any column or index contains the pattern
-            column_matches = df.columns[df.columns.str.contains(pattern)]
-            index_matches = df.index[df.index.str.contains(pattern)]
+            column_matches = df.columns[df.columns.astype(str).str.contains(pattern)]
+            index_matches = df.index[df.index.astype(str).str.contains(pattern)]
 
-            # drop matched columns or index rows
-            if not column_matches.empty:
-                print(
-                    f"IDH1mut: excluding {len(column_matches)} columns from tabular data."
-                )
+            if len(column_matches) > 0:
+                print(f"IDH1mut: excluding {len(column_matches)} columns from tabular data.")
                 df = df.drop(columns=column_matches)
-            elif not index_matches.empty:
-                print(
-                    f"IDH1mut: excluding {len(index_matches)} rows from tabular data."
-                )
+            elif len(index_matches) > 0:
+                print(f"IDH1mut: excluding {len(index_matches)} rows from tabular data.")
                 df = df.drop(index=index_matches)
-            else:
-                print("IDH1 mutation samples not found in the columns or index.")
+            return df
 
+        def load_and_filter(file_obj):
+            df = file_obj.load()
+            df = exclude_over_max_id(df)
+            if exclude_idh1_mut:
+                df = exclude_idh1mut(df)
             return df
 
         return {
             source_name: {
-                file_name: (
-                    exclude_idh1mut(file_.load()) if exclude_idh1_mut else file_.load()
-                )
-                for file_name, file_ in source.files.items()  # Only call items() if source.files is a dict
-            }
-            if isinstance(source.files, dict)
-            else (
-                exclude_idh1mut(source.files.load())
-                if exclude_idh1_mut
-                else source.files.load()
-            )
-            # Load only the sources that are clinical, bulk_rna
+                file_name: load_and_filter(file_)
+                for file_name, file_ in source.files.items()
+            } if isinstance(source.files, dict) else load_and_filter(source.files)
             for source_name, source in self.sources.items()
-            if source_name in ["clinical", "bulk_rna", "wes"]#, "he"]
+            if source_name in ["clinical", "bulk_rna", "wes"]
         }
 
     def load_spatial(
