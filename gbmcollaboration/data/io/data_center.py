@@ -69,10 +69,26 @@ class DataCenter(NamedTuple):
             return df
 
         def exclude_idh1mut(df: pd.DataFrame) -> pd.DataFrame:
-            mutated_patient = [s[:-5] for s in PATIENTS_IDH1_MUT]
+            """
+            Parameters
+            ----------
+            exclude_idh1_mut : bool
+                If True, removes samples from the data whose indices are in the predefined
+                list of IDH1-mutated samples, by default False.
+            Returns
+            -------
+            dict[str, pd.DataFrame]
+                Dictionary of dataframes for each source that are tabular.
+            """
+            # remove the suffix from visium
+            mutated_patient = PATIENTS_IDH1_MUT.copy()
+            mutated_patient = [s[:-5] for s in mutated_patient]
+            # convert mutated_patient to a set for faster lookups
             patients_set = set(mutated_patient)
+            # create a pattern to match any of the patient IDs in the set
             pattern = "|".join(map(re.escape, patients_set))
 
+            # check if any column or index contains the pattern
             column_matches = df.columns[df.columns.astype(str).str.contains(pattern)]
             index_matches = df.index[df.index.astype(str).str.contains(pattern)]
 
@@ -82,6 +98,8 @@ class DataCenter(NamedTuple):
             elif len(index_matches) > 0:
                 print(f"IDH1mut: excluding {len(index_matches)} rows from tabular data.")
                 df = df.drop(index=index_matches)
+            else:
+                print("IDH1 mutation samples not found in the columns or index.")
             return df
 
         def load_and_filter(file_obj):
@@ -97,7 +115,7 @@ class DataCenter(NamedTuple):
                 for file_name, file_ in source.files.items()
             } if isinstance(source.files, dict) else load_and_filter(source.files)
             for source_name, source in self.sources.items()
-            if source_name in ["clinical", "bulk_rna", "wes"]
+            if source_name in ["clinical", "bulk_rna", "wes"]#, "he"]
         }
 
     def load_spatial(
