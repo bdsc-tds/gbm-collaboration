@@ -80,6 +80,9 @@ def _load_center_df(center_cls, project):
         exclude_sample = "ER_G_290a"
         df = df[df["Tumour block ID for MOSAIC"]!= exclude_sample]
 
+    # drop outlier values for one sample:
+    df = df[df["GB - Baseline hemoglobin level (g/dL)"] < 1000]
+
     return df
 
 # %% build a single demographic table with center under each feature
