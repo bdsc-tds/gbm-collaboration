@@ -1,6 +1,5 @@
 """Top level package for the :mod:`gbmcollaboration`."""
 
-import os
 from gbmcollaboration.data import CHUVDataCenter, UKERDataCenter
 from gbmcollaboration.definitions import (
     BAD_QUALITY_CHUV_VISIUM,
