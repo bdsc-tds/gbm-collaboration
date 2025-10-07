@@ -36,6 +36,7 @@ def celltype_array_to_df(
         for each sample, with the coordinates of the spots.
     """
     # set the index of the spots_metadata DataFrame
+    print("SPOTS METADATA COLUMNS", spots_metadata.columns)
     spots_metadata = spots_metadata.rename(columns={"sample_id": "sample"})
     spots_metadata = spots_metadata.set_index("sample")
     # if celltype_array is a dictionary, then it is the full cohort

@@ -15,9 +15,9 @@ from gbmcollaboration.viz.visium_heatmap import (
 
 # %% -- Constants
 # Constants
-center = "UKER" # or "CHUV"
+center = "CHUV" # or "CHUV"
 normalization = "raw_count"  # Can be "raw_count", "log_norm_count", "norm_count", "SCTransform"
-deconvolution_slot_name = "deconv_cohort_level_4"
+deconvolution_slot_name = "deconv_cohort_level_4_2steps"
 # other deconvolution available: 'deconv_GBMatlas_2steps',
 # 'deconv_sample_level_custom1', 'deconv_cohort_level_2',
 # 'deconv_GBMatlas', 'deconv_hipe'

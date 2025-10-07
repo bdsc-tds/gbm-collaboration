@@ -2,6 +2,7 @@
 
 from abc import ABC, abstractmethod
 
+import os
 import numpy as np
 import pandas as pd
 
@@ -294,6 +295,49 @@ class MOSAICWESDataCleaner(BaseDataCleaner):
         x.index.name = "Subject Id"
 
         return x
+
+
+class MOSAICWESTMBDataCleaner(BaseDataCleaner):
+    """Load, extract TMB and concatenate across cohort.
+
+    Methods
+    -------
+    transform: Transform the input data.
+    """
+
+    def transform(self, x):
+        """Transform the input data.
+
+        Note that this method acts **inplace** on the input data.
+
+        Parameters
+        ----------
+        x : list[pd.DataFrame]
+            List of dataframes containing TMB per sample
+
+        Returns
+        -------
+        pd.DataFrame
+            Concatenated TMB across samples
+        """
+        # create a list of dataframes
+        dfs = []
+        for file in x:
+            # read the file
+            df = pd.read_csv(file)
+            # append the dataframe to the list
+            dfs.append(df)
+
+        # concatenate the dataframes
+        df = pd.concat(dfs, ignore_index=True)
+        df.rename(columns={"sample_id" : "Subject Id"}, inplace=True)
+        df.set_index("Subject Id", inplace=True)
+        # divide each number in n_snv_target_regions_per_mb by 1e6
+        df["n_snv_target_regions_per_mb"] = df["n_snv_target_regions_per_mb"]
+        df["n_indel_target_regions_per_mb"] = df["n_indel_target_regions_per_mb"]
+        df["tmb"] = df["n_snv_target_regions_per_mb"] + df["n_indel_target_regions_per_mb"]
+
+        return df
 
 
 class MOSAICHEDataCleaner(BaseDataCleaner):

@@ -7,11 +7,11 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import scanpy as sc
 import infercnvpy as cnv
+import gc
 
 from pathlib import Path
 from gbmcollaboration import CHUVDataCenter, UKERDataCenter
 from gbmcollaboration.utils.infercnv_utils_fixed import InferCNVAnalyzer
-# from gbmcollaboration.viz import plot_sankey_plot
 
 def load_visium_adata(
     exclude_low_quality_visium=True,
@@ -19,11 +19,9 @@ def load_visium_adata(
     list_sample_id=None,
     normalization="log_norm_count",
     radius=1,
-    deconvolution_slot_name="deconv_cohort_level_4",
+    deconvolution_slot_name="deconv_cohort_level_4_2steps",
     ):
     """Load entire Visium cohort as anndata."""
-    import gc
-    from gbmcollaboration import CHUVDataCenter, UKERDataCenter
 
     # Define data centers and common loading parameters
     data_centers = [CHUVDataCenter, UKERDataCenter]
@@ -82,8 +80,12 @@ def load_visium_adata(
 # %% Params
 RESULTS_DIR = Path("/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/results/visium/infercnv")
 METACONTROL_PATH = Path("/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/meta_control_v2.h5ad")
-CELL_TYPE_KEY = "deconv_cohort_level_4"
+CELL_TYPE_KEY = "deconv_cohort_level_4_2steps"
 REFERENCE_COLUMN = "malignant_status"
+
+# /!\ to adjust later
+THRESHOLD_N_GENES = 100
+THRESHOLD_N_COUNTS = 1_000_000
 
 # %% Create results dir
 RESULTS_DIR.mkdir(parents=True,exist_ok=True)

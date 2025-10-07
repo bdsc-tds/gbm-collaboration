@@ -23,6 +23,7 @@ from gbmcollaboration.data.io.preprocessor_tabular import (
     MOSAICKeyEventsDataCleaner,
     MOSAICLightClinicalDataCleaner,
     MOSAICWESDataCleaner,
+    MOSAICWESTMBDataCleaner
 )
 from gbmcollaboration.definitions import (
     DATA_PATH_CHUV_FILES,
@@ -151,6 +152,12 @@ CHUVDataCenter = DataCenter(
                         data_transformer=MOSAICWESDataCleaner(),
                     ),
                 ),
+                "WES TMB": DataFile(
+                    name=DATA_PATH_CHUV_FILES["WES TMB"],
+                    loader=CSVDataLoader(
+                        data_transformer=MOSAICWESTMBDataCleaner(),
+                    ),
+                ),
             }
         ),
         SOURCES.he: DataSource(
@@ -270,6 +277,12 @@ UKERDataCenter = DataCenter(
                     name=DATA_PATH_UKER_FILES["WES mutations"],
                     loader=CSVDataLoader(
                         data_transformer=MOSAICWESDataCleaner(),
+                    ),
+                ),
+                "WES TMB": DataFile(
+                    name=DATA_PATH_UKER_FILES["WES TMB"],
+                    loader=CSVDataLoader(
+                        data_transformer=MOSAICWESTMBDataCleaner(),
                     ),
                 ),
             }
