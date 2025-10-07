@@ -8,19 +8,19 @@ import seaborn as sns
 import scanpy as sc
 import infercnvpy as cnv
 
-from gbmcollaboration import CHUVDataCenter, UKERDataCenter
-from gbmcollaboration.utils.infercnv_utils import add_reference_column
-
+from gbmcollaboration import CHUVDataCenter, UKERDataCenter, CRDataCenter
 from matplotlib.pyplot import rc_context
 
 sc.set_figure_params(dpi=100, color_map="viridis_r")
 sc.settings.verbosity = 0
 
 # %% -- Load data
-center = "CHUV" # or "CHUV"
+center = "CR" # or "CHUV"
 
 if center == "UKER":
     data_center = UKERDataCenter
+elif center == "CR":
+    data_center = CRDataCenter
 else:
     data_center = CHUVDataCenter
 
@@ -60,43 +60,3 @@ sc.pp.log1p(single_cell_obj, layer="LogNormalize")
 # %% Plot the UMAP with the reference color
 sc.pl.umap(single_cell_obj, color="reference")
 # sc.pl.umap(single_cell_obj, color="orig.ident")
-
-# %% run inferCNV
-cnv.tl.infercnv(
-    single_cell_obj,
-    reference_key="reference",
-    reference_cat=["healthy"],
-    window_size=200,
-    layer="LogNormalize"
-)
-
-# %%
-cnv.pl.chromosome_heatmap(single_cell_obj, groupby="reference")
-cnv.tl.pca(single_cell_obj)
-cnv.pp.neighbors(single_cell_obj)
-cnv.tl.leiden(single_cell_obj)
-
-# %%
-# rerun the following if you changed the leiden parameters, before
-# running the next cell for chromosome heatmap
-sc.tl.dendrogram(single_cell_obj, groupby="cnv_leiden")
-
-# %%
-cnv.pl.chromosome_heatmap(single_cell_obj, groupby=["cnv_leiden"], dendrogram=True)
-cnv.pl.chromosome_heatmap_summary(single_cell_obj, groupby="cnv_leiden", dendrogram=True)
-
-# %%
-cnv.tl.umap(single_cell_obj)
-
-fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(11, 11))
-ax4.axis("off")
-cnv.pl.umap(
-    single_cell_obj,
-    color="cnv_leiden",
-    legend_loc="on data",
-    legend_fontoutline=2,
-    ax=ax1,
-    show=False,
-)
-cnv.pl.umap(single_cell_obj, color="cnv_score", ax=ax2, show=False)
-cnv.pl.umap(single_cell_obj, color="cnv_leiden", ax=ax3)
