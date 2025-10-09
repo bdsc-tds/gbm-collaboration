@@ -18,7 +18,7 @@ class InferCNVAnalyzer:
         -----------
         adata: AnnData object
             Single cell object containing all samples and annotation columns
-            for defining the reference cell population
+            for defining the reference cell population. adata.X must contain unnormalized counts
         """
         self.adata = adata
         self.counter = 0
@@ -31,8 +31,13 @@ class InferCNVAnalyzer:
         logger.info("Adding genomic position from GTF file to the AnnData object.")
         cnv.io.genomic_position_from_gtf(PATH_GTF, self.adata)
         logger.info("Genomic position added successfully. Ready for next move.")
-        # create the lognormalize layer if not present
-        self.create_log_normalize_layer()
+
+        # save raw counts
+        logger.info("Saving raw counts from adata.X in adata.layers['raw_counts']")
+        self.adata.layers['raw_counts'] = adata.X.copy()
+
+        # log_normalize data
+        self.log_normalize()
         logger.info("InferCNVAnalyzer initialized successfully.")
 
     def add_reference_column(
@@ -68,8 +73,8 @@ class InferCNVAnalyzer:
         self.adata.obs["reference"] = self.adata.obs[cell_type_annotation_key].copy()
 
         # calculate n_genes and n_counts to further remove cells from the reference
-        self.adata.obs["n_genes"] = (self.adata.layers["unnormalized_counts"] > 0).sum(axis=1)
-        self.adata.obs["n_counts"] = self.adata.layers["unnormalized_counts"].sum(axis=1)
+        self.adata.obs["n_genes"] = (self.adata.layers['raw_counts'] > 0).sum(axis=1)
+        self.adata.obs["n_counts"] = self.adata.layers['raw_counts'].sum(axis=1)
 
         self.adata.obs["reference"] = self.adata.obs["reference"].astype(str)
 
@@ -87,24 +92,23 @@ class InferCNVAnalyzer:
             f"{self.adata.obs['reference'].unique().tolist()}"
         )
 
-    def create_log_normalize_layer(self):
+    def log_normalize(self):
         """Create a LogNormalize layer in the AnnData object.
 
         This layer is used for CNV calculations.
         """
-        if "LogNormalize" in self.adata.layers.keys():
+        if "log1p" in self.adata.uns.keys():
             logger.warning(
-                "LogNormalize layer already exists. Skipping creation."
+                "adata.uns['log1p'] exists. adata.X is already Log Normalized. Skipping creation."
             )
             return
 
-        logger.info("Creating LogNormalize layer.")
-        self.adata.layers["LogNormalize"] = self.adata.layers["unnormalized_counts"].copy()
+        logger.info("Log Normalizing adata.X.")
         sc.pp.normalize_total(
-            self.adata, layer="LogNormalize", target_sum=1e4
+            self.adata, target_sum=1e4
         )
-        sc.pp.log1p(self.adata, layer="LogNormalize")
-        logger.info("LogNormalize layer created.")
+        sc.pp.log1p(self.adata)
+        logger.info("Log Normalizing adata.X done.")
 
     def run_infercnv(self, list_reference_cat: list, window_size: int = 200, step: int = 10):
         """
@@ -121,6 +125,10 @@ class InferCNVAnalyzer:
         step: int
             Step size for the sliding window.
         """
+
+        if "log1p" not in self.adata.uns:
+            raise ValueError("adata.uns['log1p'] does not exist. adata.X is not Log Normalized.")
+
         # check if the reference column is present, other raise an error
         if "reference" not in self.adata.obs.columns:
             raise ValueError(
@@ -142,7 +150,6 @@ class InferCNVAnalyzer:
             reference_cat=self.list_reference_cat,
             window_size=self.window_size,
             step=self.step,
-            layer="LogNormalize"
         )
         logger.info(
             "inferCNV run completed. Next steps: clustering and plotting."
@@ -194,11 +201,11 @@ class InferCNVAnalyzer:
                 logger.info(
                     f"Running leiden clustering with resolution {self.leiden_resolution}."
                 )
-                cnv.tl.leiden(self.adata, resolution=self.leiden_resolution)
+                cnv.tl.leiden(self.adata, resolution=self.leiden_resolution,flavor="igraph", n_iterations=2)
         elif "cnv_leiden" not in self.adata.obs.columns:
             logger.info("Leiden clustering not run yet.")
             self.leiden_resolution = resolution
-            cnv.tl.leiden(self.adata, resolution=self.leiden_resolution)
+            cnv.tl.leiden(self.adata, resolution=self.leiden_resolution,flavor="igraph", n_iterations=2)
 
         self.counter += 1
 
@@ -224,7 +231,6 @@ class InferCNVAnalyzer:
 
     def composite_plots(
         self,
-        run_tl_umap: bool = True,
         save_path: str = None
     ):
         """Plot several visualizations.
@@ -243,9 +249,14 @@ class InferCNVAnalyzer:
                 "run_leiden_clustering() first."
             )
 
-        if run_tl_umap:
-            logger.info("Running UMAP calculation for CNV profiles.")
-            logger.info("If already run, you can set to false.")
+        if 'X_umap' not in self.adata.obsm:
+            logger.info("X_umap not found in adata.obsm. Running UMAP calculations.")
+            sc.pp.pca(self.adata)
+            sc.pp.neighbors(self.adata)
+            sc.tl.umap(self.adata)
+
+        if 'X_cnv_umap' not in self.adata.obsm:
+            logger.info("X_cnv_umap not found in adata.obsm. Running UMAP calculations.")
             cnv.tl.umap(self.adata)
 
         if "cnv_score" not in self.adata.obs.columns:

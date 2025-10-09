@@ -9,7 +9,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 import openslide
-from gbmcollaboration import CHUVDataCenter, UKERDataCenter, CRDataCenter
+from gbmcollaboration import CHUVDataCenter, UKERDataCenter, CRDataCenter, AllDataCenters
 
 # %% Available constants that can be used to filter the data
 from gbmcollaboration import (
@@ -18,12 +18,12 @@ from gbmcollaboration import (
     BAD_QUALITY_CHUV_VISIUM,
     BAD_QUALITY_CR_VISIUM
 )
-# -
 
-# # Access data for the given cohort
-# This returns a dictionary with the data sources in the keys and the list of files (and path) used to return the data.
+# # Access data for all the cohort
+all_centers = AllDataCenters
 
 # Choose your center of interest, here it is CHUV
+# This returns a dictionary with the data sources in the keys and the list of files (and path) used to return the data.
 chuv_center = CHUVDataCenter
 chuv_center.sources.keys()
 

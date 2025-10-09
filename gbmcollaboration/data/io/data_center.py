@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import functools
 from typing import NamedTuple, Optional
+from joblib import Parallel, delayed
 
 from gbmcollaboration.data.io.data_structure import DataSource
 from gbmcollaboration.data.io.loaders import SingleCellLoader, VisiumCohortLoader
@@ -189,21 +190,53 @@ class DataCenter(NamedTuple):
         else:
             return {}
 
-    def load_singlecell(self):
+    def load_singlecell(self, exclude_idh1_mut: bool = False):
         """Load single-cell data.
 
         Returns
         -------
         adata: AnnData
             Single-cell adata object.
+        exclude_idh1_mut : bool
+            If True, removes samples from the data whose indices are in the predefined
+            list of IDH1-mutated samples, by default False.
         """
         if "sc_rna" in self.sources:
             file_path = self.sources["sc_rna"].files["Single-cell RNA"].name
             print("Loading the single-cell data.")
             adata = SingleCellLoader(path_data=file_path).load_sc_zarr()
+            if exclude_idh1_mut:
+                print("Excluding IDH1 mutated samples if any present.")
+                adata = adata[~adata.obs["orig.ident"].isin(PATIENTS_IDH1_MUT)]
             return adata
         else:
             raise ValueError("Single-cell data is not available in this data center.")
 
     def __repr__(self):
         return f"DataCenter <{self.name}> with {len(self.sources)} sources"
+
+class DataCenters:
+    """Wrapper that operates on all registered DataCenters automatically."""
+
+    def __init__(self, *data_centers: DataCenter):
+        self.data_centers = {dc.name: dc for dc in data_centers}
+
+    def __repr__(self):
+        return f"AllDataCenters({', '.join(self.data_centers)})"
+
+    def _apply(self, method_name, *args, mode="threading", n_jobs=3, **kwargs):
+        """mode='threading' or 'process'"""
+        results = Parallel(n_jobs=n_jobs, backend=mode)(
+            delayed(getattr(dc, method_name))(*args, **kwargs)
+            for dc in self.data_centers.values()
+        )
+        return dict(zip(self.data_centers.keys(), results))
+
+    def load_tabular(self, *args, **kwargs):
+        return self._apply("load_tabular", *args, **kwargs)
+
+    def load_spatial(self, *args, **kwargs):
+        return self._apply("load_spatial", *args, **kwargs)
+
+    def load_singlecell(self, *args, **kwargs):
+        return self._apply("load_singlecell", *args, **kwargs)

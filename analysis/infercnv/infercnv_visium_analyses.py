@@ -10,8 +10,8 @@ import infercnvpy as cnv
 import gc
 
 from pathlib import Path
-from gbmcollaboration import CHUVDataCenter, UKERDataCenter
-from gbmcollaboration.utils.infercnv_utils_fixed import InferCNVAnalyzer
+from gbmcollaboration import AllDataCenters
+from gbmcollaboration.utils.infercnv_utils import InferCNVAnalyzer
 
 def load_visium_adata(
     exclude_low_quality_visium=True,
@@ -23,26 +23,19 @@ def load_visium_adata(
     ):
     """Load entire Visium cohort as anndata."""
 
-    # Define data centers and common loading parameters
-    data_centers = [CHUVDataCenter, UKERDataCenter]
-
     # Load all data
-    loaded_objects = []
-    for data_center in data_centers:
-        print('Loading',data_center)
-
-        loaded_objects.append(data_center.load_spatial(
-            exclude_low_quality_visium=exclude_low_quality_visium,
-            exclude_idh1_mut=exclude_idh1_mut,
-            list_sample_id=list_sample_id,
-            normalization=normalization,
-            radius=radius,
-            deconvolution_slot_name=deconvolution_slot_name,
-        ))
+    loaded_objects = AllDataCenters.load_spatial(
+        exclude_low_quality_visium=exclude_low_quality_visium,
+        exclude_idh1_mut=exclude_idh1_mut,
+        list_sample_id=list_sample_id,
+        normalization=normalization,
+        radius=radius,
+        deconvolution_slot_name=deconvolution_slot_name,
+    )
 
     # Concatenate the dataframes
-    counts_df = pd.concat([obj.genecounts_df for obj in loaded_objects])
-    obs_df = pd.concat([obj.celltype_df for obj in loaded_objects])
+    counts_df = pd.concat([obj.genecounts_df for obj in loaded_objects.values()])
+    obs_df = pd.concat([obj.celltype_df for obj in loaded_objects.values()])
 
     del loaded_objects
     gc.collect()

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from attrs import frozen
 
-from gbmcollaboration.data.io.data_center import DataCenter
+from gbmcollaboration.data.io.data_center import DataCenter, DataCenters
 from gbmcollaboration.data.io.data_structure import (
     DataFile,
     DataSource,
@@ -436,3 +436,6 @@ CRDataCenter = DataCenter(
         ),
     },
 )
+
+
+AllDataCenters = DataCenters(CHUVDataCenter, UKERDataCenter, CRDataCenter)

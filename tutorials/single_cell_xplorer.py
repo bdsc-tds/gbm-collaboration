@@ -8,13 +8,18 @@ import seaborn as sns
 import scanpy as sc
 import infercnvpy as cnv
 
-from gbmcollaboration import CHUVDataCenter, UKERDataCenter, CRDataCenter
+from gbmcollaboration import CHUVDataCenter, UKERDataCenter, CRDataCenter, AllDataCenters
 from matplotlib.pyplot import rc_context
 
 sc.set_figure_params(dpi=100, color_map="viridis_r")
 sc.settings.verbosity = 0
 
-# %% -- Load data
+
+
+# %% -- Load  data for all centers
+all_centers = AllDataCenters
+
+# %% -- Load data for a single center
 center = "CR" # or "CHUV"
 
 if center == "UKER":

@@ -9,9 +9,11 @@ import scanpy as sc
 import infercnvpy as cnv
 from pathlib import Path
 
-from gbmcollaboration import CHUVDataCenter, UKERDataCenter
-from gbmcollaboration.utils.infercnv_utils_fixed import InferCNVAnalyzer
-# from gbmcollaboration.viz import plot_sankey_plot
+from gbmcollaboration import AllDataCenters, CHUVDataCenter
+from gbmcollaboration.utils.infercnv_utils import InferCNVAnalyzer
+from gbmcollaboration import (
+    PATIENTS_IDH1_MUT,
+)
 
 
 # %% Params
@@ -21,22 +23,11 @@ REFERENCE_COLUMN = "celltype_level1_scanvi"
 # %% Create results dir
 RESULTS_DIR.mkdir(parents=True,exist_ok=True)
 
-# %% -- Load data
-centers = ["CHUV", "UKER"]
-for center in centers:
-    if center == "UKER":
-        data_center = UKERDataCenter
-        adata_uker = data_center.load_singlecell()
-        adata_uker.obs["center"] = "UKER"
-        # drop samples
-        sample_to_exclude = ["ER_G_272a", "ER_G_273a", "ER_G_292a", "ER_G_292b"]
-        adata_uker = adata_uker[~adata_uker.obs["orig.ident"].isin(sample_to_exclude)]
-    else:
-        data_center = CHUVDataCenter
-        adata_chuv = data_center.load_singlecell()
-        adata_chuv.obs["center"] = "CHUV"
-
-adata = adata_uker.concatenate(adata_chuv)
+# %%-- Load data
+data = AllDataCenters.load_singlecell(exclude_idh1_mut=True)
+# data['mosaic_cr'].obs['celltype_level4_curated'] = data['mosaic_cr'].obs['celltype_level4_scanvi']
+adata = sc.concat(data,label='center')
+del data
 
 # ensure raw counts are in .X.
 # clear log1p status if present
@@ -87,13 +78,16 @@ fig.savefig(RESULTS_DIR / "cnv_heatmap.png", dpi=300, bbox_inches='tight')
 plt.close(fig)
 
 # %% -- Create gene expression UMAPs colored by cell type or by cluster
-infercnv_obj.plot_gene_exp_umaps(
-    cell_type_lvl="celltype_level2_scanvi",
-    save_path=RESULTS_DIR / "umaps_lvl2_CNVcluster.png",
-    reset_umap=False # reset to False the second time
-)
+# infercnv_obj.plot_gene_exp_umaps(
+#     cell_type_lvl="celltype_level2_scanvi",
+#     save_path=RESULTS_DIR / "umaps_lvl2_CNVcluster.png",
+#     reset_umap=False # reset to False the second time
+# )
 
 # %% -- Recompute genomic window and derive start-end position
 infercnv_obj.get_bin_positions(
     save_path=RESULTS_DIR / "genomic_windows.csv"
 )
+
+# %%
+infercnv_obj.adata.write(RESULTS_DIR / "infercnv_adata.h5ad")

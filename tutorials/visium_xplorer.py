@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from matplotlib.backends.backend_pdf import PdfPages
 
-from gbmcollaboration import CHUVDataCenter, UKERDataCenter
+from gbmcollaboration import CHUVDataCenter, UKERDataCenter, CRDataCenter, AllDataCenters
 from gbmcollaboration.viz.visium_heatmap import (
     plot_celltype_abun_visium,
     plot_gene_expression_visium
@@ -22,7 +22,10 @@ deconvolution_slot_name = "deconv_cohort_level_4_2steps"
 # 'deconv_sample_level_custom1', 'deconv_cohort_level_2',
 # 'deconv_GBMatlas', 'deconv_hipe'
 
-# %% -- Load spatial data for a given center
+# %% -- Load spatial data for all centers
+
+all_centers = AllDataCenters
+
 # Load spatial data for a given center
 if center == "UKER":
     center_data = UKERDataCenter

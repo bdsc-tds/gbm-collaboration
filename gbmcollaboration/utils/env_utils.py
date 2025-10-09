@@ -33,6 +33,25 @@ def get_manifest() -> Dict[str, Any]:
         warn("Manifest not found, returning empty manifest")
         return {}
 
+def get_datasets() -> Dict[str, Any]:
+    """
+    Get dataset dataframe from the manifest file.
+    Note: this only works from inside SageMaker.
+    Returns
+    -------
+    pandas.DataFrame
+        The datasets list and s3 paths.
+    Warns
+    -----
+    UserWarning
+        If manifest is not found, returns an empty dictionary.
+    """
+    manifest = get_manifest()
+    datasets = pd.DataFrame(manifest['datasets']).iloc[0]
+    datasets = pd.json_normalize(datasets).set_index("name")
+    datasets["uri"] = "s3://" + datasets["bucket"] + "/" + datasets["prefix"]
+    return datasets.T
+
 
 def get_s3_path(dataset_id: str, path: str | None = None):
     """Build the full s3 path.
