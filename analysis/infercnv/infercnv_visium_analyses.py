@@ -10,70 +10,14 @@ import infercnvpy as cnv
 import gc
 
 from pathlib import Path
-from gbmcollaboration import AllDataCenters
+from gbmcollaboration import AllDataCenters, CHUVDataCenter, UKERDataCenter, CRDataCenter
 from gbmcollaboration.utils.infercnv_utils import InferCNVAnalyzer
 
-def load_visium_adata(
-    exclude_low_quality_visium=True,
-    exclude_idh1_mut=True,
-    list_sample_id=None,
-    normalization="log_norm_count",
-    radius=1,
-    deconvolution_slot_name="deconv_cohort_level_4_2steps",
-    ):
-    """Load entire Visium cohort as anndata."""
-
-    # Load all data
-    loaded_objects = AllDataCenters.load_spatial(
-        exclude_low_quality_visium=exclude_low_quality_visium,
-        exclude_idh1_mut=exclude_idh1_mut,
-        list_sample_id=list_sample_id,
-        normalization=normalization,
-        radius=radius,
-        deconvolution_slot_name=deconvolution_slot_name,
-    )
-
-    # Concatenate the dataframes
-    counts_df = pd.concat([obj.genecounts_df for obj in loaded_objects.values()])
-    obs_df = pd.concat([obj.celltype_df for obj in loaded_objects.values()])
-
-    del loaded_objects
-    gc.collect()
-
-    # Align obs to counts and create the 'sample' column
-    obs_df = obs_df.loc[counts_df.index]
-    obs_df['sample'] = obs_df.index.get_level_values(0)
-
-    # Flatten the MultiIndex for AnnData compatibility
-    flat_index = counts_df.index.map(lambda idx: f"{idx[0]}_{idx[1]}")
-    obs_df.index = flat_index
-    counts_df.index = flat_index
-
-    counts_df.sum(axis=0).sort_values()
-
-    # Create the final AnnData object
-    adata = sc.AnnData(
-        obs=obs_df,
-        var=pd.DataFrame(index=counts_df.columns),
-        layers={normalization:counts_df.values}
-    )
-
-    del counts_df, obs_df
-    gc.collect()
-
-    # --- Output ---
-    print(" Final adata created:")
-    print(" • shape:", adata.shape)
-    print(" • layers:", list(adata.layers.keys()))
-    print(" • obs columns:", adata.obs.columns.tolist())
-    print(" • samples:", adata.obs['sample'].unique().tolist())
-
-    return adata
 
 # %% Params
 RESULTS_DIR = Path("/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/results/visium/infercnv")
 METACONTROL_PATH = Path("/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/meta_control_v2.h5ad")
-CELL_TYPE_KEY = "deconv_cohort_level_4_2steps"
+CELL_TYPE_KEY = "deconv_cohort_level_4"
 REFERENCE_COLUMN = "malignant_status"
 
 # /!\ to adjust later
@@ -84,7 +28,7 @@ THRESHOLD_N_COUNTS = 1_000_000
 RESULTS_DIR.mkdir(parents=True,exist_ok=True)
 
 # %% -- Load data
-adata = load_visium_adata(
+adata = AllDataCenters.load_spatial_adata(
     exclude_low_quality_visium=True,
     exclude_idh1_mut=True,
     list_sample_id=None,
@@ -99,10 +43,17 @@ if 'log1p' in adata.uns:
     del adata.uns['log1p']
 adata.X = adata.layers['raw_count']
 
-genes_to_keep = adata.var_names[~np.isnan(adata.X).any(0)]
-genes_to_drop = adata.var_names[np.isnan(adata.X).any(0)]
-adata._inplace_subset_var(genes_to_keep)
-print(f"Dropped nan genes:",*genes_to_drop)
+# %%
+for center in [CHUVDataCenter,UKERDataCenter,CRDataCenter]:
+    print('\n',"loading", center)
+    adata = center.load_spatial(
+        exclude_low_quality_visium=True,
+        exclude_idh1_mut=True,
+        list_sample_id=None,
+        normalization="raw_count",
+        radius=1,
+        deconvolution_slot_name=CELL_TYPE_KEY,
+    )
 
 # %% Load meta-control spots info
 adata_ctrl = sc.read_h5ad(METACONTROL_PATH)

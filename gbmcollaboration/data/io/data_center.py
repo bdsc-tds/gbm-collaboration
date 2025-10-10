@@ -3,6 +3,10 @@
 from __future__ import annotations
 
 import functools
+import gc
+import scanpy as sc
+import numpy as np
+import pandas as pd
 from typing import NamedTuple, Optional
 from joblib import Parallel, delayed
 
@@ -180,7 +184,7 @@ class DataCenter(NamedTuple):
                 gene_names_list=data_loader.common_genes,
                 spots_metadata=spots_info,
             )
-            # print("Preparing the celltype dataframe (spatial_obj.celltype_df)")
+            print("Preparing the celltype dataframe (spatial_obj.celltype_df)")
             data_loader.celltype_df = celltype_array_to_df(
                 celltype_array=data_loader.load_deconvolution_cohort(frac=False),
                 celltypes_name_list=data_loader.common_celltypes,
@@ -239,4 +243,54 @@ class DataCenters:
         return self._apply("load_spatial", *args, **kwargs)
 
     def load_singlecell(self, *args, **kwargs):
-        return self._apply("load_singlecell", *args, **kwargs)
+        return sc.concat(self._apply("load_singlecell", *args, **kwargs),label='center')
+
+    def load_spatial_adata(self,
+        exclude_low_quality_visium=True,
+        exclude_idh1_mut=True,
+        list_sample_id=None,
+        normalization="log_norm_count",
+        radius=1,
+        deconvolution_slot_name="deconv_cohort_level_4_2steps",
+        ):
+        """Load entire Visium cohort as anndata."""
+
+        # Load all data
+        loaded_objects = self.load_spatial(
+            exclude_low_quality_visium=exclude_low_quality_visium,
+            exclude_idh1_mut=exclude_idh1_mut,
+            list_sample_id=list_sample_id,
+            normalization=normalization,
+            radius=radius,
+            deconvolution_slot_name=deconvolution_slot_name,
+        )
+
+        # Concatenate the dataframes
+        genes = [obj.genecounts_df.columns for obj in loaded_objects.values()]
+        common_genes = list(set(genes[0]).intersection(*genes[1:]))
+        counts_df = pd.concat([obj.genecounts_df[common_genes] for obj in loaded_objects.values()])
+        obs_df = pd.concat([obj.celltype_df for obj in loaded_objects.values()])
+
+        del loaded_objects
+        gc.collect()
+
+        # Align obs to counts and create the 'sample' column
+        obs_df = obs_df.loc[counts_df.index]
+        obs_df['sample'] = obs_df.index.get_level_values(0)
+
+        # Flatten the MultiIndex for AnnData compatibility
+        flat_index = counts_df.index.map(lambda idx: f"{idx[0]}_{idx[1]}")
+        obs_df.index = flat_index
+        counts_df.index = flat_index
+
+        # Create the final AnnData object
+        adata = sc.AnnData(
+            obs=obs_df,
+            var=pd.DataFrame(index=counts_df.columns),
+            layers={normalization:counts_df.values}
+        )
+
+        del counts_df, obs_df
+        gc.collect()
+
+        return adata

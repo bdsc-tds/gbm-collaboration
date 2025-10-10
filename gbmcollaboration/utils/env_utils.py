@@ -1,6 +1,7 @@
 """Utilities to check the environment."""
 
 import os
+import pandas as pd
 from pathlib import Path as LocalPath
 from typing import TYPE_CHECKING, Any, Callable, ClassVar, Type, Union, Dict
 import json

@@ -22,9 +22,16 @@ deconvolution_slot_name = "deconv_cohort_level_4_2steps"
 # 'deconv_sample_level_custom1', 'deconv_cohort_level_2',
 # 'deconv_GBMatlas', 'deconv_hipe'
 
-# %% -- Load spatial data for all centers
+# %% -- Load spatial data as anndata for all centers
 
-all_centers = AllDataCenters
+adata = AllDataCenters.load_spatial_adata(
+    exclude_low_quality_visium=True,
+    exclude_idh1_mut=True,
+    list_sample_id=None,
+    normalization="raw_count",
+    radius=1,
+    deconvolution_slot_name=CELL_TYPE_KEY,
+)
 
 # Load spatial data for a given center
 if center == "UKER":
@@ -34,6 +41,7 @@ else:
 
 # %% -- Load spatial data for the full cohort
 # Load spatial data for the full cohort
+# You can also use .load_spatial_adata
 spatial_object = center_data.load_spatial(
     normalization=normalization,
     deconvolution_slot_name=deconvolution_slot_name,

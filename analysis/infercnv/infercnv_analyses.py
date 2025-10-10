@@ -24,10 +24,8 @@ REFERENCE_COLUMN = "celltype_level1_scanvi"
 RESULTS_DIR.mkdir(parents=True,exist_ok=True)
 
 # %%-- Load data
-data = AllDataCenters.load_singlecell(exclude_idh1_mut=True)
+adata = AllDataCenters.load_singlecell(exclude_idh1_mut=True)
 # data['mosaic_cr'].obs['celltype_level4_curated'] = data['mosaic_cr'].obs['celltype_level4_scanvi']
-adata = sc.concat(data,label='center')
-del data
 
 # ensure raw counts are in .X.
 # clear log1p status if present

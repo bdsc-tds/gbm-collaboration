@@ -123,7 +123,7 @@ class VisiumCohort:
         self._common_genes = get_common_list(
             list_gene_names, how=gene_combination_method
         )
-        self._common_celltypes = get_common_list(list_celltypes)
+        self._common_celltypes = get_common_list(list_celltypes, how='intersection')
 
         self._loaded_counts = False
         self._loaded_deconvolution = False
@@ -264,6 +264,7 @@ class VisiumCohort:
             )
             for sample_id in self.list_sample_ids
         )
+
         # Necessary step in parallel version
         # Otherwise the sample's attribute are not modified
         # including the list_celltypes, deconvolution, deconvolution_frac, loaded_deconvolution attributes
