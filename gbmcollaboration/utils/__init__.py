@@ -23,3 +23,12 @@ from .io_utils import (
 )
 from .env_utils import get_s3_path, get_datasets
 from .io_utils import s3_ls
+
+from .gsea_utils import (
+    calculate_n_spots_per_sample,
+    gene_filter_by_expression,
+    load_visium_adata,
+    plot_gene_filtering_thresholds,
+    load_gene_sets,
+    score_gene_sets,
+)

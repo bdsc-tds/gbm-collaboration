@@ -43,18 +43,6 @@ if 'log1p' in adata.uns:
     del adata.uns['log1p']
 adata.X = adata.layers['raw_count']
 
-# %%
-for center in [CHUVDataCenter,UKERDataCenter,CRDataCenter]:
-    print('\n',"loading", center)
-    adata = center.load_spatial(
-        exclude_low_quality_visium=True,
-        exclude_idh1_mut=True,
-        list_sample_id=None,
-        normalization="raw_count",
-        radius=1,
-        deconvolution_slot_name=CELL_TYPE_KEY,
-    )
-
 # %% Load meta-control spots info
 adata_ctrl = sc.read_h5ad(METACONTROL_PATH)
 healthy_spots = adata_ctrl.obs_names
@@ -62,8 +50,6 @@ healthy_spots = adata_ctrl.obs_names
 adata.obs[REFERENCE_COLUMN] = 'malignant'
 adata.obs.loc[healthy_spots,REFERENCE_COLUMN] = 'healthy'
 print(f"Using {len(healthy_spots)} healthy spots")
-
-
 # %% -- Initialize the InferCNVAnalyzer class
 infercnv_obj = InferCNVAnalyzer(adata=adata)
 
@@ -90,7 +76,7 @@ print(f"Total time running: {round((end_time-start_time)/60)} minutes")
 infercnv_obj.compute_cnv_score()
 
 # %% -- Perform visualizations
-infercnv_obj.composite_plots(save_path=RESULTS_DIR / "cnv_plots.png")
+# infercnv_obj.composite_plots(save_path=RESULTS_DIR / "cnv_plots.png")
 # infercnv_obj.adata.obsm['X_umap']=infercnv_obj.adata.obsm['X_cnv_umap']
 
 # %% -- Create the annotation file
@@ -100,20 +86,24 @@ infercnv_obj.tumor_clone_annotation(save_path=RESULTS_DIR / "tumor_clone_annotat
 cnv.pl.chromosome_heatmap_summary(
     infercnv_obj.adata,
     groupby="cnv_leiden",
-    dendrogram=True
+    dendrogram=True,
+    show=False
 )
 fig = plt.gcf()
 fig.savefig(RESULTS_DIR / "cnv_heatmap.png", dpi=300, bbox_inches='tight')
 plt.close(fig)
 
 # %% -- Create gene expression UMAPs colored by cell type or by cluster
-infercnv_obj.plot_gene_exp_umaps(
-    cell_type_lvl=CELL_TYPE_KEY,
-    save_path=RESULTS_DIR / f"umaps_{CELL_TYPE_KEY}.png",
-    reset_umap=False # reset to False the second time
-)
+# infercnv_obj.plot_gene_exp_umaps(
+#     cell_type_lvl=CELL_TYPE_KEY,
+#     save_path=RESULTS_DIR / f"umaps_{CELL_TYPE_KEY}.png",
+#     reset_umap=False # reset to False the second time
+# )
 
 # %% -- Recompute genomic window and derive start-end position
 infercnv_obj.get_bin_positions(
     save_path=RESULTS_DIR / "genomic_windows.csv"
 )
+
+# %%
+infercnv_obj.adata.write(RESULTS_DIR / "infercnv_adata.h5ad")

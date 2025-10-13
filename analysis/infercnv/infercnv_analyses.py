@@ -69,7 +69,8 @@ infercnv_obj.tumor_clone_annotation(save_path=RESULTS_DIR / "tumor_clone_annotat
 cnv.pl.chromosome_heatmap_summary(
     infercnv_obj.adata,
     groupby="cnv_leiden",
-    dendrogram=True
+    dendrogram=True,
+    show=False
 )
 fig = plt.gcf()
 fig.savefig(RESULTS_DIR / "cnv_heatmap.png", dpi=300, bbox_inches='tight')
