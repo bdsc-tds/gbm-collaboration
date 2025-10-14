@@ -123,7 +123,7 @@ class VisiumCohort:
         self._common_genes = get_common_list(
             list_gene_names, how=gene_combination_method
         )
-        self._common_celltypes = get_common_list(list_celltypes, how='intersection')
+        self._common_celltypes = get_common_list(list_celltypes)
 
         self._loaded_counts = False
         self._loaded_deconvolution = False

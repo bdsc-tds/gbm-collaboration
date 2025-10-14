@@ -17,7 +17,7 @@ from gbmcollaboration.viz.visium_heatmap import (
 # Constants
 center = "CHUV" # or "CHUV"
 normalization = "raw_count"  # Can be "raw_count", "log_norm_count", "norm_count", "SCTransform"
-deconvolution_slot_name = "deconv_cohort_level_4_2steps"
+deconvolution_slot_name = "deconv_cohort_level_4"
 # other deconvolution available: 'deconv_GBMatlas_2steps',
 # 'deconv_sample_level_custom1', 'deconv_cohort_level_2',
 # 'deconv_GBMatlas', 'deconv_hipe'
@@ -33,7 +33,7 @@ adata = AllDataCenters.load_spatial_adata(
     deconvolution_slot_name=CELL_TYPE_KEY,
 )
 
-# Load spatial data for a given center
+# %% Load spatial data for a given center
 if center == "UKER":
     center_data = UKERDataCenter
 else:
@@ -52,7 +52,7 @@ spatial_object = center_data.load_spatial(
 # you can now access the genecounts_df attribute or celltype_df attribute as such:
 spatial_counts_df = spatial_object.genecounts_df
 cellabun_df = spatial_object.celltype_df
-spatial_counts_df.head()
+cellabun_df.head()
 
 # the coordinates of the spots can be found as the last two columns of the dataframes
 
@@ -68,6 +68,7 @@ spatial_object = center_data.load_spatial(
 
 spatial_counts_df = spatial_object.genecounts_df
 cellabun_df = spatial_object.celltype_df
+cellabun_df.head()
 
 # %% -- Plotting the cell type abundance on Visium image
 # Plotting the cell type abundance on Visium image
