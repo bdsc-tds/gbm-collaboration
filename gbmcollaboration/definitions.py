@@ -10,7 +10,7 @@ import subprocess
 
 # choice of version of the processing for visium
 FOLDER_VERSION = {
-    "sc_rna": "v4",
+    "sc_rna": "v5",
     "visium": "v6",
     "clinical": "v1",
     "wes": "v1",
