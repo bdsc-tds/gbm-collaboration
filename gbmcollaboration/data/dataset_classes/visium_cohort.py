@@ -264,6 +264,7 @@ class VisiumCohort:
             )
             for sample_id in self.list_sample_ids
         )
+
         # Necessary step in parallel version
         # Otherwise the sample's attribute are not modified
         # including the list_celltypes, deconvolution, deconvolution_frac, loaded_deconvolution attributes

@@ -11,8 +11,10 @@ import subprocess
 # choice of version of the processing for visium
 FOLDER_VERSION = {
     "sc_rna": "v4",
-    "visium": "v5",
-    "clinical": "live"
+    "visium": "v6",
+    "clinical": "v1",
+    "wes": "v1",
+    "rnaseq":"v1"
 }
 # can be v1/v2/v3/live, live is not stable and can change through time
 
@@ -80,12 +82,12 @@ def generate_data_path(
     data_paths = {
         "Processed clinical": get_s3_path(clinical_id, f"{FOLDER_VERSION['clinical']}/tables/processed_clinical_data.csv"),
         "Key events": get_s3_path(clinical_id, f"{FOLDER_VERSION['clinical']}/tables/patient_key_events.csv"),
-        "Bulk RNA raw counts": get_s3_path(bulkrna_id, "raw_counts.tsv"),
-        "Bulk RNA TPM": get_s3_path(bulkrna_id, "tpm_counts.tsv"),
-        "Bulk RNA normalized counts": get_s3_path(bulkrna_id, "deseq2norm_counts.tsv"),
-        "WES CNV deletion": get_s3_path(wes_id, "cohort_level/cnv/binary_deletion_status.csv"),
-        "WES CNV amplification": get_s3_path(wes_id, "cohort_level/cnv/binary_duplication_status.csv"),
-        "WES mutations": get_s3_path(wes_id, "cohort_level/snv_indel/binary_oncogenic_alteration_status.csv"),
+        "Bulk RNA raw counts": get_s3_path(bulkrna_id, f"{FOLDER_VERSION['rnaseq']}/raw_counts.tsv"),
+        "Bulk RNA TPM": get_s3_path(bulkrna_id, f"{FOLDER_VERSION['rnaseq']}/tpm_counts.tsv"),
+        "Bulk RNA normalized counts": get_s3_path(bulkrna_id, f"{FOLDER_VERSION['rnaseq']}/deseq2norm_counts.tsv"),
+        "WES CNV deletion": get_s3_path(wes_id, f"{FOLDER_VERSION['wes']}/cohort_level/cnv/binary_deletion_status.csv"),
+        "WES CNV amplification": get_s3_path(wes_id, f"{FOLDER_VERSION['wes']}/cohort_level/cnv/binary_duplication_status.csv"),
+        "WES mutations": get_s3_path(wes_id, f"{FOLDER_VERSION['wes']}/cohort_level/snv_indel/binary_oncogenic_alteration_status.csv"),
         "HE_images": get_s3_path(he_images_id, "HE"),
         "HE_features_H0": get_s3_path(he_features_id, "image_features/features_H0"),
         "Spatial Zarr Files": load_zarr_func,
@@ -93,6 +95,8 @@ def generate_data_path(
         "WES TMB": load_tmb_func,
     }
     return data_paths
+
+
 
 ### CHUV DATA
 DATA_ID_CHUV = {
@@ -114,6 +118,19 @@ DATA_ID_UKER = {
     "UKER_sc_rna": "09ce5d6d-e8de-464a-91c1-c534823200d0"
 }
 
+### CR DATA
+DATA_ID_CR = {
+    "CR_clinical": "9e8255bd-f5fd-4be2-9b14-71f45c90ef77",
+    "CR_bulkrna": "34bed287-1bf3-4a70-bff2-cb154061586b",
+    "CR_wes": "53cde683-5a68-4340-a817-e92d74084281",
+    "CR_he_images": "b0d0f0c7-a904-4331-ad1c-f86ca0527120",
+    "CR_he_features": "f0415978-2385-4067-b215-13e699a0f7a7",
+    "CR_sc_rna":"ebf3efa8-c8e8-47e1-a56f-68835d75c653"
+}
+
+
+
+
 # Check if running in GitHub Actions
 IN_GITHUB_ACTIONS = os.getenv("GITHUB_ACTIONS") == "true"
 # Conditionally set up the data path dictionary
@@ -126,19 +143,29 @@ if not IN_GITHUB_ACTIONS:
         bucket_name="pa-bi4jtrdsa151p4d3m-jepjxh9qrwgxphe8hd3r6exicahnoeuw1b-s3alias",
         prefix=f"40ce7e61-5ff6-467e-9972-0c85705f086c/{FOLDER_VERSION['visium']}/without_spotclean/SpatialData/"
     )
+    load_zarr_cr_files = get_zarr_directories(
+        bucket_name="pa-bi4jtrdsa151p4d3m-jepjxh9qrwgxphe8hd3r6exicahnoeuw1b-s3alias",
+        prefix=f"f0415978-2385-4067-b215-13e699a0f7a7/{FOLDER_VERSION['visium']}/without_spotclean/SpatialData/"
+    )
     load_tmb_chuv = load_wes_sample_level_metrics(
         bucket_name="pa-bi4jtrdsa151p4d3m-jepjxh9qrwgxphe8hd3r6exicahnoeuw1b-s3alias",
-        prefix=DATA_ID_CHUV["CHUV_wes"]
+        prefix=DATA_ID_CHUV["CHUV_wes"]+f"/{FOLDER_VERSION['wes']}"
     )
     load_tmb_uker = load_wes_sample_level_metrics(
         bucket_name="pa-bi4jtrdsa151p4d3m-jepjxh9qrwgxphe8hd3r6exicahnoeuw1b-s3alias",
-        prefix=DATA_ID_UKER["UKER_wes"]
+        prefix=DATA_ID_UKER["UKER_wes"]+f"/{FOLDER_VERSION['wes']}"
+    )
+    load_tmb_cr = load_wes_sample_level_metrics(
+        bucket_name="pa-bi4jtrdsa151p4d3m-jepjxh9qrwgxphe8hd3r6exicahnoeuw1b-s3alias",
+        prefix=DATA_ID_CR["CR_wes"]+f"/{FOLDER_VERSION['wes']}"
     )
 else:
     load_zarr_chuv_files = []
     load_zarr_uker_files = []
+    load_zarr_cr_files = []
     load_tmb_chuv = []
     load_tmb_uker = []
+    load_tmb_cr = []
 
 DATA_PATH_CHUV_FILES = generate_data_path(
     DATA_ID_CHUV["CHUV_clinical"],
@@ -160,6 +187,17 @@ DATA_PATH_UKER_FILES = generate_data_path(
     load_zarr_uker_files,
     DATA_ID_UKER["UKER_sc_rna"],
     load_tmb_uker,
+)
+
+DATA_PATH_CR_FILES = generate_data_path(
+    DATA_ID_CR["CR_clinical"],
+    DATA_ID_CR["CR_bulkrna"],
+    DATA_ID_CR["CR_wes"],
+    DATA_ID_CR["CR_he_images"],
+    DATA_ID_CR["CR_he_features"],
+    load_zarr_cr_files,
+    DATA_ID_CR["CR_sc_rna"],
+    load_tmb_cr,
 )
 
 MOSAIC_DATA_DICT_FILENAME = Path(__file__).parent / "metadata" / "gbm_dict.xlsx"
@@ -237,7 +275,8 @@ AVG_NUM_DAYS_PER_YEAR = 365.25
 
 # patient with IDH1 mutation, to potentially exclude
 # from tabular data (not present in visium data)
-PATIENTS_IDH1_MUT = ["ER_G_272a_vis", "ER_G_273a_vis", "ER_G_292b_vis", "ER_G_292a_vis"]
+PATIENTS_IDH1_MUT = ["ER_G_272a", "ER_G_273a", "ER_G_292b", "ER_G_292a"]
+PATIENTS_IDH1_MUT.extend([f'{k}_vis' for k in PATIENTS_IDH1_MUT])
 
 # samples to exclude from the UKER dataset
 BAD_QUALITY_UKER_VISIUM = [
@@ -265,3 +304,8 @@ BAD_QUALITY_UKER_VISIUM = [
 
 # samples to remove from the CHUV dataset
 BAD_QUALITY_CHUV_VISIUM = ["CH_G_157a_vis"]
+
+BAD_QUALITY_CR_VISIUM = []
+
+# infercnv
+PATH_GTF = "/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/resources/infercnv/gencode.v32.annotation.gtf"

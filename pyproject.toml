@@ -24,8 +24,7 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
 ]
 
 [[tool.poetry.source]]
@@ -33,7 +32,7 @@ name = "PyPI"
 priority = "primary"
 
 [tool.poetry.dependencies]
-python = ">=3.10,<3.12"
+python = ">=3.11,<3.12"
 pandas = ">=2.0.1"
 loguru = "*"
 numpy = "1.25.2"
@@ -46,7 +45,7 @@ lxml = {extras = ["html-clean"], version = "^5.3.0"}
 plotly = "^5.0"
 openslide-python = "*"  # for reading slide images
 omnipath = "1.0.8"
-anndata = "<=0.10.8"
+anndata = "<=0.11.4"
 scanpy = "^1.10.4"
 liana = "^1.5.0"
 decoupler = "^1.8.0"
@@ -62,8 +61,8 @@ zarr = "*"
 cloudpathlib = "^0.21.0"
 openslide-bin = "^4.0.0.6"
 s3fs = "^2023.1.0"
-boto3 = "^1.24.59"
-botocore = ">=1.27.59,<1.28.0"
+boto3 = "*"
+botocore = "*"
 bigtree = "^0.25.4"
 infercnvpy = "^0.6.0"
 gtfparse = "^2.5.0"
@@ -71,6 +70,9 @@ typing_extensions = "^4.13.0"
 pydantic = "^2.11.5"
 poetry-plugin-export = "^1.9.0"
 bbknn = "^1.6.0"
+squidpy = "^1.6.5"
+colorcet = "^3.1.0"
+gseapy = "^1.1.10"
 
 [tool.poetry.group.dev]
 optional = true

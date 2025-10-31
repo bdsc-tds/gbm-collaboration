@@ -137,4 +137,9 @@ dmypy.json
 .DS_Store
 
 # Folders
+.ruff_cache
+work/
+nf-core-hlatyping_2.1.0/
+.nextflow*
 results/
+scratch/
