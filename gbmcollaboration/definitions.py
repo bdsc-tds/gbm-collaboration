@@ -11,9 +11,9 @@ import subprocess
 # choice of version of the processing for visium
 FOLDER_VERSION = {
     "sc_rna": "v5",
-    "visium": "v6",
-    "clinical": "v1",
-    "wes": "v1",
+    "visium": "v7",
+    "clinical": "v3",
+    "wes": "v2",
     "rnaseq":"v1"
 }
 # can be v1/v2/v3/live, live is not stable and can change through time
@@ -26,18 +26,6 @@ def get_zarr_directories(bucket_name, prefix=""):
 
         # Filter .zarr folders
         zarr_folders = [line.split()[-1].rstrip('/') for line in result.stdout.splitlines() if line.endswith('.zarr/')]
-
-        # for UKER data, we need to exclude samples with numbers above 310
-        if "40ce7e61-5ff6-467e-9972-0c85705f086c" in prefix:
-            zarr_folders = [
-                folder for folder in zarr_folders if int(folder.split("_")[-2][:-1]) <= 310
-            ]
-
-        # same for CHUV, exclude samples above 207
-        if "b5bd8840-cc6e-4de2-a78a-22315e9d1734" in prefix:
-            zarr_folders = [
-                folder for folder in zarr_folders if int(folder.split("_")[-2][:-1]) <= 207
-            ]
 
         # Build full paths
         full_zarr_paths = [f"s3://{bucket_name}/{prefix}{zarr_folder}" for zarr_folder in zarr_folders]
@@ -300,6 +288,7 @@ BAD_QUALITY_UKER_VISIUM = [
     "ER_G_286a_vis",
     "ER_G_292a_vis",
     "ER_G_308b_vis",
+    "ER_G_288a_vb2"
 ]
 
 # samples to remove from the CHUV dataset

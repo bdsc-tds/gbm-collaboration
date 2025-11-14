@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections import Counter
+from collections import Counter, namedtuple
 from operator import attrgetter
 from typing import Any
 
