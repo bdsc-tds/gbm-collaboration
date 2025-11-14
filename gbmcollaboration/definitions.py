@@ -13,7 +13,7 @@ FOLDER_VERSION = {
     "sc_rna": "v5",
     "visium": "v7",
     "clinical": "v3",
-    "wes": "v1",
+    "wes": "v2",
     "rnaseq":"v1"
 }
 # can be v1/v2/v3/live, live is not stable and can change through time
