@@ -4,9 +4,9 @@ CDK4
 CDK6
 MYC
 MYCN
-EGFR  # sometimes amplification is driver too
-MET   # rare, can be amplified
-FGFR3 # amplification possible
+EGFR
+MET
+FGFR3
 NTRK1
 NTRK2
 NTRK3
