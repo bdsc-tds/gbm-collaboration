@@ -1,4 +1,15 @@
 # %%
+# Autoreload extension for IPython/Jupyter
+try:
+    from IPython import get_ipython
+    ipython = get_ipython()
+    if ipython is not None:
+        ipython.run_line_magic('load_ext', 'autoreload')
+        ipython.run_line_magic('autoreload', '2')
+except (ImportError, NameError):
+    pass
+
+# %%
 import pandas as pd
 import joblib
 import numpy as np
@@ -192,4 +203,4 @@ if not patient_gene_matrix.empty:
 
 # %%
 # Create oncoplot-style heatmap
-create_oncoplot(patient_gene_matrix, figsize=(20, max(8, len(patient_gene_matrix.columns) * 0.3)))
+create_oncoplot(patient_gene_matrix, figsize=(20, max(6, len(patient_gene_matrix.columns) * 0.15)))
