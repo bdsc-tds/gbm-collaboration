@@ -14,6 +14,7 @@ from gbmcollaboration.utils.mutation_utils import (
     create_comprehensive_patient_gene_matrix,
 )
 from gbmcollaboration.utils.wes_io_utils import glob_s3_bucket
+from gbmcollaboration.viz.mutations import create_oncoplot
 
 # %%
 # Load driver gene lists
@@ -188,3 +189,7 @@ if not patient_gene_matrix.empty:
     
     print(f"\nTotal alterations found: {frequencies.sum()}")
     print(f"Columns with at least one patient: {(frequencies > 0).sum()} / {len(frequencies)}")
+
+# %%
+# Create oncoplot-style heatmap
+create_oncoplot(patient_gene_matrix, figsize=(20, max(8, len(patient_gene_matrix.columns) * 0.3)))
