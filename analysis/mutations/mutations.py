@@ -1,5 +1,5 @@
 # %%
-# Autoreload extension for IPython/Jupyter
+# Autoreload extension for IPython/Jupyter (safe to run as script)
 try:
     from IPython import get_ipython
     ipython = get_ipython()
@@ -7,7 +7,7 @@ try:
         ipython.run_line_magic('load_ext', 'autoreload')
         ipython.run_line_magic('autoreload', '2')
 except (ImportError, NameError):
-    pass
+    pass  # Not in IPython environment, skip magic commands
 
 # %%
 import pandas as pd
@@ -51,25 +51,9 @@ print(f"\nGenes with amplifications: {', '.join(genes_amp)}")
 print(f"\nGenes with loss-of-function: {', '.join(genes_lof)}")
 
 # %%
-# NOTE: How to identify mutation types from VCF CSQ field:
-# The VCF CSQ (Consequence) field contains variant consequences from VEP (Variant Effect Predictor).
-# Common values in fields[1] (Consequence field) include:
-# - "missense_variant" -> maps to "missense"
-# - "stop_gained" or "stop_lost" -> maps to "truncation" 
-# - "splice_acceptor_variant" or "splice_donor_variant" -> maps to "splice"
-# - "frameshift_variant" -> maps to "frameshift"
-# - "inframe_deletion" or "inframe_insertion" -> maps to "inframe_deletion" or "inframe_insertion"
-# - "synonymous_variant" -> maps to "synonymous"
-# - "splice_region_variant" -> can be considered "splice"
-#
-# The extract_variants() function extracts fields[1] as "variant_type" which contains these values.
-# You can filter variants by checking if variant_type contains the mutation type you're looking for.
-# For example: df[df['variant_type'].str.contains('missense_variant', na=False)]
-
-# %%
-# Load ALL variants from ALL genes into comprehensive tables
+# Load all variants from WES data
 print("=" * 80)
-print("STEP 1: Loading ALL variants from ALL genes into comprehensive tables")
+print("Loading all variants from all genes")
 print("=" * 80)
 
 all_snv_indel_all_genes = []
@@ -129,21 +113,14 @@ print(f"\nSummary:")
 print(f"  SNV/indel variants: {len(df_all_snv_indel)} records")
 print(f"  CNV variants: {len(df_all_cnv)} records")
 
-# %%
-# Create comprehensive patient X gene matrix
-print("\n" + "=" * 80)
-print("Creating comprehensive patient X gene alteration matrix")
-print("=" * 80)
-print("""
-This matrix includes:
-- {gene}_mut: Specific driver mutations (SNV/indel)
-- {gene}_amp: Gene amplifications (CNV duplications)
-- {gene}_lof: Loss-of-function alterations (CNV deletions or truncating mutations)
-- {gene}: Summary column (True if patient has ANY alteration type for that gene)
 
-For example, EGFR can have both EGFR_mut and EGFR_amp columns if a patient has
-both a mutation and an amplification.
-""")
+# %%
+# Create patient X gene alteration matrix
+# Columns: {gene}_mut (specific mutations), {gene}_amp (amplifications), 
+#          {gene}_lof (loss-of-function), {gene} (summary: any alteration)
+print("\n" + "=" * 80)
+print("Creating patient X gene alteration matrix")
+print("=" * 80)
 
 patient_gene_matrix = create_comprehensive_patient_gene_matrix(
     genes_mut_df, genes_amp, genes_lof, df_all_snv_indel, df_all_cnv
@@ -176,4 +153,4 @@ if not patient_gene_matrix.empty:
 
 # %%
 # Create oncoplot-style heatmap
-create_oncoplot(patient_gene_matrix, figsize=(20, max(6, len(patient_gene_matrix.columns) * 0.15)))
+create_oncoplot(patient_gene_matrix, figsize=(20, max(8, len(patient_gene_matrix.columns) * 0.3)))

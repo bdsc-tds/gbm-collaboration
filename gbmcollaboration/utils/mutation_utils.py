@@ -236,46 +236,29 @@ def create_comprehensive_patient_gene_matrix(
         if gene_variants.empty:
             continue
         
-        # For promoter mutations, get genomic positions from Ensembl
-        promoter_genomic_positions = {}
-        if is_promoter:
-            promoter_genomic_positions = _get_promoter_genomic_positions(gene, mutations_list, df_all_snv_indel)
-            if promoter_genomic_positions:
-                print(f"  Found promoter positions for {gene}: {promoter_genomic_positions}")
-            else:
-                print(f"  Warning: Could not find promoter positions for {gene} mutations {mutations_list}")
-        
         patients_with_mutation = set()
         for mutation in mutations_list:
             if is_promoter:
-                # Promoter mutations: check nucleotide-level changes (REF/ALT/POS)
-                # Format: C228T means REF=C, ALT=T
+                # Promoter mutations: identify by checking position relative to TSS using transcript_id from variant
                 ref_nuc = mutation[0]  # First character
                 alt_nuc = mutation[-1]  # Last character
                 
-                # Check if we have a genomic position from Ensembl for this mutation
-                if mutation in promoter_genomic_positions:
-                    expected_pos = promoter_genomic_positions[mutation]
-                    nuc_mask = (
-                        (gene_variants['REF'] == ref_nuc) &
-                        (gene_variants['ALT'] == alt_nuc) &
-                        (gene_variants['POS'] == expected_pos)
+                # Filter variants matching REF/ALT
+                matching_variants = gene_variants[
+                    (gene_variants['REF'] == ref_nuc) &
+                    (gene_variants['ALT'] == alt_nuc)
+                ].copy()
+                
+                # For each matching variant, check if it's the specific promoter mutation
+                for _, variant_row in matching_variants.iterrows():
+                    identified_mutation = _identify_promoter_mutation(
+                        variant_row['POS'],
+                        variant_row['transcript_id'],
+                        variant_row['REF'],
+                        variant_row['ALT']
                     )
-                    patients_with_mutation.update(gene_variants[nuc_mask]['sample'].unique())
-                else:
-                    # Fallback: try to match by REF/ALT and check if POS contains position substring
-                    try:
-                        pos_match = re.search(r'(\d+)', mutation)
-                        if pos_match:
-                            pos_str = pos_match.group(1)
-                            nuc_mask = (
-                                (gene_variants['REF'] == ref_nuc) &
-                                (gene_variants['ALT'] == alt_nuc) &
-                                (gene_variants['POS'].astype(str).str.contains(pos_str, na=False))
-                            )
-                            patients_with_mutation.update(gene_variants[nuc_mask]['sample'].unique())
-                    except:
-                        pass
+                    if identified_mutation == mutation:
+                        patients_with_mutation.add(variant_row['sample'])
             else:
                 # Coding mutations: check amino acid changes
                 aa_mask = gene_variants['amino_acid'].str.contains(mutation, na=False, case=False)
