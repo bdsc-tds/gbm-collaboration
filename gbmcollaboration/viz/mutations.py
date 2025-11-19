@@ -186,16 +186,21 @@ def create_oncoplot(patient_gene_matrix: pd.DataFrame, figsize: Tuple[int, int] 
     
     ax.set_xlabel('Samples', fontsize=12)
     ax.set_ylabel('Driver Genes', fontsize=12)
-    ax.set_title('Driver Alterations: Mutations (Green), Loss-of-Function (Red), Amplifications (Blue)', 
-                 fontsize=14, pad=20)
     
-    # Create legend - move further out
+    # Create legend - wide format above plot
     legend_elements = [
         mpatches.Patch(facecolor='green', alpha=0.8, label='Mutation'),
         mpatches.Patch(facecolor='red', alpha=0.8, label='Loss-of-Function'),
         mpatches.Patch(facecolor='blue', alpha=0.8, label='Amplification'),
     ]
-    ax.legend(handles=legend_elements, loc='upper left', bbox_to_anchor=(1.15, 1))
+    ax.legend(handles=legend_elements, loc='upper center', bbox_to_anchor=(0.5, 1.05), 
+              ncol=3, frameon=False, fontsize=10)
+    
+    # Title above legend
+    ax.set_title(
+        'Driver Alterations: Mutations (Green), Loss-of-Function (Red), Amplifications (Blue)', 
+        fontsize=14, pad=20, y=1.02
+    )
     
     plt.tight_layout()
     plt.show()

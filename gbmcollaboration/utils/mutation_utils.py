@@ -8,6 +8,72 @@ from typing import List, Optional, Dict
 from gbmcollaboration.utils.ensembl_utils import get_gene_coordinates
 
 
+def _identify_promoter_mutation(pos: int, transcript_id: str, ref: str, alt: str) -> Optional[str]:
+    """
+    Identify if a variant is a known promoter mutation based on its position relative to TSS.
+    
+    Promoter mutation names like "C228T" refer to positions relative to transcription start site (TSS):
+    - C228T = -124 bp upstream of TSS
+    - C250T = -146 bp upstream of TSS
+    
+    Parameters
+    ----------
+    pos : int
+        Genomic position of the variant
+    transcript_id : str
+        Ensembl transcript ID (e.g., "ENST00000310581")
+    ref : str
+        Reference allele (e.g., "C")
+    alt : str
+        Alternate allele (e.g., "T")
+    
+    Returns
+    -------
+    str or None
+        Mutation name (e.g., "C228T", "C250T") or None if not a known promoter mutation
+    """
+    # Map of TSS-relative positions to mutation names
+    # Format: bp upstream of TSS -> mutation_name
+    promoter_offsets = {
+        -124: 'C228T',  # TERT promoter mutation
+        -146: 'C250T',  # TERT promoter mutation
+    }
+    
+    # Only check C>T mutations
+    if ref != 'C' or alt != 'T':
+        return None
+    
+    try:
+        # Get transcript details from Ensembl
+        transcript_url = f"https://rest.ensembl.org/lookup/id/{transcript_id}?content-type=application/json"
+        response = requests.get(transcript_url)
+        if response.status_code != 200:
+            return None
+        
+        transcript_data = response.json()
+        strand = transcript_data.get('strand', 1)
+        tss = transcript_data.get('start') if strand == 1 else transcript_data.get('end')
+        
+        # Calculate offset from TSS
+        # For forward strand: upstream = decreasing coordinates, so offset = pos - tss (negative)
+        # For reverse strand: upstream = increasing coordinates, so offset = tss - pos (negative)
+        if strand == 1:
+            offset = pos - tss  # Negative if upstream
+        else:
+            offset = tss - pos  # Negative if upstream (TERT is reverse strand)
+        
+        # Check if offset matches a known promoter mutation (allow ±2bp tolerance)
+        for known_offset, mutation_name in promoter_offsets.items():
+            if abs(offset - known_offset) <= 2:
+                return mutation_name
+                
+    except Exception as e:
+        # Silently fail - will fall back to other matching methods
+        pass
+    
+    return None
+
+
 def _get_promoter_genomic_positions(gene_name: str, mutations_list: List[str], df_all_snv_indel: pd.DataFrame) -> Dict[str, int]:
     """
     Get genomic positions for promoter mutations using TSS-relative positions.
@@ -224,7 +290,9 @@ def create_comprehensive_patient_gene_matrix(
             if is_promoter:
                 print(f"  Detected {gene} as promoter mutations")
         
-        col_name = f"{gene}_mut"
+        # Use display name with "p" suffix for promoter genes, original name for computation
+        display_gene = f"{gene}p" if is_promoter else gene
+        col_name = f"{display_gene}_mut"
         result_dict[col_name] = pd.Series(False, index=all_patients)
         
         if df_all_snv_indel.empty:
@@ -282,12 +350,21 @@ def create_comprehensive_patient_gene_matrix(
                         pass
         
         result_dict[col_name].loc[list(patients_with_mutation)] = True
-        print(f"  {gene}: {len(patients_with_mutation)} patients with mutations")
+        print(f"  {display_gene}: {len(patients_with_mutation)} patients with mutations")
     
     # 2. Process amplifications (CNV duplications)
     print("\nProcessing amplifications...")
     for gene in genes_amp:
-        col_name = f"{gene}_amp"
+        # Check if this gene is a promoter gene in mutations list
+        is_promoter = False
+        if 'location' in genes_mut_df.columns:
+            gene_rows = genes_mut_df[genes_mut_df['gene'] == gene]
+            if not gene_rows.empty:
+                location_val = str(gene_rows.iloc[0].get('location', '')).lower().strip()
+                is_promoter = location_val == 'promoter'
+        
+        display_gene = f"{gene}p" if is_promoter else gene
+        col_name = f"{display_gene}_amp"
         result_dict[col_name] = pd.Series(False, index=all_patients)
         
         if df_all_cnv.empty:
@@ -317,7 +394,16 @@ def create_comprehensive_patient_gene_matrix(
     # 3. Process loss-of-function (CNV deletions or truncating mutations)
     print("\nProcessing loss-of-function...")
     for gene in genes_lof:
-        col_name = f"{gene}_lof"
+        # Check if this gene is a promoter gene in mutations list
+        is_promoter = False
+        if 'location' in genes_mut_df.columns:
+            gene_rows = genes_mut_df[genes_mut_df['gene'] == gene]
+            if not gene_rows.empty:
+                location_val = str(gene_rows.iloc[0].get('location', '')).lower().strip()
+                is_promoter = location_val == 'promoter'
+        
+        display_gene = f"{gene}p" if is_promoter else gene
+        col_name = f"{display_gene}_lof"
         result_dict[col_name] = pd.Series(False, index=all_patients)
         
         patients_with_lof = set()
@@ -351,14 +437,42 @@ def create_comprehensive_patient_gene_matrix(
     
     # Add summary columns for genes with multiple alteration types
     print("\nCreating summary columns...")
-    genes_mut_list = genes_mut_df['gene'].tolist()
-    all_genes = set(genes_mut_list + genes_amp + genes_lof)
+    # Build mapping of original gene names to display names
+    gene_to_display = {}
+    for _, row in genes_mut_df.iterrows():
+        gene = row['gene']
+        is_promoter = False
+        if 'location' in genes_mut_df.columns:
+            location_val = str(row.get('location', '')).lower().strip()
+            is_promoter = location_val == 'promoter'
+        display_gene = f"{gene}p" if is_promoter else gene
+        gene_to_display[gene] = display_gene
+    
+    # Also check genes in amp/lof lists
+    for gene in genes_amp + genes_lof:
+        if gene not in gene_to_display:
+            # Check if it's in mutations list
+            if 'location' in genes_mut_df.columns:
+                gene_rows = genes_mut_df[genes_mut_df['gene'] == gene]
+                if not gene_rows.empty:
+                    location_val = str(gene_rows.iloc[0].get('location', '')).lower().strip()
+                    is_promoter = location_val == 'promoter'
+                    display_gene = f"{gene}p" if is_promoter else gene
+                    gene_to_display[gene] = display_gene
+                else:
+                    gene_to_display[gene] = gene
+            else:
+                gene_to_display[gene] = gene
+    
+    # Create summary columns using display names
+    all_genes = set(genes_mut_df['gene'].tolist() + genes_amp + genes_lof)
     for gene in all_genes:
-        cols_to_check = [col for col in result_df.columns if col.startswith(f"{gene}_")]
+        display_gene = gene_to_display.get(gene, gene)
+        cols_to_check = [col for col in result_df.columns if col.startswith(f"{display_gene}_")]
         if len(cols_to_check) > 1:
             # Create combined column: gene has ANY alteration
-            result_df[gene] = result_df[cols_to_check].any(axis=1)
-            print(f"  {gene}: Created summary column (combines {len(cols_to_check)} alteration types)")
+            result_df[display_gene] = result_df[cols_to_check].any(axis=1)
+            print(f"  {display_gene}: Created summary column (combines {len(cols_to_check)} alteration types)")
     
     return result_df
 

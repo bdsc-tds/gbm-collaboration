@@ -134,23 +134,5 @@ print(f"\nAlteration frequency per column:")
 print(patient_gene_matrix.sum().sort_values(ascending=False))
 
 # %%
-# Plot number of patients with True per column
-if not patient_gene_matrix.empty:
-    # Calculate frequencies
-    frequencies = patient_gene_matrix.sum().sort_values(ascending=True)
-    
-    # Create plot
-    plt.figure(figsize=(12, max(8, len(frequencies) * 0.3)))
-    frequencies.plot(kind='barh')
-    plt.xlabel('Number of Patients')
-    plt.ylabel('Alteration Type')
-    plt.title('Number of Patients with Driver Alterations')
-    plt.tight_layout()
-    plt.show()
-    
-    print(f"\nTotal alterations found: {frequencies.sum()}")
-    print(f"Columns with at least one patient: {(frequencies > 0).sum()} / {len(frequencies)}")
-
-# %%
-# Create oncoplot-style heatmap
-create_oncoplot(patient_gene_matrix, figsize=(20, max(8, len(patient_gene_matrix.columns) * 0.3)))
+# Create oncoplot
+create_oncoplot(patient_gene_matrix, figsize=(15, max(6, len(patient_gene_matrix.columns) * 0.2)))
