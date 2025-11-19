@@ -130,36 +130,9 @@ print(f"  SNV/indel variants: {len(df_all_snv_indel)} records")
 print(f"  CNV variants: {len(df_all_cnv)} records")
 
 # %%
-# FILTERING FUNCTIONS - Use these to filter the comprehensive tables
-print("\n" + "=" * 80)
-print("STEP 2: Filtering functions available")
-print("=" * 80)
-print("""
-You can now filter the comprehensive tables using:
-
-1. Filter by driver genes:
-   df_filtered = df_all_snv_indel[df_all_snv_indel['gene_name'].isin(driver_genes)]
-
-2. Filter by mutation type (from variant_type column):
-   df_missense = df_all_snv_indel[df_all_snv_indel['variant_type'].str.contains('missense_variant', na=False)]
-   df_truncation = df_all_snv_indel[df_all_snv_indel['variant_type'].str.contains('stop_gained', na=False)]
-   df_splice = df_all_snv_indel[df_all_snv_indel['variant_type'].str.contains('splice', na=False, case=False)]
-   df_frameshift = df_all_snv_indel[df_all_snv_indel['variant_type'].str.contains('frameshift', na=False)]
-
-3. Filter by specific mutations (from amino_acid column):
-   df_braf_v600e = df_all_snv_indel[
-       (df_all_snv_indel['gene_name'] == 'BRAF') & 
-       (df_all_snv_indel['amino_acid'].str.contains('V600E', na=False))
-   ]
-
-4. Filter CNVs by gene overlap (requires gene coordinates):
-   # First get gene coordinates, then filter CNVs that overlap
-""")
-
-# %%
 # Create comprehensive patient X gene matrix
 print("\n" + "=" * 80)
-print("STEP 3: Creating comprehensive patient X gene alteration matrix")
+print("Creating comprehensive patient X gene alteration matrix")
 print("=" * 80)
 print("""
 This matrix includes:

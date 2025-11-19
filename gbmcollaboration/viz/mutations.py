@@ -37,8 +37,7 @@ def create_oncoplot(patient_gene_matrix: pd.DataFrame, figsize: Tuple[int, int] 
     
     samples = patient_gene_matrix.index.tolist()
     
-    # First, collect all genes that have at least one alteration and calculate proportions
-    genes_with_alterations = []
+    # Calculate proportions for ALL genes (including those with no alterations)
     gene_proportions = {}
     
     for gene in genes:
@@ -60,18 +59,15 @@ def create_oncoplot(patient_gene_matrix: pd.DataFrame, figsize: Tuple[int, int] 
             if has_alteration:
                 samples_with_alteration += 1
         
-        # Only include genes with at least one alteration
-        if samples_with_alteration > 0:
-            proportion = samples_with_alteration / len(samples) if samples else 0
-            gene_proportions[gene] = proportion
-            genes_with_alterations.append(gene)
+        proportion = samples_with_alteration / len(samples) if samples else 0
+        gene_proportions[gene] = proportion
     
-    if not genes_with_alterations:
-        print("No alterations found to plot.")
+    if not genes:
+        print("No genes found to plot.")
         return
     
-    # Sort genes by proportion (descending - most frequent first)
-    genes_sorted = sorted(genes_with_alterations, key=lambda g: gene_proportions.get(g, 0), reverse=True)
+    # Sort genes by proportion (descending - most frequent first, genes with 0% at the end)
+    genes_sorted = sorted(genes, key=lambda g: gene_proportions.get(g, 0), reverse=True)
     
     # Create matrix: store multiple alteration types per cell
     # Each cell is a list of alteration types: [] = no alteration, [1] = mut, [2] = lof, [3] = amp
@@ -97,7 +93,7 @@ def create_oncoplot(patient_gene_matrix: pd.DataFrame, figsize: Tuple[int, int] 
             row.append(alterations)
         
         plot_matrix.append(row)
-        # Add percentage to gene label
+        # Add percentage to gene label (even if 0%)
         proportion = gene_proportions.get(gene, 0)
         percentage = proportion * 100
         gene_labels.append(f"{gene} ({percentage:.1f}%)")

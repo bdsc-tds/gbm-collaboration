@@ -1,7 +1,124 @@
 """Utilities for parsing and processing mutation data."""
 
+import re
 import pandas as pd
-from typing import List, Optional
+import requests
+from typing import List, Optional, Dict
+
+from gbmcollaboration.utils.ensembl_utils import get_gene_coordinates
+
+
+def _get_promoter_genomic_positions(gene_name: str, mutations_list: List[str], df_all_snv_indel: pd.DataFrame) -> Dict[str, int]:
+    """
+    Get genomic positions for promoter mutations using TSS-relative positions.
+    
+    Promoter mutation names like "C228T" refer to positions relative to transcription start site (TSS):
+    - C228T = -124 bp upstream of TSS
+    - C250T = -146 bp upstream of TSS
+    
+    This function:
+    1. Gets the canonical transcript and TSS from Ensembl
+    2. Calculates genomic positions based on TSS-relative positions
+    3. Verifies variants exist at those positions matching REF/ALT
+    
+    Parameters
+    ----------
+    gene_name : str
+        Gene symbol (e.g., "TERT")
+    mutations_list : list[str]
+        List of mutation names (e.g., ["C228T", "C250T"])
+    df_all_snv_indel : pd.DataFrame
+        All SNV/indel variants to search in
+        
+    Returns
+    -------
+    dict[str, int]
+        Mapping of mutation name to genomic position
+    """    
+    positions = {}
+    
+    # Map of known promoter mutations to their TSS-relative positions
+    # Format: mutation_name -> bp upstream of TSS
+    promoter_tss_offsets = {
+        'C228T': -124,  # TERT promoter mutation
+        'C250T': -146,  # TERT promoter mutation
+    }
+    
+    # Get gene coordinates
+    gene_coords = get_gene_coordinates(gene_name)
+    if gene_coords is None:
+        return positions
+    
+    chrom_str = gene_coords['chromosome']  # e.g., "chr5"
+    
+    # Get canonical transcript to find TSS
+    try:
+        gene_id = gene_coords['ensembl_id']
+        url = f"https://rest.ensembl.org/lookup/id/{gene_id}?content-type=application/json"
+        response = requests.get(url)
+        if response.status_code != 200:
+            return positions
+        
+        gene_data = response.json()
+        canonical_transcript_id = gene_data.get('canonical_transcript')
+        
+        if canonical_transcript_id:
+            # Get transcript details
+            transcript_url = f"https://rest.ensembl.org/lookup/id/{canonical_transcript_id}?content-type=application/json"
+            transcript_response = requests.get(transcript_url)
+            if transcript_response.status_code == 200:
+                transcript_data = transcript_response.json()
+                strand = transcript_data.get('strand', 1)
+                tss = transcript_data.get('start') if strand == 1 else transcript_data.get('end')
+                
+                # For each mutation, calculate genomic position from TSS
+                for mutation in mutations_list:
+                    if mutation not in promoter_tss_offsets:
+                        continue
+                    
+                    tss_offset = promoter_tss_offsets[mutation]
+                    ref_nuc = mutation[0]  # First character (REF)
+                    alt_nuc = mutation[-1]  # Last character (ALT)
+                    
+                    # Calculate genomic position
+                    # For forward strand: upstream = TSS - offset (offset is negative)
+                    # For reverse strand: upstream = TSS + offset (offset is negative, so we add)
+                    if strand == 1:
+                        expected_pos = tss + tss_offset  # tss_offset is negative, so this subtracts
+                    else:
+                        expected_pos = tss - tss_offset  # For reverse strand, upstream is + direction
+                    
+                    # Verify variant exists at this position with matching REF/ALT
+                    matching_variants = df_all_snv_indel[
+                        (df_all_snv_indel['gene_name'] == gene_name) &
+                        (df_all_snv_indel['CHROM'] == chrom_str) &
+                        (df_all_snv_indel['POS'] == expected_pos) &
+                        (df_all_snv_indel['REF'] == ref_nuc) &
+                        (df_all_snv_indel['ALT'] == alt_nuc)
+                    ]
+                    
+                    if not matching_variants.empty:
+                        positions[mutation] = expected_pos
+                    else:
+                        # Try searching within a small window (±5bp) in case of coordinate differences
+                        window_variants = df_all_snv_indel[
+                            (df_all_snv_indel['gene_name'] == gene_name) &
+                            (df_all_snv_indel['CHROM'] == chrom_str) &
+                            (df_all_snv_indel['POS'] >= expected_pos - 5) &
+                            (df_all_snv_indel['POS'] <= expected_pos + 5) &
+                            (df_all_snv_indel['REF'] == ref_nuc) &
+                            (df_all_snv_indel['ALT'] == alt_nuc)
+                        ]
+                        if not window_variants.empty:
+                            # Use the closest position
+                            closest_pos = window_variants['POS'].iloc[0]
+                            positions[mutation] = closest_pos
+                            print(f"  Note: {gene_name} {mutation} found at {closest_pos} (expected {expected_pos}, TSS={tss})")
+                        
+    except Exception as e:
+        print(f"Warning: Could not get promoter positions for {gene_name} from Ensembl: {e}")
+    
+    return positions
 
 
 def parse_mutations(mut_str: str) -> List[str]:
@@ -98,6 +215,15 @@ def create_comprehensive_patient_gene_matrix(
         if not mutations_list:
             continue
         
+        # Check if mutations are nucleotide-level (promoter) or amino acid-level
+        # If 'location' column exists and is 'promoter', treat as nucleotide mutations
+        is_promoter = False
+        if 'location' in genes_mut_df.columns:
+            location_val = str(row.get('location', '')).lower().strip()
+            is_promoter = location_val == 'promoter'
+            if is_promoter:
+                print(f"  Detected {gene} as promoter mutations")
+        
         col_name = f"{gene}_mut"
         result_dict[col_name] = pd.Series(False, index=all_patients)
         
@@ -110,11 +236,67 @@ def create_comprehensive_patient_gene_matrix(
         if gene_variants.empty:
             continue
         
-        # Check if amino_acid contains any of the mutations
+        # For promoter mutations, get genomic positions from Ensembl
+        promoter_genomic_positions = {}
+        if is_promoter:
+            promoter_genomic_positions = _get_promoter_genomic_positions(gene, mutations_list, df_all_snv_indel)
+            if promoter_genomic_positions:
+                print(f"  Found promoter positions for {gene}: {promoter_genomic_positions}")
+            else:
+                print(f"  Warning: Could not find promoter positions for {gene} mutations {mutations_list}")
+        
         patients_with_mutation = set()
         for mutation in mutations_list:
-            mask = gene_variants['amino_acid'].str.contains(mutation, na=False, case=False)
-            patients_with_mutation.update(gene_variants[mask]['sample'].unique())
+            if is_promoter:
+                # Promoter mutations: check nucleotide-level changes (REF/ALT/POS)
+                # Format: C228T means REF=C, ALT=T
+                ref_nuc = mutation[0]  # First character
+                alt_nuc = mutation[-1]  # Last character
+                
+                # Check if we have a genomic position from Ensembl for this mutation
+                if mutation in promoter_genomic_positions:
+                    expected_pos = promoter_genomic_positions[mutation]
+                    nuc_mask = (
+                        (gene_variants['REF'] == ref_nuc) &
+                        (gene_variants['ALT'] == alt_nuc) &
+                        (gene_variants['POS'] == expected_pos)
+                    )
+                    patients_with_mutation.update(gene_variants[nuc_mask]['sample'].unique())
+                else:
+                    # Fallback: try to match by REF/ALT and check if POS contains position substring
+                    try:
+                        pos_match = re.search(r'(\d+)', mutation)
+                        if pos_match:
+                            pos_str = pos_match.group(1)
+                            nuc_mask = (
+                                (gene_variants['REF'] == ref_nuc) &
+                                (gene_variants['ALT'] == alt_nuc) &
+                                (gene_variants['POS'].astype(str).str.contains(pos_str, na=False))
+                            )
+                            patients_with_mutation.update(gene_variants[nuc_mask]['sample'].unique())
+                    except:
+                        pass
+            else:
+                # Coding mutations: check amino acid changes
+                aa_mask = gene_variants['amino_acid'].str.contains(mutation, na=False, case=False)
+                patients_with_mutation.update(gene_variants[aa_mask]['sample'].unique())
+                
+                # Also try nucleotide check as fallback (for cases like C228T format in coding region)
+                if len(mutation) >= 3 and mutation[0].isalpha() and mutation[-1].isalpha():
+                    try:
+                        pos_match = re.search(r'(\d+)', mutation)
+                        if pos_match:
+                            pos_str = pos_match.group(1)
+                            ref_nuc = mutation[0]
+                            alt_nuc = mutation[-1]
+                            nuc_mask = (
+                                (gene_variants['REF'] == ref_nuc) &
+                                (gene_variants['ALT'] == alt_nuc) &
+                                (gene_variants['POS'].astype(str).str.contains(pos_str, na=False))
+                            )
+                            patients_with_mutation.update(gene_variants[nuc_mask]['sample'].unique())
+                    except:
+                        pass
         
         result_dict[col_name].loc[list(patients_with_mutation)] = True
         print(f"  {gene}: {len(patients_with_mutation)} patients with mutations")
