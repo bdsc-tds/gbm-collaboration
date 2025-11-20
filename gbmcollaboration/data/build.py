@@ -13,6 +13,7 @@ from gbmcollaboration.data.io.loaders import (
     CSVDataLoader,
     PathsLoader,
     XLSXDataLoader,
+    Cell2LocationLoader,
 )
 from gbmcollaboration.data.io.preprocessor_tabular import (
     MOSAICBulkRNADataCleaner,
@@ -47,6 +48,7 @@ class SourceNames:
     sc_rna: str = "sc_rna"
     spatial: str = "spatial"
     he: str = "he"
+    cell2location: str = "cell2location"
 
     # force default values by forbidding arguments during initialization.
     def __init__(self):
@@ -179,6 +181,14 @@ CHUVDataCenter = DataCenter(
                 ),
             },
         ),
+        SOURCES.cell2location: DataSource(
+            files={
+                "Cell2location level 2": DataFile(
+                    name=DATA_PATH_CHUV_FILES["Cell2location"],
+                    loader=Cell2LocationLoader(level=2),
+                ),
+            }
+        ),
     },
 )
 
@@ -305,6 +315,14 @@ UKERDataCenter = DataCenter(
                     ),
                 ),
             },
+        ),
+        SOURCES.cell2location: DataSource(
+            files={
+                "Cell2location level 2": DataFile(
+                    name=DATA_PATH_UKER_FILES["Cell2location"],
+                    loader=Cell2LocationLoader(level=2),
+                ),
+            }
         ),
     },
 )
@@ -433,6 +451,14 @@ CRDataCenter = DataCenter(
                     ),
                 ),
             },
+        ),
+        SOURCES.cell2location: DataSource(
+            files={
+                "Cell2location level 2": DataFile(
+                    name=DATA_PATH_CR_FILES["Cell2location"],
+                    loader=Cell2LocationLoader(level=2),
+                ),
+            }
         ),
     },
 )

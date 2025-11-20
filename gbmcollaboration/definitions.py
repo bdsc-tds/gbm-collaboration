@@ -81,6 +81,7 @@ def generate_data_path(
         "Spatial Zarr Files": load_zarr_func,
         "Single-cell RNA": str(get_s3_path(single_cell_id, f"{FOLDER_VERSION['sc_rna']}/dataset_level/dataset-{single_cell_id}/merge_samples/sc_merged_annotated.zarr")),
         "WES TMB": load_tmb_func,
+        "Cell2location": get_s3_path(he_features_id, f"{FOLDER_VERSION['visium']}/without_spotclean/cell2loc/AnnData_objects/"),
     }
     return data_paths
 
