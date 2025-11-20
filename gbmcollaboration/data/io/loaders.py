@@ -248,3 +248,148 @@ class SingleCellLoader:
                 "Returning empty AnnData object.",
                 UserWarning,
             )
+
+
+class Cell2LocationLoader(BaseDataLoader):
+    """Class to load cell2location results from h5ad files.
+    
+    Loads cell2location AnnData objects and extracts cell count estimates.
+    Specifically extracts q50_cell_abundance_w_sf values and computes total cells per spot.
+    """
+    
+    def __init__(self, level: int = 2, data_transformer=None, **load_data_kwargs):
+        """Initialize the Cell2LocationLoader object.
+        
+        Parameters
+        ----------
+        level : int
+            Cell type annotation level to load (2, 4, etc.). Default: 2
+        data_transformer : optional
+            An instance of DataCleaner for data preprocessing, default is None.
+        **load_data_kwargs : dict
+            Additional keyword arguments for the load_data method.
+        """
+        super().__init__(data_transformer=data_transformer, **load_data_kwargs)
+        self.level = level
+    
+    def load_data(self, data_path):
+        """Load cell2location h5ad file and extract cell abundance estimates.
+        
+        Parameters
+        ----------
+        data_path : str or Path
+            Path to directory containing cell2location h5ad files.
+            Expected structure: {data_path}/{sample_id}/cohort_level_{level}.h5ad
+            
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame with cell abundance estimates per spot.
+            Columns: cell types, Index: spot barcodes
+            Also includes 'total_cells' column with sum over all celltypes per spot.
+        """
+        from pathlib import Path
+        from cloudpathlib import S3Path
+        import s3fs
+        
+        # Convert to Path-like object
+        if isinstance(data_path, str):
+            if data_path.startswith('s3://'):
+                base_path = S3Path(data_path)
+            else:
+                base_path = Path(data_path)
+        else:
+            base_path = data_path
+        
+        # Find all sample directories
+        sample_dirs = [d for d in base_path.iterdir() if d.is_dir()]
+        
+        all_results = []
+        
+        for sample_dir in sample_dirs:
+            sample_id = sample_dir.name
+            h5ad_file = sample_dir / f"cohort_level_{self.level}.h5ad"
+            
+            if not h5ad_file.exists():
+                warn(
+                    f"Cell2location file not found for {sample_id}: {h5ad_file}",
+                    UserWarning,
+                )
+                continue
+            
+            # Load h5ad file
+            try:
+                if isinstance(h5ad_file, S3Path):
+                    # Use s3fs for S3 paths
+                    s3 = s3fs.S3FileSystem(anon=False)
+                    # S3Path needs to be converted to string for s3fs
+                    h5ad_path_str = str(h5ad_file).replace('s3://', '')
+                    with s3.open(h5ad_path_str, 'rb') as f:
+                        adata = ad.read_h5ad(f)
+                else:
+                    adata = ad.read_h5ad(h5ad_file)
+                
+                # Extract q50_cell_abundance_w_sf from obsm
+                if 'q50_cell_abundance_w_sf' not in adata.obsm:
+                    warn(
+                        f"q50_cell_abundance_w_sf not found in {sample_id} AnnData object. "
+                        f"Available keys: {list(adata.obsm.keys())}",
+                        UserWarning,
+                    )
+                    continue
+                
+                # Get cell abundance DataFrame (spots × celltypes)
+                # Try to get cell type names from various possible locations
+                celltype_names = None
+                if 'mod' in adata.uns and 'factor_names' in adata.uns['mod']:
+                    celltype_names = adata.uns['mod']['factor_names']
+                elif 'factor_names' in adata.uns:
+                    celltype_names = adata.uns['factor_names']
+                elif 'cell_type_names' in adata.uns:
+                    celltype_names = adata.uns['cell_type_names']
+                
+                if celltype_names is None:
+                    # Fallback: create generic names
+                    n_celltypes = adata.obsm['q50_cell_abundance_w_sf'].shape[1]
+                    celltype_names = [f'celltype_{i}' for i in range(n_celltypes)]
+                
+                cell_abundance = pd.DataFrame(
+                    adata.obsm['q50_cell_abundance_w_sf'],
+                    index=adata.obs_names,
+                    columns=celltype_names
+                )
+                
+                # Add sample ID to index if not already present
+                if 'sample' not in cell_abundance.index.names:
+                    cell_abundance.index = pd.MultiIndex.from_tuples(
+                        [(sample_id, idx) for idx in cell_abundance.index],
+                        names=['sample', 'barcode']
+                    )
+                
+                # Compute total cells per spot (sum over all celltypes)
+                cell_abundance['total_cells'] = cell_abundance.sum(axis=1)
+                
+                all_results.append(cell_abundance)
+                
+            except Exception as e:
+                warn(
+                    f"Failed to load cell2location data from {h5ad_file}: {str(e)}",
+                    UserWarning,
+                )
+                continue
+        
+        if not all_results:
+            warn(
+                "No cell2location data loaded. Returning empty DataFrame.",
+                UserWarning,
+            )
+            return pd.DataFrame()
+        
+        # Concatenate all samples
+        result_df = pd.concat(all_results, axis=0)
+        
+        # Apply transformer if provided
+        if self.data_transformer is not None:
+            result_df = self.data_transformer.transform(result_df)
+        
+        return result_df
