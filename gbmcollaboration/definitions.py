@@ -14,7 +14,7 @@ FOLDER_VERSION = {
     "visium": "v7",
     "clinical": "v3",
     "wes": "v2",
-    "rnaseq":"v1"
+    "rnaseq":"v2"
 }
 # can be v1/v2/v3/live, live is not stable and can change through time
 
@@ -269,6 +269,7 @@ PATIENTS_IDH1_MUT.extend([f'{k}_vis' for k in PATIENTS_IDH1_MUT])
 
 # samples to exclude from the UKER dataset
 BAD_QUALITY_UKER_VISIUM = [
+    # previous list from Valerie
     "ER_G_196b_vis",
     "ER_G_199a_vis",
     "ER_G_200a_vis",
@@ -290,10 +291,68 @@ BAD_QUALITY_UKER_VISIUM = [
     "ER_G_292a_vis",
     "ER_G_308b_vis",
     "ER_G_288a_vb2"
+
+    # no data from excel sheet
+    "ER_G_744a",
+    "ER_G_745a",
+    "ER_G_746a",
+    "ER_G_748a",
+    "ER_G_749a",
+    "ER_G_754a",
+    "ER_G_756a",
+    "ER_G_757a",
+    "ER_G_747a",
+    "ER_G_751a",
+    "ER_G_758a",
+
+    # pending review from excel sheet
+    "ER_G_750a",
+    "ER_G_752a",
+    "ER_G_753a",
+    "ER_G_755a",
+    "ER_G_759a",
+    "ER_G_760a",
+
+    # from Spencer (checking clinical data)
+    "ER_G_195b",
+    "ER_G_267b",
+    "ER_G_274b",
+    "ER_G_276b",
+    "ER_G_278a",
+    "ER_G_282b",
+    "ER_G_284a",
+    "ER_G_288b",
+    "ER_G_292b",
+    "ER_G_298b",
+    "ER_G_301b",
+    "ER_G_303b",
+    "ER_G_308b",
+    "ER_G_310b",
+    "ER_G_645b",
+    "ER_G_665b",
+    "ER_G_272a",
 ]
 
+
+
+
+
+
 # samples to remove from the CHUV dataset
-BAD_QUALITY_CHUV_VISIUM = ["CH_G_157a_vis"]
+BAD_QUALITY_CHUV_VISIUM = [
+    # previous list from Valerie
+    "CH_G_157a_vis",
+
+    # from Spencer (checking clinical data)
+    "CH_G_164b_vis",
+    "CH_G_168b_vis",
+    "CH_G_180b_vis",
+    "CH_G_186b_vis",
+    "CH_G_189b_vis",
+    "CH_G_189c_vis",
+    "CH_G_194b_vis",
+    "CH_G_536a_vis",
+]
 
 BAD_QUALITY_CR_VISIUM = []
 

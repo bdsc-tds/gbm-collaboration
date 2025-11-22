@@ -68,8 +68,13 @@ end_time = time.time()
 print(f"Total time running: {round((end_time-start_time)/60)} minutes")
 
 # %% -- Assign each cnv cluster a CNV score
-infercnv_obj.compute_cnv_score()
+infercnv_obj.run_cnv_score()
 
+# %% -- Run ITH scoring
+start_time = time.time()
+infercnv_obj.run_ith_scores(groupby=BATCH_KEY)
+end_time = time.time()
+print(f"Total time running: {round((end_time-start_time)/60)} minutes")
 # %% -- Perform visualizations
 infercnv_obj.composite_plots(save_path=RESULTS_DIR / "cnv_plots.png")
 

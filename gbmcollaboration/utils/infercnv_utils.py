@@ -218,7 +218,7 @@ class InferCNVAnalyzer:
             optimal_ordering=optimal_ordering
         )
 
-    def compute_cnv_score(self):
+    def run_cnv_score(self):
         """Calculate the CNV score for each cluster.
 
         Clusters with a high score are likely affected by copy number abberations.
@@ -460,3 +460,10 @@ class InferCNVAnalyzer:
             logger.info(f"Bins dataframe saved to {save_path}")
 
         return self.bins_df
+
+    def run_ith_scores(self, groupby):
+        """ Intratumoral heterogeneity scores based on CNAs and gene expressions """
+        logger.info("Computing ITH scores based on CNAs")
+        cnv.tl.ithcna(self.adata, groupby, use_rep='X_cnv', key_added='ithcna', inplace=True)
+        logger.info("Computing ITH scores based on GEX")
+        cnv.tl.ithcna(self.adata, groupby, key_added='ithgex', inplace=True)
