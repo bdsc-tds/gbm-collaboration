@@ -461,9 +461,12 @@ class InferCNVAnalyzer:
 
         return self.bins_df
 
-    def run_ith_scores(self, groupby):
+    def run_ith_scores(self, groupby, save_path: str = None):
         """ Intratumoral heterogeneity scores based on CNAs and gene expressions """
         logger.info("Computing ITH scores based on CNAs")
         cnv.tl.ithcna(self.adata, groupby, use_rep='X_cnv', key_added='ithcna', inplace=True)
         logger.info("Computing ITH scores based on GEX")
         cnv.tl.ithcna(self.adata, groupby, key_added='ithgex', inplace=True)
+
+        if save_path is not None:
+            self.adata.obs[['ithcna','ithgex']].to_csv(save_path)

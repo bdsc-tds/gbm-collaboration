@@ -6,6 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import scanpy as sc
+import scipy
 import infercnvpy as cnv
 import gc
 import time
@@ -48,6 +49,7 @@ adata.X = adata.layers['raw_count']
 # %% Load meta-control spots info
 adata_ctrl = sc.read_h5ad(METACONTROL_PATH)
 healthy_spots = adata_ctrl.obs_names
+healthy_spots = healthy_spots[healthy_spots.isin(adata.obs_names)] # some come from excluded samples
 
 adata.obs[REFERENCE_COLUMN] = 'malignant'
 adata.obs.loc[healthy_spots,REFERENCE_COLUMN] = 'healthy'
@@ -78,7 +80,7 @@ infercnv_obj.run_cnv_score()
 
 # %% -- Run ITH scoring
 start_time = time.time()
-infercnv_obj.run_ith_scores(groupby=BATCH_KEY)
+infercnv_obj.run_ith_scores(groupby=BATCH_KEY, save_path=RESULTS_DIR / "ith_scores.csv")
 end_time = time.time()
 print(f"Total time running: {round((end_time-start_time)/60)} minutes")
 # %% -- Perform visualizations
