@@ -290,7 +290,7 @@ BAD_QUALITY_UKER_VISIUM = [
     "ER_G_286a_vis",
     "ER_G_292a_vis",
     "ER_G_308b_vis",
-    "ER_G_288a_vb2"
+    "ER_G_288a_vb2",
 
     # no data from excel sheet
     "ER_G_744a",
