@@ -119,7 +119,7 @@ infercnv_obj.get_bin_positions(
 )
 
 # %%
-del infercnv_obj.adata.layers['raw_counts']
+infercnv_obj.adata.layers.clear()
 infercnv_obj.adata.X = scipy.sparse.csr_matrix(infercnv_obj.adata.X.shape)
 infercnv_obj.adata.write(RESULTS_DIR / "infercnv_adata.h5ad")
 
