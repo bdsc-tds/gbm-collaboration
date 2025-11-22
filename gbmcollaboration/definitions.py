@@ -265,7 +265,6 @@ AVG_NUM_DAYS_PER_YEAR = 365.25
 # patient with IDH1 mutation, to potentially exclude
 # from tabular data (not present in visium data)
 PATIENTS_IDH1_MUT = ["ER_G_272a", "ER_G_273a", "ER_G_292b", "ER_G_292a"]
-PATIENTS_IDH1_MUT.extend([f'{k}_vis' for k in PATIENTS_IDH1_MUT])
 
 # samples to exclude from the UKER dataset
 BAD_QUALITY_UKER_VISIUM = [
@@ -344,14 +343,14 @@ BAD_QUALITY_CHUV_VISIUM = [
     "CH_G_157a_vis",
 
     # from Spencer (checking clinical data)
-    "CH_G_164b_vis",
-    "CH_G_168b_vis",
-    "CH_G_180b_vis",
-    "CH_G_186b_vis",
-    "CH_G_189b_vis",
-    "CH_G_189c_vis",
-    "CH_G_194b_vis",
-    "CH_G_536a_vis",
+    "CH_G_164b",
+    "CH_G_168b",
+    "CH_G_180b",
+    "CH_G_186b",
+    "CH_G_189b",
+    "CH_G_189c",
+    "CH_G_194b",
+    "CH_G_536a",
 ]
 
 BAD_QUALITY_CR_VISIUM = []

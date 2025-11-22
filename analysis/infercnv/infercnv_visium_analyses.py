@@ -65,7 +65,6 @@ infercnv_obj.add_reference_column(
 list_reference_cat = ['healthy']
 
 # %% -- Run infercnv inference
-import time
 start_time = time.time()
 infercnv_obj.run_infercnv(list_reference_cat=list_reference_cat)
 
