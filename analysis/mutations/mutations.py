@@ -14,6 +14,7 @@ import pandas as pd
 import joblib
 import numpy as np
 from tqdm import tqdm
+from pathlib import Path
 import matplotlib.pyplot as plt
 
 from gbmcollaboration import CHUVDataCenter, UKERDataCenter, CRDataCenter
@@ -26,6 +27,10 @@ from gbmcollaboration.utils.mutation_utils import (
 )
 from gbmcollaboration.utils.wes_io_utils import glob_s3_bucket
 from gbmcollaboration.viz.mutations import create_oncoplot
+
+# %%
+RESULTS_DIR = Path('/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/results/WES/mutations')
+RESULTS_DIR.mkdir(parents=True,exist_ok=True)
 
 # %%
 # Load driver gene lists
@@ -67,15 +72,15 @@ centers = {
 
 for center_name, (center_obj, wes_id) in centers.items():
     print(f"\nLoading all variants from {center_name}...")
-    
+
     # Get VCF file paths
     fns, samples = glob_s3_bucket(wes_id, center_name)
     if fns is None or not samples:
         print(f"  No WES data found for {center_name}")
         continue
-    
+
     print(f"  Found {len(samples)} samples")
-    
+
     # Load ALL SNV/indel variants (all genes)
     if fns.get("snv_indel_vcf"):
         print(f"  Loading SNV/indel variants from {len(fns['snv_indel_vcf'])} VCF files...")
@@ -89,7 +94,7 @@ for center_name, (center_obj, wes_id) in centers.items():
         df_snv_indel["center"] = center_name
         all_snv_indel_all_genes.append(df_snv_indel)
         print(f"    Loaded {len(df_snv_indel)} variant records")
-    
+
     # Load ALL CNV variants (all genes)
     if fns.get("cnv_vcf"):
         print(f"  Loading CNV variants from {len(fns['cnv_vcf'])} VCF files...")
@@ -116,7 +121,7 @@ print(f"  CNV variants: {len(df_all_cnv)} records")
 
 # %%
 # Create patient X gene alteration matrix
-# Columns: {gene}_mut (specific mutations), {gene}_amp (amplifications), 
+# Columns: {gene}_mut (specific mutations), {gene}_amp (amplifications),
 #          {gene}_lof (loss-of-function), {gene} (summary: any alteration)
 print("\n" + "=" * 80)
 print("Creating patient X gene alteration matrix")
@@ -136,3 +141,7 @@ print(patient_gene_matrix.sum().sort_values(ascending=False))
 # %%
 # Create oncoplot
 create_oncoplot(patient_gene_matrix, figsize=(15, max(6, len(patient_gene_matrix.columns) * 0.2)))
+
+# %%
+patient_gene_matrix.to_csv(RESULTS_DIR / 'patient_gene_matrix.csv')
+# %%
