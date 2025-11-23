@@ -20,6 +20,7 @@ from gbmcollaboration import (
 # %% Params
 RESULTS_DIR = Path("/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/results/scRNAseq/infercnv")
 REFERENCE_COLUMN = "celltype_level4_scanvi"
+BATCH_KEY = "orig.ident"
 REF_CELL_TYPES = [
 'Astrocyte_homeostatic',
 'B_nos',
@@ -68,8 +69,13 @@ end_time = time.time()
 print(f"Total time running: {round((end_time-start_time)/60)} minutes")
 
 # %% -- Assign each cnv cluster a CNV score
-infercnv_obj.compute_cnv_score()
+infercnv_obj.run_cnv_score()
 
+# %% -- Run ITH scoring
+start_time = time.time()
+infercnv_obj.run_ith_scores(groupby=BATCH_KEY, save_path=RESULTS_DIR / "ith_scores.csv")
+end_time = time.time()
+print(f"Total time running: {round((end_time-start_time)/60)} minutes")
 # %% -- Perform visualizations
 infercnv_obj.composite_plots(save_path=RESULTS_DIR / "cnv_plots.png")
 
@@ -113,7 +119,7 @@ infercnv_obj.get_bin_positions(
 )
 
 # %%
-del infercnv_obj.adata.layers['raw_counts']
+infercnv_obj.adata.layers.clear()
 infercnv_obj.adata.X = scipy.sparse.csr_matrix(infercnv_obj.adata.X.shape)
 infercnv_obj.adata.write(RESULTS_DIR / "infercnv_adata.h5ad")
 

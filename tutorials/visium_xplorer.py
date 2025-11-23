@@ -26,11 +26,11 @@ deconvolution_slot_name = "deconv_cohort_level_4"
 
 adata = AllDataCenters.load_spatial_adata(
     exclude_low_quality_visium=True,
-    exclude_idh1_mut=True,
+    exclude_idh1_mut=False,
     list_sample_id=None,
     normalization="raw_count",
     radius=1,
-    deconvolution_slot_name=CELL_TYPE_KEY,
+    deconvolution_slot_name=deconvolution_slot_name,
 )
 
 # %% Load spatial data for a given center

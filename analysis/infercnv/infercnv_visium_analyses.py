@@ -6,8 +6,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import scanpy as sc
+import scipy
 import infercnvpy as cnv
 import gc
+import time
 
 from pathlib import Path
 from gbmcollaboration import AllDataCenters, CHUVDataCenter, UKERDataCenter, CRDataCenter
@@ -19,8 +21,9 @@ RESULTS_DIR = Path("/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db7
 METACONTROL_PATH = Path("/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/meta_control_v2.h5ad")
 CELL_TYPE_KEY = "deconv_cohort_level_4"
 REFERENCE_COLUMN = "malignant_status"
+BATCH_KEY = 'sample'
 
-# /!\ to adjust later
+# to adjust
 THRESHOLD_N_GENES = 100
 THRESHOLD_N_COUNTS = 1_000_000
 
@@ -46,6 +49,7 @@ adata.X = adata.layers['raw_count']
 # %% Load meta-control spots info
 adata_ctrl = sc.read_h5ad(METACONTROL_PATH)
 healthy_spots = adata_ctrl.obs_names
+healthy_spots = healthy_spots[healthy_spots.isin(adata.obs_names)] # some come from excluded samples
 
 adata.obs[REFERENCE_COLUMN] = 'malignant'
 adata.obs.loc[healthy_spots,REFERENCE_COLUMN] = 'healthy'
@@ -63,7 +67,6 @@ infercnv_obj.add_reference_column(
 list_reference_cat = ['healthy']
 
 # %% -- Run infercnv inference
-import time
 start_time = time.time()
 infercnv_obj.run_infercnv(list_reference_cat=list_reference_cat)
 
@@ -73,8 +76,13 @@ end_time = time.time()
 print(f"Total time running: {round((end_time-start_time)/60)} minutes")
 
 # %% -- Assign each cnv cluster a CNV score
-infercnv_obj.compute_cnv_score()
+infercnv_obj.run_cnv_score()
 
+# %% -- Run ITH scoring
+start_time = time.time()
+infercnv_obj.run_ith_scores(groupby=BATCH_KEY, save_path=RESULTS_DIR / "ith_scores.csv")
+end_time = time.time()
+print(f"Total time running: {round((end_time-start_time)/60)} minutes")
 # %% -- Perform visualizations
 # infercnv_obj.composite_plots(save_path=RESULTS_DIR / "cnv_plots.png")
 # infercnv_obj.adata.obsm['X_umap']=infercnv_obj.adata.obsm['X_cnv_umap']
@@ -106,4 +114,6 @@ infercnv_obj.get_bin_positions(
 )
 
 # %%
+infercnv_obj.adata.layers.clear()
+infercnv_obj.adata.X = scipy.sparse.csr_matrix(infercnv_obj.adata.X.shape)
 infercnv_obj.adata.write(RESULTS_DIR / "infercnv_adata.h5ad")

@@ -15,6 +15,7 @@ from gbmcollaboration.data.io.loaders import SingleCellLoader, VisiumCohortLoade
 from gbmcollaboration.definitions import (
     BAD_QUALITY_CHUV_VISIUM,
     BAD_QUALITY_UKER_VISIUM,
+    BAD_QUALITY_CR_VISIUM,
     PATIENTS_IDH1_MUT,
 )
 from gbmcollaboration.utils.spatial_obj_to_df import (
@@ -157,6 +158,10 @@ class DataCenter(NamedTuple):
             len_bad_quality = len(BAD_QUALITY_CHUV_VISIUM)
             print(f"Excluding {len_bad_quality} bad quality samples at MOSAIC-CHUV")
             ignore_sample_ids = BAD_QUALITY_CHUV_VISIUM.copy()
+        elif self.name == "mosaic_cr" and exclude_low_quality_visium:
+            len_bad_quality = len(BAD_QUALITY_CR_VISIUM)
+            print(f"Excluding {len_bad_quality} bad quality samples at MOSAIC-CR")
+            ignore_sample_ids = BAD_QUALITY_CR_VISIUM.copy()
 
         if exclude_idh1_mut:
             ignore_sample_ids += PATIENTS_IDH1_MUT

@@ -80,7 +80,7 @@ class VisiumCohort:
             list_sample_ids = [
                 sample_id
                 for sample_id in list_sample_ids
-                if sample_id not in ignore_sample_ids
+                if not any(ign in sample_id for ign in ignore_sample_ids)
             ]
 
         # Check that there is no duplicated block in the dataset, with sampleX_vis and sampleX_vbu for example
