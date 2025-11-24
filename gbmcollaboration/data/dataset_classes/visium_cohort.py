@@ -232,8 +232,8 @@ class VisiumCohort:
 
     def load_image_sample(self, sample_id: str) -> tuple[str, np.ndarray]:
         """Load the counts data for a given sample."""
-        uns_spatial, obsm_spatial = self._dict_visium_samples[sample_id].load_images()
-        return sample_id, uns_spatial, obsm_spatial
+        uns_spatial = self._dict_visium_samples[sample_id].load_images()
+        return sample_id, uns_spatial#, obsm_spatial
 
     def load_images_cohort(self) -> dict[str, Any]:
 
@@ -243,12 +243,12 @@ class VisiumCohort:
         )
 
         uns_spatial = {}
-        obsm_spatial = {}
+        # obsm_spatial = {}
         for (sample_id, uns_, obsm_) in images_list:
             uns_spatial[sample_id] = uns_
-            obsm_spatial[sample_id] = obsm_
+            # obsm_spatial[sample_id] = obsm_
 
-        return uns_spatial, obsm_spatial
+        return uns_spatial#, obsm_spatial
 
     def load_deconvolution_cohort(
         self,
