@@ -115,7 +115,10 @@ class DataCenter(NamedTuple):
         list_sample_id: Optional[list[str]] = None,
         normalization: str = "raw_count",
         radius: int = 1,
-        deconvolution_slot_name: str = "deconv_cohort_level_4_2steps",
+        deconvolution_slot_name: str = "deconv_cohort_level_4",
+        load_gex: bool = True,
+        load_deconvolution: bool = True,
+        load_images: bool = False,
     ):
         """Load spatial data of the full cohort or a list of samples.
 
@@ -139,6 +142,12 @@ class DataCenter(NamedTuple):
         deconvolution_slot_name : str
             Slot name for the deconvolution data.
             Default is "deconv_GMBatlas_2steps".
+        load_gex: bool
+            Whether to load gene expression
+        load_deconvolution: bool
+            Whether to load deconvolutions
+        load_images: bool
+            Whether to load images
 
         Returns
         -------
@@ -169,6 +178,7 @@ class DataCenter(NamedTuple):
 
         if source:
             # instantiate VisiumDataLoader
+            print( "Instantiating loader.")
             path_dataset = source.files.get("cohort zarr files").name  # type: ignore[union-attr]
             data_loader = VisiumCohortLoader(
                 path_dataset=path_dataset,
@@ -181,20 +191,25 @@ class DataCenter(NamedTuple):
             # preparing the dataframes as additional attributes
             spots_info = data_loader.coords
             spots_info.reset_index(inplace=True)
-            print(
-                "Preparing the gene counts dataframe as attribute (spatial_obj.genecounts_df)."
-            )
-            data_loader.genecounts_df = genecounts_array_to_df(
-                gene_counts_array=data_loader.load_counts_cohort(),
-                gene_names_list=data_loader.common_genes,
-                spots_metadata=spots_info,
-            )
-            print("Preparing the celltype dataframe (spatial_obj.celltype_df)")
-            data_loader.celltype_df = celltype_array_to_df(
-                celltype_array=data_loader.load_deconvolution_cohort(frac=False),
-                celltypes_name_list=data_loader.common_celltypes,
-                spots_metadata=spots_info,
-            )
+            if load_gex:
+                print(
+                    "Preparing the gene counts dataframe as attribute (spatial_obj.genecounts_df)."
+                )
+                data_loader.genecounts_df = genecounts_array_to_df(
+                    gene_counts_array=data_loader.load_counts_cohort(),
+                    gene_names_list=data_loader.common_genes,
+                    spots_metadata=spots_info,
+                )
+            if load_deconvolution:
+                print("Preparing the celltype dataframe (spatial_obj.celltype_df)")
+                data_loader.celltype_df = celltype_array_to_df(
+                    celltype_array=data_loader.load_deconvolution_cohort(frac=False),
+                    celltypes_name_list=data_loader.common_celltypes,
+                    spots_metadata=spots_info,
+                )
+            if load_images:
+                print("Preparing the images dict (spatial_obj.images)")
+                data_loader.images = data_loader.load_images_cohort()
             return data_loader
         else:
             return {}
@@ -221,6 +236,7 @@ class DataCenter(NamedTuple):
         else:
             raise ValueError("Single-cell data is not available in this data center.")
 
+
     def __repr__(self):
         return f"DataCenter <{self.name}> with {len(self.sources)} sources"
 
@@ -244,11 +260,11 @@ class DataCenters:
     def load_tabular(self, *args, **kwargs):
         return self._apply("load_tabular", *args, **kwargs)
 
-    def load_spatial(self, *args, **kwargs):
-        return self._apply("load_spatial", *args, **kwargs)
-
     def load_singlecell(self, *args, **kwargs):
         return sc.concat(self._apply("load_singlecell", *args, **kwargs),label='center')
+
+    def load_spatial(self, *args, **kwargs):
+        return self._apply("load_spatial", *args, **kwargs)
 
     def load_spatial_adata(self,
         exclude_low_quality_visium=True,
@@ -256,7 +272,8 @@ class DataCenters:
         list_sample_id=None,
         normalization="log_norm_count",
         radius=1,
-        deconvolution_slot_name="deconv_cohort_level_4_2steps",
+        deconvolution_slot_name="deconv_cohort_level_4",
+        load_images = False
         ):
         """Load entire Visium cohort as anndata."""
 
@@ -268,6 +285,7 @@ class DataCenters:
             normalization=normalization,
             radius=radius,
             deconvolution_slot_name=deconvolution_slot_name,
+            load_images=load_images
         )
 
         # Concatenate the dataframes
@@ -275,6 +293,9 @@ class DataCenters:
         common_genes = list(set(genes[0]).intersection(*genes[1:]))
         counts_df = pd.concat([obj.genecounts_df[common_genes] for obj in loaded_objects.values()])
         obs_df = pd.concat([obj.celltype_df for obj in loaded_objects.values()])
+
+        if load_images:
+            images = {k:v.images for k,v in loaded_objects.items()}
 
         del loaded_objects
         gc.collect()
@@ -288,12 +309,17 @@ class DataCenters:
         obs_df.index = flat_index
         counts_df.index = flat_index
 
+
         # Create the final AnnData object
         adata = sc.AnnData(
             obs=obs_df,
             var=pd.DataFrame(index=counts_df.columns),
-            layers={normalization:counts_df.values}
+            layers={normalization:counts_df.values},
         )
+
+        if load_images:
+            adata.uns['images'] = images
+
 
         del counts_df, obs_df
         gc.collect()
