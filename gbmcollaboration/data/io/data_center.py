@@ -155,9 +155,8 @@ class DataCenter(NamedTuple):
             Dictionary of dataframes for each source that are spatial.
         """
         source = self.sources.get("spatial")
-
         # initialize ignore_sample_ids
-        ignore_sample_ids = []
+        ignore_sample_ids = None
 
         if self.name == "mosaic_uker" and exclude_low_quality_visium:
             len_bad_quality = len(BAD_QUALITY_UKER_VISIUM)
@@ -173,7 +172,10 @@ class DataCenter(NamedTuple):
             ignore_sample_ids = BAD_QUALITY_CR_VISIUM.copy()
 
         if exclude_idh1_mut:
-            ignore_sample_ids += PATIENTS_IDH1_MUT
+            if ignore_sample_ids is None:
+                ignore_sample_ids = PATIENTS_IDH1_MUT
+            else:
+                ignore_sample_ids += PATIENTS_IDH1_MUT
             print("Excluding IDH1 mutated samples if any present.")
 
         if source:
@@ -273,7 +275,8 @@ class DataCenters:
         normalization="log_norm_count",
         radius=1,
         deconvolution_slot_name="deconv_cohort_level_4",
-        load_images = False
+        load_images = False,
+        load_deconvolution = True,
         ):
         """Load entire Visium cohort as anndata."""
 
@@ -285,30 +288,36 @@ class DataCenters:
             normalization=normalization,
             radius=radius,
             deconvolution_slot_name=deconvolution_slot_name,
-            load_images=load_images
+            load_images=load_images,
+            load_deconvolution=load_deconvolution
         )
 
         # Concatenate the dataframes
         genes = [obj.genecounts_df.columns for obj in loaded_objects.values()]
         common_genes = list(set(genes[0]).intersection(*genes[1:]))
         counts_df = pd.concat([obj.genecounts_df[common_genes] for obj in loaded_objects.values()])
-        obs_df = pd.concat([obj.celltype_df for obj in loaded_objects.values()])
+
+        # Flatten the MultiIndex for AnnData compatibility
+        flat_index = counts_df.index.map(lambda idx: f"{idx[0]}_{idx[1]}")
+        counts_df.index = flat_index
 
         if load_images:
-            images = {k:v.images for k,v in loaded_objects.items()}
+            images_uns = {k:v.images['uns_spatial'] for k,v in loaded_objects.items()}
+            images_obsm = {k:v.images['obsm_spatial'] for k,v in loaded_objects.items()}
 
         del loaded_objects
         gc.collect()
 
-        # Align obs to counts and create the 'sample' column
-        obs_df = obs_df.loc[counts_df.index]
-        obs_df['sample'] = obs_df.index.get_level_values(0)
+        if load_deconvolution:
+            obs_df = pd.concat([obj.celltype_df for obj in loaded_objects.values()])
 
-        # Flatten the MultiIndex for AnnData compatibility
-        flat_index = counts_df.index.map(lambda idx: f"{idx[0]}_{idx[1]}")
-        obs_df.index = flat_index
-        counts_df.index = flat_index
+            # Align obs to counts and create the 'sample' column
+            obs_df = obs_df.loc[counts_df.index]
+            obs_df['sample'] = obs_df.index.get_level_values(0)
 
+            obs_df.index = flat_index
+        else:
+            obs_df = pd.DataFrame(index=flat_index)
 
         # Create the final AnnData object
         adata = sc.AnnData(

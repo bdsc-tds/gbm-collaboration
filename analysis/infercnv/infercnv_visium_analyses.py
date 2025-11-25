@@ -27,6 +27,8 @@ BATCH_KEY = 'sample'
 THRESHOLD_N_GENES = 100
 THRESHOLD_N_COUNTS = 1_000_000
 
+# %%
+
 # %% Create results dir
 RESULTS_DIR.mkdir(parents=True,exist_ok=True)
 
@@ -49,7 +51,7 @@ adata.X = adata.layers['raw_count']
 # %% Load meta-control spots info
 adata_ctrl = sc.read_h5ad(METACONTROL_PATH)
 healthy_spots = adata_ctrl.obs_names
-healthy_spots = healthy_spots[healthy_spots.isin(adata.obs_names)] # some come from excluded samples
+healthy_spots = healthy_spots[healthy_spots.isin(adata.obs_names)]
 
 adata.obs[REFERENCE_COLUMN] = 'malignant'
 adata.obs.loc[healthy_spots,REFERENCE_COLUMN] = 'healthy'
