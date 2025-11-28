@@ -299,14 +299,11 @@ class DataCenters:
 
         # Flatten the MultiIndex for AnnData compatibility
         flat_index = counts_df.index.map(lambda idx: f"{idx[0]}_{idx[1]}")
-        counts_df.index = flat_index
 
         if load_images:
             images_uns = {k:v.images['uns_spatial'] for k,v in loaded_objects.items()}
             images_obsm = {k:v.images['obsm_spatial'] for k,v in loaded_objects.items()}
 
-        del loaded_objects
-        gc.collect()
 
         if load_deconvolution:
             obs_df = pd.concat([obj.celltype_df for obj in loaded_objects.values()])
@@ -314,10 +311,14 @@ class DataCenters:
             # Align obs to counts and create the 'sample' column
             obs_df = obs_df.loc[counts_df.index]
             obs_df['sample'] = obs_df.index.get_level_values(0)
-
-            obs_df.index = flat_index
         else:
             obs_df = pd.DataFrame(index=flat_index)
+
+        counts_df.index = flat_index
+        obs_df.index = flat_index
+
+        del loaded_objects
+        gc.collect()
 
         # Create the final AnnData object
         adata = sc.AnnData(

@@ -292,6 +292,7 @@ BAD_QUALITY_UKER_VISIUM = [
     "ER_G_288a_vb2",
 
     # no data from excel sheet
+    "ER_G_204a",
     "ER_G_744a",
     "ER_G_745a",
     "ER_G_746a",
@@ -321,8 +322,10 @@ BAD_QUALITY_UKER_VISIUM = [
     "ER_G_282b",
     "ER_G_284a",
     "ER_G_288b",
+    "ER_G_290a",
     "ER_G_292b",
     "ER_G_298b",
+    "ER_G_301a",
     "ER_G_301b",
     "ER_G_303b",
     "ER_G_308b",
@@ -347,6 +350,7 @@ BAD_QUALITY_CHUV_VISIUM = [
     "CH_G_168b",
     "CH_G_180b",
     "CH_G_186b",
+    "CH_G_188a",
     "CH_G_189b",
     "CH_G_189c",
     "CH_G_194b",
