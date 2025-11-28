@@ -333,10 +333,9 @@ BAD_QUALITY_UKER_VISIUM = [
     "ER_G_645b",
     "ER_G_665b",
     "ER_G_272a",
+    "ER_G_664a",
+    "ER_G_675a"
 ]
-
-
-
 
 
 
@@ -354,10 +353,15 @@ BAD_QUALITY_CHUV_VISIUM = [
     "CH_G_189b",
     "CH_G_189c",
     "CH_G_194b",
+    "CH_G_532a",
+    "CH_G_533a",
+    "CH_G_534a",
+    "CH_G_535a",
     "CH_G_536a",
 ]
 
 BAD_QUALITY_CR_VISIUM = []
+
 
 # infercnv
 PATH_GTF = "/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/resources/infercnv/gencode.v32.annotation.gtf"
