@@ -266,52 +266,52 @@ AVG_NUM_DAYS_PER_YEAR = 365.25
 # from tabular data (not present in visium data)
 PATIENTS_IDH1_MUT = ["ER_G_272a", "ER_G_273a", "ER_G_292b", "ER_G_292a"]
 
-# samples to exclude from the UKER dataset
+# samples to exclude: pending review/no data/blank from excel sheet
+BAD_QUALITY_CHUV_VISIUM = [
+    "CH_G_157a",
+    "CH_G_188a",
+    "CH_G_532a",
+    "CH_G_533a",
+    "CH_G_534a",
+    "CH_G_535a",
+    "CH_G_536a",
+]
 BAD_QUALITY_UKER_VISIUM = [
-    # previous list from Valerie
-    "ER_G_196b_vis",
-    "ER_G_199a_vis",
-    "ER_G_200a_vis",
-    "ER_G_203a_vis",
-    "ER_G_209a_vis",
-    "ER_G_210a_vbu",
-    "ER_G_265a_vis",
-    "ER_G_266a_vis",
-    "ER_G_267a_vis",
-    "ER_G_267b_vis",
-    "ER_G_273a_vis",
-    "ER_G_274a_vis",
-    "ER_G_278a_vis",
-    "ER_G_278b_vis",
-    "ER_G_281a_vis",
-    "ER_G_282a_vis",
-    "ER_G_284a_vis",
-    "ER_G_286a_vis",
-    "ER_G_292a_vis",
-    "ER_G_308b_vis",
-    "ER_G_288a_vb2",
-
-    # no data from excel sheet
+    "ER_G_196b",
+    "ER_G_199a",
+    "ER_G_200a",
+    "ER_G_203a",
     "ER_G_204a",
+    "ER_G_265a",
+    "ER_G_266a",
+    "ER_G_267b",
+    "ER_G_278a",
+    "ER_G_290a",
+    "ER_G_301a",
+    "ER_G_301b",
+    "ER_G_308b",
+    "ER_G_665b",
     "ER_G_744a",
     "ER_G_745a",
     "ER_G_746a",
     "ER_G_748a",
     "ER_G_749a",
-    "ER_G_754a",
-    "ER_G_756a",
-    "ER_G_757a",
-    "ER_G_747a",
-    "ER_G_751a",
-    "ER_G_758a",
-
-    # pending review from excel sheet
     "ER_G_750a",
     "ER_G_752a",
     "ER_G_753a",
+    "ER_G_754a",
     "ER_G_755a",
+    "ER_G_756a",
+    "ER_G_757a",
+    "ER_G_298b",
+    "ER_G_645b",
+    "ER_G_747a",
+    "ER_G_751a",
     "ER_G_759a",
     "ER_G_760a",
+    "ER_G_664a",
+    "ER_G_675a",
+    "ER_G_758a",
 
     # from Spencer (checking clinical data)
     "ER_G_195b",
@@ -337,31 +337,7 @@ BAD_QUALITY_UKER_VISIUM = [
     "ER_G_675a"
 ]
 
-
-
-# samples to remove from the CHUV dataset
-BAD_QUALITY_CHUV_VISIUM = [
-    # previous list from Valerie
-    "CH_G_157a_vis",
-
-    # from Spencer (checking clinical data)
-    "CH_G_164b",
-    "CH_G_168b",
-    "CH_G_180b",
-    "CH_G_186b",
-    "CH_G_188a",
-    "CH_G_189b",
-    "CH_G_189c",
-    "CH_G_194b",
-    "CH_G_532a",
-    "CH_G_533a",
-    "CH_G_534a",
-    "CH_G_535a",
-    "CH_G_536a",
-]
-
 BAD_QUALITY_CR_VISIUM = []
-
 
 # infercnv
 PATH_GTF = "/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/resources/infercnv/gencode.v32.annotation.gtf"
