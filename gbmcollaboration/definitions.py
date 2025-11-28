@@ -313,6 +313,21 @@ BAD_QUALITY_UKER_VISIUM = [
     "ER_G_675a",
     "ER_G_758a",
 
+    # duplicates: exclude all slides except the one marked passing QC
+    "ER_G_209a_vis",
+    "ER_G_210a_vbu",
+    "ER_G_267a_vis",
+    "ER_G_274a_vis",
+    "ER_G_281a_vis",
+    "ER_G_286a_vis",
+    "ER_G_288a_vis",
+    "ER_G_635a_vis",
+    "ER_G_636a_vis",
+
+    # exclude this one with missing deconvolution columns
+    "ER_G_288a_vb2",
+
+
     # from Spencer (checking clinical data)
     "ER_G_195b",
     "ER_G_267b",
