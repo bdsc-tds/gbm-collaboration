@@ -328,7 +328,8 @@ class DataCenters:
         )
 
         if load_images:
-            adata.uns['images'] = images
+            adata.uns['images_uns'] = images_uns
+            adata.uns['images_obsm'] = images_obsm
 
 
         del counts_df, obs_df
