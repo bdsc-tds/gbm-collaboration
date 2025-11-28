@@ -18,12 +18,11 @@ from gbmcollaboration.utils.infercnv_utils import InferCNVAnalyzer
 
 # %% Params
 RESULTS_DIR = Path("/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/results/visium/infercnv")
-METACONTROL_PATH = Path("/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/meta_control_v2.h5ad")
+METACONTROL_PATH = Path("/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/meta_control_v3.h5ad")
 CELL_TYPE_KEY = "deconv_cohort_level_4"
 REFERENCE_COLUMN = "malignant_status"
 BATCH_KEY = 'sample'
 
-# to adjust
 THRESHOLD_N_GENES = 100
 THRESHOLD_N_COUNTS = 1_000_000
 
@@ -48,12 +47,13 @@ adata.X = adata.layers['raw_count']
 
 # %% Load meta-control spots info
 adata_ctrl = sc.read_h5ad(METACONTROL_PATH)
-healthy_spots = adata_ctrl.obs_names
-healthy_spots = healthy_spots[healthy_spots.isin(adata.obs_names)] # some come from excluded samples
+control_spots = adata_ctrl.obs_names
+control_spots_filtered = adata_ctrl.obs_names[~adata_ctrl.obs_names.isin(adata.obs_names)]
+adata = sc.concat([adata,adata_ctrl[control_spots_filtered]])
 
 adata.obs[REFERENCE_COLUMN] = 'malignant'
-adata.obs.loc[healthy_spots,REFERENCE_COLUMN] = 'healthy'
-print(f"Using {len(healthy_spots)} healthy spots")
+adata.obs.loc[control_spots,REFERENCE_COLUMN] = 'control'
+print(f"Using {len(control_spots)} control spots")
 # %% -- Initialize the InferCNVAnalyzer class
 infercnv_obj = InferCNVAnalyzer(adata=adata)
 
@@ -64,7 +64,7 @@ infercnv_obj.add_reference_column(
 
 # %%
 # Define the reference categories as the ones that are not malignant
-list_reference_cat = ['healthy']
+list_reference_cat = ['control']
 
 # %% -- Run infercnv inference
 start_time = time.time()

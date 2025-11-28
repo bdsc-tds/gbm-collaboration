@@ -281,6 +281,27 @@ class VisiumSample:
         """Format the VisiumSample object to a SpatialData object."""
         return from_legacy_anndata(self.get_adata())
 
+
+    def load_images(self):
+        """Load images for a given sample"""
+
+        # Create a mask of vlaid barcodes. User to filter barcode only if loading image or obs
+        all_barcodes = list(self._zarr_store["tables"]["table"]["obs"]["_index"])
+        valid_barcodes = self.list_barcodes
+        mask_valid_barcodes = [
+            barcode in valid_barcodes for barcode in all_barcodes
+        ]
+
+        uns_spatial = read_elem(
+                self._zarr_store["tables"]["table"]["uns"]["spatial"]
+            )
+        obsm_spatial = read_elem(
+                self._zarr_store["tables"]["table"]["obsm"]["spatial"]
+            )[mask_valid_barcodes, :]
+
+        return uns_spatial, obsm_spatial
+
+
     def load_counts(
         self,
         list_common_genes: list | None = None,
