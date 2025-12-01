@@ -64,7 +64,6 @@ class DataCenter(NamedTuple):
         def exclude_idh1mut(df):
             # remove the suffix from visium
             mutated_patient = PATIENTS_IDH1_MUT.copy()
-            mutated_patient = [s[:-5] for s in mutated_patient]
             # convert PATIENTS_IDH1_MUT to a set for faster lookups
             patients_set = set(mutated_patient)
             # create a pattern to match any of the patient IDs in the set
