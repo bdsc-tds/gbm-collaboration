@@ -30,7 +30,10 @@ from gbmcollaboration.utils.wes_io_utils import glob_s3_bucket
 from gbmcollaboration.viz.mutations import create_oncoplot
 
 # %%
-RESULTS_DIR = Path('/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/results/WES/mutations')
+RESULTS_DIR = Path(
+    "/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/"
+    "results/WES/mutations"
+)
 RESULTS_DIR.mkdir(parents=True,exist_ok=True)
 
 # %%
@@ -137,5 +140,12 @@ print(f"\nAlteration frequency per column:")
 print(patient_gene_matrix.sum().sort_values(ascending=False))
 
 # %%
+# Save patient gene matrix to CSV
+output_file = RESULTS_DIR / "patient_gene_matrix.csv"
+patient_gene_matrix.to_csv(output_file)
+print(f"\nSaved patient X gene matrix to {output_file}")
+
+# %%
 # Create oncoplot-style heatmap
-create_oncoplot(patient_gene_matrix, figsize=(20, max(8, len(patient_gene_matrix.columns) * 0.3)))
+plot_file = RESULTS_DIR / "oncoplot.png"
+create_oncoplot(patient_gene_matrix, figsize=(20, max(8, len(patient_gene_matrix.columns) * 0.3)), output_file=str(plot_file))
