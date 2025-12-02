@@ -1,4 +1,16 @@
 # %%
+# Autoreload extension for IPython/Jupyter
+try:
+    from IPython import get_ipython
+    ipython = get_ipython()
+    if ipython is not None:
+        ipython.run_line_magic('load_ext', 'autoreload')
+        ipython.run_line_magic('autoreload', '2')
+except (ImportError, NameError):
+    pass
+
+# %%
+# Import modules
 import pandas as pd
 import joblib
 import numpy as np
@@ -108,57 +120,9 @@ print(f"  SNV/indel variants: {len(df_all_snv_indel)} records")
 print(f"  CNV variants: {len(df_all_cnv)} records")
 
 # %%
-# Filter TERT promoter mutations using hardcoded genomic positions
-print("\n" + "=" * 80)
-print("STEP 2: Filtering TERT promoter mutations (hardcoded positions)")
-print("=" * 80)
-
-# Hardcoded TERT promoter mutation positions
-TERT_PROMOTER_POSITIONS = {
-    'C228T': {'chrom': 'chr5', 'pos': 1295113, 'ref': 'C', 'alt': 'T'},  # c.−124C>T
-    'C250T': {'chrom': 'chr5', 'pos': 1295135, 'ref': 'C', 'alt': 'T'},  # c.−146C>T
-}
-
-if not df_all_snv_indel.empty:
-    print("\nFiltering TERT promoter mutations using hardcoded positions...")
-    tert_promoter_variants = []
-    
-    for mutation_name, pos_info in TERT_PROMOTER_POSITIONS.items():
-        # Filter variants matching hardcoded position and REF/ALT
-        matching = df_all_snv_indel[
-            (
-                (df_all_snv_indel['CHROM'] == pos_info['chrom']) |
-                (df_all_snv_indel['CHROM'] == pos_info['chrom'].lstrip('chr'))
-            ) &
-            (df_all_snv_indel['POS'] == pos_info['pos']) &
-            (df_all_snv_indel['REF'] == pos_info['ref']) &
-            (df_all_snv_indel['ALT'] == pos_info['alt'])
-        ]
-        
-        if not matching.empty:
-            matching = matching.copy()
-            matching['tert_mutation'] = mutation_name
-            tert_promoter_variants.append(matching)
-            print(f"  Found {len(matching)} variants for {mutation_name} at {pos_info['chrom']}:{pos_info['pos']}")
-            print(f"    Patients: {matching['sample'].nunique()}")
-        else:
-            print(f"  No variants found for {mutation_name} at {pos_info['chrom']}:{pos_info['pos']}")
-    
-    if tert_promoter_variants:
-        df_tert_promoter = pd.concat(tert_promoter_variants, ignore_index=True)
-        print(f"\nTotal TERT promoter variants found: {len(df_tert_promoter)}")
-        print(f"Unique patients with TERT promoter mutations: {df_tert_promoter['sample'].nunique()}")
-    else:
-        print("\nNo TERT promoter mutations found using hardcoded positions.")
-        df_tert_promoter = pd.DataFrame()
-else:
-    print("No SNV/indel data available.")
-    df_tert_promoter = pd.DataFrame()
-
-# %%
 # Create comprehensive patient X gene matrix
 print("\n" + "=" * 80)
-print("STEP 3: Creating comprehensive patient X gene alteration matrix")
+print("STEP 2: Creating comprehensive patient X gene alteration matrix")
 print("=" * 80)
 
 patient_gene_matrix = create_comprehensive_patient_gene_matrix(
