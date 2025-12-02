@@ -1,15 +1,4 @@
 # %%
-# Autoreload extension for IPython/Jupyter (safe to run as script)
-try:
-    from IPython import get_ipython
-    ipython = get_ipython()
-    if ipython is not None:
-        ipython.run_line_magic('load_ext', 'autoreload')
-        ipython.run_line_magic('autoreload', '2')
-except (ImportError, NameError):
-    pass  # Not in IPython environment, skip magic commands
-
-# %%
 import pandas as pd
 import joblib
 import numpy as np
@@ -56,9 +45,9 @@ print(f"\nGenes with amplifications: {', '.join(genes_amp)}")
 print(f"\nGenes with loss-of-function: {', '.join(genes_lof)}")
 
 # %%
-# Load all variants from WES data
+# Load ALL variants from ALL genes into comprehensive tables
 print("=" * 80)
-print("Loading all variants from all genes")
+print("STEP 1: Loading ALL variants from ALL genes into comprehensive tables")
 print("=" * 80)
 
 all_snv_indel_all_genes = []
@@ -118,13 +107,58 @@ print(f"\nSummary:")
 print(f"  SNV/indel variants: {len(df_all_snv_indel)} records")
 print(f"  CNV variants: {len(df_all_cnv)} records")
 
+# %%
+# Filter TERT promoter mutations using hardcoded genomic positions
+print("\n" + "=" * 80)
+print("STEP 2: Filtering TERT promoter mutations (hardcoded positions)")
+print("=" * 80)
+
+# Hardcoded TERT promoter mutation positions
+TERT_PROMOTER_POSITIONS = {
+    'C228T': {'chrom': 'chr5', 'pos': 1295113, 'ref': 'C', 'alt': 'T'},  # c.−124C>T
+    'C250T': {'chrom': 'chr5', 'pos': 1295135, 'ref': 'C', 'alt': 'T'},  # c.−146C>T
+}
+
+if not df_all_snv_indel.empty:
+    print("\nFiltering TERT promoter mutations using hardcoded positions...")
+    tert_promoter_variants = []
+    
+    for mutation_name, pos_info in TERT_PROMOTER_POSITIONS.items():
+        # Filter variants matching hardcoded position and REF/ALT
+        matching = df_all_snv_indel[
+            (
+                (df_all_snv_indel['CHROM'] == pos_info['chrom']) |
+                (df_all_snv_indel['CHROM'] == pos_info['chrom'].lstrip('chr'))
+            ) &
+            (df_all_snv_indel['POS'] == pos_info['pos']) &
+            (df_all_snv_indel['REF'] == pos_info['ref']) &
+            (df_all_snv_indel['ALT'] == pos_info['alt'])
+        ]
+        
+        if not matching.empty:
+            matching = matching.copy()
+            matching['tert_mutation'] = mutation_name
+            tert_promoter_variants.append(matching)
+            print(f"  Found {len(matching)} variants for {mutation_name} at {pos_info['chrom']}:{pos_info['pos']}")
+            print(f"    Patients: {matching['sample'].nunique()}")
+        else:
+            print(f"  No variants found for {mutation_name} at {pos_info['chrom']}:{pos_info['pos']}")
+    
+    if tert_promoter_variants:
+        df_tert_promoter = pd.concat(tert_promoter_variants, ignore_index=True)
+        print(f"\nTotal TERT promoter variants found: {len(df_tert_promoter)}")
+        print(f"Unique patients with TERT promoter mutations: {df_tert_promoter['sample'].nunique()}")
+    else:
+        print("\nNo TERT promoter mutations found using hardcoded positions.")
+        df_tert_promoter = pd.DataFrame()
+else:
+    print("No SNV/indel data available.")
+    df_tert_promoter = pd.DataFrame()
 
 # %%
-# Create patient X gene alteration matrix
-# Columns: {gene}_mut (specific mutations), {gene}_amp (amplifications),
-#          {gene}_lof (loss-of-function), {gene} (summary: any alteration)
+# Create comprehensive patient X gene matrix
 print("\n" + "=" * 80)
-print("Creating patient X gene alteration matrix")
+print("STEP 3: Creating comprehensive patient X gene alteration matrix")
 print("=" * 80)
 
 patient_gene_matrix = create_comprehensive_patient_gene_matrix(
@@ -139,9 +173,5 @@ print(f"\nAlteration frequency per column:")
 print(patient_gene_matrix.sum().sort_values(ascending=False))
 
 # %%
-# Create oncoplot
-create_oncoplot(patient_gene_matrix, figsize=(15, max(6, len(patient_gene_matrix.columns) * 0.2)))
-
-# %%
-patient_gene_matrix.to_csv(RESULTS_DIR / 'patient_gene_matrix.csv')
-# %%
+# Create oncoplot-style heatmap
+create_oncoplot(patient_gene_matrix, figsize=(20, max(8, len(patient_gene_matrix.columns) * 0.3)))

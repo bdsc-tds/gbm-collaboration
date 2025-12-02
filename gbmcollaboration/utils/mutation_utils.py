@@ -8,83 +8,115 @@ from typing import List, Optional, Dict
 from gbmcollaboration.utils.ensembl_utils import get_gene_coordinates
 
 
-def _identify_promoter_mutation(pos: int, transcript_id: str, ref: str, alt: str) -> Optional[str]:
+def _identify_promoter_mutation(pos: int, chrom: str, ref: str, alt: str, transcript_id: Optional[str] = None) -> Optional[str]:
     """
-    Identify if a variant is a known promoter mutation based on its position relative to TSS.
+    Identify if a variant is a known promoter mutation.
     
-    Promoter mutation names like "C228T" refer to positions relative to transcription start site (TSS):
-    - C228T = -124 bp upstream of TSS
-    - C250T = -146 bp upstream of TSS
+    Uses two methods:
+    1. Hardcoded genomic positions (primary method):
+    according to https://pmc.ncbi.nlm.nih.gov/articles/PMC12305348/
+       - C228T (c.−124C>T): chr5:1295113
+       - C250T (c.−146C>T): chr5:1295135
+    2. TSS-relative positions (fallback method):
+       - C228T = -124 bp upstream of TSS
+       - C250T = -146 bp upstream of TSS
     
     Parameters
     ----------
     pos : int
         Genomic position of the variant
-    transcript_id : str
-        Ensembl transcript ID (e.g., "ENST00000310581")
+    chrom : str
+        Chromosome (e.g., "chr5" or "5")
     ref : str
         Reference allele (e.g., "C")
     alt : str
         Alternate allele (e.g., "T")
+    transcript_id : str, optional
+        Ensembl transcript ID (e.g., "ENST00000310581") for TSS-relative fallback
     
     Returns
     -------
     str or None
         Mutation name (e.g., "C228T", "C250T") or None if not a known promoter mutation
     """
-    # Map of TSS-relative positions to mutation names
-    # Format: bp upstream of TSS -> mutation_name
-    promoter_offsets = {
-        -124: 'C228T',  # TERT promoter mutation
-        -146: 'C250T',  # TERT promoter mutation
-    }
-    
     # Only check C>T mutations
     if ref != 'C' or alt != 'T':
         return None
     
-    try:
-        # Get transcript details from Ensembl
-        transcript_url = f"https://rest.ensembl.org/lookup/id/{transcript_id}?content-type=application/json"
-        response = requests.get(transcript_url)
-        if response.status_code != 200:
-            return None
-        
-        transcript_data = response.json()
-        strand = transcript_data.get('strand', 1)
-        tss = transcript_data.get('start') if strand == 1 else transcript_data.get('end')
-        
-        # Calculate offset from TSS
-        # For forward strand: upstream = decreasing coordinates, so offset = pos - tss (negative)
-        # For reverse strand: upstream = increasing coordinates, so offset = tss - pos (negative)
-        if strand == 1:
-            offset = pos - tss  # Negative if upstream
-        else:
-            offset = tss - pos  # Negative if upstream (TERT is reverse strand)
-        
-        # Check if offset matches a known promoter mutation (allow ±2bp tolerance)
-        for known_offset, mutation_name in promoter_offsets.items():
-            if abs(offset - known_offset) <= 2:
-                return mutation_name
+    # Method 1: Check hardcoded genomic positions (primary method)
+    promoter_positions = {
+        ('chr5', 1295113): 'C228T',  # TERT promoter mutation
+        ('5', 1295113): 'C228T',     # Allow both chr5 and 5 format
+        ('chr5', 1295135): 'C250T',  # TERT promoter mutation
+        ('5', 1295135): 'C250T',     # Allow both chr5 and 5 format
+    }
+    
+    # Try both with and without 'chr' prefix
+    mutation_name = promoter_positions.get((chrom, pos))
+    if mutation_name:
+        return mutation_name
+    
+    # Try alternative chromosome format
+    if chrom.startswith('chr'):
+        mutation_name = promoter_positions.get((chrom[3:], pos))  # Remove 'chr' prefix
+    else:
+        mutation_name = promoter_positions.get((f'chr{chrom}', pos))  # Add 'chr' prefix
+    
+    if mutation_name:
+        return mutation_name
+    
+    # Method 2: Fallback to TSS-relative positions if transcript_id is available
+    if transcript_id:
+        try:
+            # Map of TSS-relative positions to mutation names
+            # Format: bp upstream of TSS -> mutation_name
+            promoter_offsets = {
+                -124: 'C228T',  # TERT promoter mutation
+                -146: 'C250T',  # TERT promoter mutation
+            }
+            
+            # Get transcript details from Ensembl
+            transcript_url = f"https://rest.ensembl.org/lookup/id/{transcript_id}?content-type=application/json"
+            response = requests.get(transcript_url)
+            if response.status_code == 200:
+                transcript_data = response.json()
+                strand = transcript_data.get('strand', 1)
+                tss = transcript_data.get('start') if strand == 1 else transcript_data.get('end')
                 
-    except Exception as e:
-        # Silently fail - will fall back to other matching methods
-        pass
+                # Calculate offset from TSS
+                # For forward strand: upstream = decreasing coordinates, so offset = pos - tss (negative)
+                # For reverse strand: upstream = increasing coordinates, so offset = tss - pos (negative)
+                if strand == 1:
+                    offset = pos - tss  # Negative if upstream
+                else:
+                    offset = tss - pos  # Negative if upstream (TERT is reverse strand)
+                
+                # Check if offset matches a known promoter mutation (allow ±2bp tolerance)
+                for known_offset, mutation_name in promoter_offsets.items():
+                    if abs(offset - known_offset) <= 2:
+                        return mutation_name
+        except Exception:
+            # Silently fail - will return None
+            pass
     
     return None
 
 
 def _get_promoter_genomic_positions(gene_name: str, mutations_list: List[str], df_all_snv_indel: pd.DataFrame) -> Dict[str, int]:
     """
-    Get genomic positions for promoter mutations using TSS-relative positions.
+    Get genomic positions for promoter mutations.
     
-    Promoter mutation names like "C228T" refer to positions relative to transcription start site (TSS):
-    - C228T = -124 bp upstream of TSS
-    - C250T = -146 bp upstream of TSS
+    Uses two methods:
+    1. Hardcoded genomic positions (primary method):
+       - C228T (c.−124C>T): chr5:1295113
+       - C250T (c.−146C>T): chr5:1295135
+    2. TSS-relative positions (fallback method):
+       - C228T = -124 bp upstream of TSS
+       - C250T = -146 bp upstream of TSS
     
     This function:
-    1. Gets the canonical transcript and TSS from Ensembl
-    2. Calculates genomic positions based on TSS-relative positions
+    1. First tries hardcoded genomic positions for known promoter mutations
+    2. Falls back to TSS-relative calculation if hardcoded positions don't match
     3. Verifies variants exist at those positions matching REF/ALT
     
     Parameters
@@ -103,86 +135,132 @@ def _get_promoter_genomic_positions(gene_name: str, mutations_list: List[str], d
     """    
     positions = {}
     
-    # Map of known promoter mutations to their TSS-relative positions
+    # Map of known promoter mutations to their hardcoded genomic positions
+    # Format: mutation_name -> (chromosome, position)
+    promoter_genomic_positions = {
+        'C228T': ('chr5', 1295113),  # TERT promoter mutation
+        'C250T': ('chr5', 1295135),  # TERT promoter mutation
+    }
+    
+    # Map of known promoter mutations to their TSS-relative positions (for fallback)
     # Format: mutation_name -> bp upstream of TSS
     promoter_tss_offsets = {
         'C228T': -124,  # TERT promoter mutation
         'C250T': -146,  # TERT promoter mutation
     }
     
-    # Get gene coordinates
-    gene_coords = get_gene_coordinates(gene_name)
-    if gene_coords is None:
-        return positions
-    
-    chrom_str = gene_coords['chromosome']  # e.g., "chr5"
-    
-    # Get canonical transcript to find TSS
-    try:
-        gene_id = gene_coords['ensembl_id']
-        url = f"https://rest.ensembl.org/lookup/id/{gene_id}?content-type=application/json"
-        response = requests.get(url)
-        if response.status_code != 200:
-            return positions
+    # For each mutation, first try hardcoded positions
+    for mutation in mutations_list:
+        if mutation not in promoter_genomic_positions:
+            continue
         
-        gene_data = response.json()
-        canonical_transcript_id = gene_data.get('canonical_transcript')
+        chrom_str, expected_pos = promoter_genomic_positions[mutation]
+        ref_nuc = mutation[0]  # First character (REF)
+        alt_nuc = mutation[-1]  # Last character (ALT)
         
-        if canonical_transcript_id:
-            # Get transcript details
-            transcript_url = f"https://rest.ensembl.org/lookup/id/{canonical_transcript_id}?content-type=application/json"
-            transcript_response = requests.get(transcript_url)
-            if transcript_response.status_code == 200:
-                transcript_data = transcript_response.json()
-                strand = transcript_data.get('strand', 1)
-                tss = transcript_data.get('start') if strand == 1 else transcript_data.get('end')
+        # Method 1: Verify variant exists at hardcoded position with matching REF/ALT
+        # Check both 'chr5' and '5' formats
+        matching_variants = df_all_snv_indel[
+            (df_all_snv_indel['gene_name'] == gene_name) &
+            (
+                (df_all_snv_indel['CHROM'] == chrom_str) |
+                (df_all_snv_indel['CHROM'] == chrom_str.lstrip('chr'))
+            ) &
+            (df_all_snv_indel['POS'] == expected_pos) &
+            (df_all_snv_indel['REF'] == ref_nuc) &
+            (df_all_snv_indel['ALT'] == alt_nuc)
+        ]
+        
+        if not matching_variants.empty:
+            positions[mutation] = expected_pos
+            continue
+        
+        # Try searching within a small window (±2bp) in case of coordinate differences
+        chrom_variants = df_all_snv_indel[
+            (df_all_snv_indel['gene_name'] == gene_name) &
+            (
+                (df_all_snv_indel['CHROM'] == chrom_str) |
+                (df_all_snv_indel['CHROM'] == chrom_str.lstrip('chr'))
+            ) &
+            (df_all_snv_indel['POS'] >= expected_pos - 2) &
+            (df_all_snv_indel['POS'] <= expected_pos + 2) &
+            (df_all_snv_indel['REF'] == ref_nuc) &
+            (df_all_snv_indel['ALT'] == alt_nuc)
+        ]
+        if not chrom_variants.empty:
+            # Use the closest position
+            closest_pos = chrom_variants['POS'].iloc[0]
+            positions[mutation] = closest_pos
+            print(f"  Note: {gene_name} {mutation} found at {closest_pos} (expected {expected_pos})")
+            continue
+        
+        # Method 2: Fallback to TSS-relative calculation
+        if mutation in promoter_tss_offsets:
+            try:
+                # Get gene coordinates
+                gene_coords = get_gene_coordinates(gene_name)
+                if gene_coords is None:
+                    continue
                 
-                # For each mutation, calculate genomic position from TSS
-                for mutation in mutations_list:
-                    if mutation not in promoter_tss_offsets:
-                        continue
-                    
-                    tss_offset = promoter_tss_offsets[mutation]
-                    ref_nuc = mutation[0]  # First character (REF)
-                    alt_nuc = mutation[-1]  # Last character (ALT)
-                    
-                    # Calculate genomic position
-                    # For forward strand: upstream = TSS - offset (offset is negative)
-                    # For reverse strand: upstream = TSS + offset (offset is negative, so we add)
-                    if strand == 1:
-                        expected_pos = tss + tss_offset  # tss_offset is negative, so this subtracts
-                    else:
-                        expected_pos = tss - tss_offset  # For reverse strand, upstream is + direction
-                    
-                    # Verify variant exists at this position with matching REF/ALT
-                    matching_variants = df_all_snv_indel[
-                        (df_all_snv_indel['gene_name'] == gene_name) &
-                        (df_all_snv_indel['CHROM'] == chrom_str) &
-                        (df_all_snv_indel['POS'] == expected_pos) &
-                        (df_all_snv_indel['REF'] == ref_nuc) &
-                        (df_all_snv_indel['ALT'] == alt_nuc)
-                    ]
-                    
-                    if not matching_variants.empty:
-                        positions[mutation] = expected_pos
-                    else:
-                        # Try searching within a small window (±5bp) in case of coordinate differences
-                        window_variants = df_all_snv_indel[
+                chrom_str = gene_coords['chromosome']  # e.g., "chr5"
+                
+                # Get canonical transcript to find TSS
+                gene_id = gene_coords['ensembl_id']
+                url = f"https://rest.ensembl.org/lookup/id/{gene_id}?content-type=application/json"
+                response = requests.get(url)
+                if response.status_code != 200:
+                    continue
+                
+                gene_data = response.json()
+                canonical_transcript_id = gene_data.get('canonical_transcript')
+                
+                if canonical_transcript_id:
+                    # Get transcript details
+                    transcript_url = f"https://rest.ensembl.org/lookup/id/{canonical_transcript_id}?content-type=application/json"
+                    transcript_response = requests.get(transcript_url)
+                    if transcript_response.status_code == 200:
+                        transcript_data = transcript_response.json()
+                        strand = transcript_data.get('strand', 1)
+                        tss = transcript_data.get('start') if strand == 1 else transcript_data.get('end')
+                        
+                        tss_offset = promoter_tss_offsets[mutation]
+                        
+                        # Calculate genomic position
+                        # For forward strand: upstream = TSS - offset (offset is negative)
+                        # For reverse strand: upstream = TSS + offset (offset is negative, so we add)
+                        if strand == 1:
+                            expected_pos = tss + tss_offset  # tss_offset is negative, so this subtracts
+                        else:
+                            expected_pos = tss - tss_offset  # For reverse strand, upstream is + direction
+                        
+                        # Verify variant exists at this position with matching REF/ALT
+                        matching_variants = df_all_snv_indel[
                             (df_all_snv_indel['gene_name'] == gene_name) &
                             (df_all_snv_indel['CHROM'] == chrom_str) &
-                            (df_all_snv_indel['POS'] >= expected_pos - 5) &
-                            (df_all_snv_indel['POS'] <= expected_pos + 5) &
+                            (df_all_snv_indel['POS'] == expected_pos) &
                             (df_all_snv_indel['REF'] == ref_nuc) &
                             (df_all_snv_indel['ALT'] == alt_nuc)
                         ]
-                        if not window_variants.empty:
-                            # Use the closest position
-                            closest_pos = window_variants['POS'].iloc[0]
-                            positions[mutation] = closest_pos
-                            print(f"  Note: {gene_name} {mutation} found at {closest_pos} (expected {expected_pos}, TSS={tss})")
                         
-    except Exception as e:
-        print(f"Warning: Could not get promoter positions for {gene_name} from Ensembl: {e}")
+                        if not matching_variants.empty:
+                            positions[mutation] = expected_pos
+                        else:
+                            # Try searching within a small window (±5bp) in case of coordinate differences
+                            window_variants = df_all_snv_indel[
+                                (df_all_snv_indel['gene_name'] == gene_name) &
+                                (df_all_snv_indel['CHROM'] == chrom_str) &
+                                (df_all_snv_indel['POS'] >= expected_pos - 5) &
+                                (df_all_snv_indel['POS'] <= expected_pos + 5) &
+                                (df_all_snv_indel['REF'] == ref_nuc) &
+                                (df_all_snv_indel['ALT'] == alt_nuc)
+                            ]
+                            if not window_variants.empty:
+                                # Use the closest position
+                                closest_pos = window_variants['POS'].iloc[0]
+                                positions[mutation] = closest_pos
+                                print(f"  Note: {gene_name} {mutation} found at {closest_pos} (expected {expected_pos}, TSS={tss})")
+            except Exception as e:
+                print(f"Warning: Could not get promoter positions for {gene_name} {mutation} from Ensembl: {e}")
     
     return positions
 
@@ -307,7 +385,7 @@ def create_comprehensive_patient_gene_matrix(
         patients_with_mutation = set()
         for mutation in mutations_list:
             if is_promoter:
-                # Promoter mutations: identify by checking position relative to TSS using transcript_id from variant
+                # Promoter mutations: identify by checking hardcoded genomic positions
                 ref_nuc = mutation[0]  # First character
                 alt_nuc = mutation[-1]  # Last character
                 
@@ -318,12 +396,15 @@ def create_comprehensive_patient_gene_matrix(
                 ].copy()
                 
                 # For each matching variant, check if it's the specific promoter mutation
+                # First tries hardcoded genomic positions, then falls back to TSS-relative if available
                 for _, variant_row in matching_variants.iterrows():
+                    transcript_id = variant_row.get('transcript_id') if 'transcript_id' in variant_row else None
                     identified_mutation = _identify_promoter_mutation(
                         variant_row['POS'],
-                        variant_row['transcript_id'],
+                        variant_row['CHROM'],
                         variant_row['REF'],
-                        variant_row['ALT']
+                        variant_row['ALT'],
+                        transcript_id=transcript_id
                     )
                     if identified_mutation == mutation:
                         patients_with_mutation.add(variant_row['sample'])
