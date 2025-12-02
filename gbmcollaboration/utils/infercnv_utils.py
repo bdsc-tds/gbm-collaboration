@@ -461,12 +461,18 @@ class InferCNVAnalyzer:
 
         return self.bins_df
 
-    def run_ith_scores(self, groupby, save_path: str = None):
+    def run_ith_scores(self, groupby, label_key: str = None, label_to_score: str = None, save_path: str = None):
         """ Intratumoral heterogeneity scores based on CNAs and gene expressions """
+        if label_key is not None:
+            logger.info(f"Subsetting to {label_to_score} cells based on {label_key} cells for ITH scores")
+            adata_score = self.adata[self.adata.obs[label_key] == label_to_score].copy()
+        else:
+            adata_score = self.adata
+
         logger.info("Computing ITH scores based on CNAs")
-        cnv.tl.ithcna(self.adata, groupby, use_rep='X_cnv', key_added='ithcna', inplace=True)
+        cnv.tl.ithcna(adata_score, groupby, use_rep='X_cnv', key_added='ithcna', inplace=True)
         logger.info("Computing ITH scores based on GEX")
-        cnv.tl.ithcna(self.adata, groupby, key_added='ithgex', inplace=True)
+        cnv.tl.ithcna(adata_score, groupby, key_added='ithgex', inplace=True)
 
         if save_path is not None:
-            self.adata.obs[['ithcna','ithgex']].to_csv(save_path)
+            adata_score.obs[['ithcna','ithgex']].to_csv(save_path)
