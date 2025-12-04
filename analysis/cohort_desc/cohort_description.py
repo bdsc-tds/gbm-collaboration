@@ -9,7 +9,7 @@ from gbmcollaboration import CHUVDataCenter, UKERDataCenter
 from gbmcollaboration.data.utils.descriptive_stats import create_demographic_table
 
 # constants
-Project = "BoC"  # or "BoC"
+Project = "BoC"  # "BoC" or "Glimmer"
 date = "2025-08-19"  # e.g., "2025-08-18" if you want it in the filename
 BASE_DATA_DIR = "/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/descriptive_stats"
 ADD_OVERALL_ROW = True  # set False if you don't want an overall summary
