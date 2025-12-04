@@ -50,28 +50,6 @@ class DataCenter(NamedTuple):
     def load_tabular(self, exclude_idh1_mut: bool = False):
         """Load tabular data."""
 
-        def exclude_over_max_id(df: pd.DataFrame) -> pd.DataFrame:
-            def keep_label(label: str) -> bool:
-                # grab the number at the end
-                m = re.search(r"(\d+)$", label)
-                if not m:
-                    return True  # keep if no number found
-                sid = int(m.group(1))
-                if "ER" in label:
-                    return sid <= UKER_MAX_ID
-                else:  # assume CH
-                    return sid <= CHUV_MAX_ID
-
-            # apply filter to index
-            keep_index = [keep_label(str(idx)) for idx in df.index]
-            df = df.loc[keep_index]
-
-            # also check columns in case samples are columns
-            keep_cols = [keep_label(str(col)) for col in df.columns]
-            df = df.loc[:, keep_cols]
-
-            return df
-
         def exclude_idh1mut(df: pd.DataFrame) -> pd.DataFrame:
             """
             Parameters
@@ -108,7 +86,6 @@ class DataCenter(NamedTuple):
 
         def load_and_filter(file_obj):
             df = file_obj.load()
-            df = exclude_over_max_id(df)
             if exclude_idh1_mut:
                 df = exclude_idh1mut(df)
             return df
