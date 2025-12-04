@@ -48,23 +48,53 @@ class DataCenter(NamedTuple):
     sources: dict[str, DataSource]
 
     def load_tabular(self, exclude_idh1_mut: bool = False):
-        """Load tabular data."""
+        """Load tabular data.
+
+        Parameters
+        ----------
+        exclude_idh1_mut : bool
+            If True, removes samples from the data whose indices are in the predefined
+            list of IDH1-mutated samples, by default False.
+        Returns
+        -------
+        dict[str, pd.DataFrame]
+            Dictionary of dataframes for each source that are tabular.
+        """
 
         def exclude_idh1mut(df: pd.DataFrame) -> pd.DataFrame:
             """
+            Remove samples corresponding to IDH1-mutated patients from a DataFrame.
+
+            This function filters out columns or rows whose labels match patient IDs
+            listed in the global `PATIENTS_IDH1_MUT` variable.
+
+            The function then:
+            - Builds a regex pattern from the cleaned patient IDs.
+            - Checks whether any **columns** contain IDH1-mutated patient IDs.
+            - If none are found, checks whether any **rows** contain these IDs.
+            - Drops the matching columns or rows and prints a summary.
+
             Parameters
             ----------
-            exclude_idh1_mut : bool
-                If True, removes samples from the data whose indices are in the predefined
-                list of IDH1-mutated samples, by default False.
+            df : pd.DataFrame
+                Input DataFrame whose index or columns may contain sample identifiers.
+
             Returns
             -------
-            dict[str, pd.DataFrame]
-                Dictionary of dataframes for each source that are tabular.
+            pd.DataFrame
+                A copy of the DataFrame with IDH1-mutated samples removed (either
+                column-wise or row-wise depending on where matches are found).
+
+            Notes
+            -----
+            - Column matches take precedence: if any column names match, only columns
+            are checked/dropped.
+            - If no columns match, row labels are checked instead.
+            - If neither columns nor rows contain the mutated IDs, a message is printed
+            and the DataFrame is returned unchanged.
             """
             # remove the suffix from visium
             mutated_patient = PATIENTS_IDH1_MUT.copy()
-            mutated_patient = [s[:-5] for s in mutated_patient]
             # convert mutated_patient to a set for faster lookups
             patients_set = set(mutated_patient)
             # create a pattern to match any of the patient IDs in the set
