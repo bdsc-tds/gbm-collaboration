@@ -8,7 +8,7 @@ from matplotlib.patches import Rectangle
 from typing import Tuple
 
 
-def create_oncoplot(patient_gene_matrix: pd.DataFrame, figsize: Tuple[int, int] = (20, 10)) -> None:
+def create_oncoplot(patient_gene_matrix: pd.DataFrame, figsize: Tuple[int, int] = (20, 10), output_file: str = None) -> None:
     """
     Create an oncoplot-style heatmap showing alterations per patient-gene pair.
     
@@ -19,11 +19,13 @@ def create_oncoplot(patient_gene_matrix: pd.DataFrame, figsize: Tuple[int, int] 
         Rows should be samples/patients, columns should be alteration types
     figsize : tuple
         Figure size (width, height)
+    output_file : str, optional
+        Path to save the plot as PNG. If None, only displays the plot.
         
     Returns
     -------
     None
-        Displays the plot
+        Displays the plot and optionally saves it
     """
     # Extract unique genes from column names
     genes = set()
@@ -203,6 +205,12 @@ def create_oncoplot(patient_gene_matrix: pd.DataFrame, figsize: Tuple[int, int] 
     )
     
     plt.tight_layout()
+    
+    # Save plot if output_file is provided
+    if output_file:
+        plt.savefig(output_file, dpi=300, bbox_inches='tight')
+        print(f"\nSaved oncoplot to {output_file}")
+    
     plt.show()
     
     print(f"\nPlotted {len(gene_labels)} genes with alterations across {len(samples)} samples")

@@ -1,5 +1,5 @@
 # %%
-# Autoreload extension for IPython/Jupyter (safe to run as script)
+# Autoreload extension for IPython/Jupyter
 try:
     from IPython import get_ipython
     ipython = get_ipython()
@@ -7,9 +7,10 @@ try:
         ipython.run_line_magic('load_ext', 'autoreload')
         ipython.run_line_magic('autoreload', '2')
 except (ImportError, NameError):
-    pass  # Not in IPython environment, skip magic commands
+    pass
 
 # %%
+# Import modules
 import pandas as pd
 import joblib
 import numpy as np
@@ -29,7 +30,10 @@ from gbmcollaboration.utils.wes_io_utils import glob_s3_bucket
 from gbmcollaboration.viz.mutations import create_oncoplot
 
 # %%
-RESULTS_DIR = Path('/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/results/WES/mutations')
+RESULTS_DIR = Path(
+    "/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/"
+    "results/WES/mutations"
+)
 RESULTS_DIR.mkdir(parents=True,exist_ok=True)
 
 # %%
@@ -56,9 +60,9 @@ print(f"\nGenes with amplifications: {', '.join(genes_amp)}")
 print(f"\nGenes with loss-of-function: {', '.join(genes_lof)}")
 
 # %%
-# Load all variants from WES data
+# Load ALL variants from ALL genes into comprehensive tables
 print("=" * 80)
-print("Loading all variants from all genes")
+print("STEP 1: Loading ALL variants from ALL genes into comprehensive tables")
 print("=" * 80)
 
 all_snv_indel_all_genes = []
@@ -118,13 +122,10 @@ print(f"\nSummary:")
 print(f"  SNV/indel variants: {len(df_all_snv_indel)} records")
 print(f"  CNV variants: {len(df_all_cnv)} records")
 
-
 # %%
-# Create patient X gene alteration matrix
-# Columns: {gene}_mut (specific mutations), {gene}_amp (amplifications),
-#          {gene}_lof (loss-of-function), {gene} (summary: any alteration)
+# Create comprehensive patient X gene matrix
 print("\n" + "=" * 80)
-print("Creating patient X gene alteration matrix")
+print("STEP 2: Creating comprehensive patient X gene alteration matrix")
 print("=" * 80)
 
 patient_gene_matrix = create_comprehensive_patient_gene_matrix(
@@ -139,9 +140,12 @@ print(f"\nAlteration frequency per column:")
 print(patient_gene_matrix.sum().sort_values(ascending=False))
 
 # %%
-# Create oncoplot
-create_oncoplot(patient_gene_matrix, figsize=(15, max(6, len(patient_gene_matrix.columns) * 0.2)))
+# Save patient gene matrix to CSV
+output_file = RESULTS_DIR / "patient_gene_matrix.csv"
+patient_gene_matrix.to_csv(output_file)
+print(f"\nSaved patient X gene matrix to {output_file}")
 
 # %%
-patient_gene_matrix.to_csv(RESULTS_DIR / 'patient_gene_matrix.csv')
-# %%
+# Create oncoplot-style heatmap
+plot_file = RESULTS_DIR / "oncoplot.png"
+create_oncoplot(patient_gene_matrix, figsize=(20, max(8, len(patient_gene_matrix.columns) * 0.3)), output_file=str(plot_file))

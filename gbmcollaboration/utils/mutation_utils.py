@@ -3,89 +3,118 @@
 import re
 import pandas as pd
 import requests
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Tuple
 
 from gbmcollaboration.utils.ensembl_utils import get_gene_coordinates
 
+# Hardcoded TERT promoter mutation positions (single source of truth)
+# Format: mutation_name -> (chromosome, position, ref, alt)
+# Note: TERT is on reverse strand, so C>T mutations appear as G>A in VCF
+TERT_PROMOTER_POSITIONS = {
+    'C228T': ('chr5', 1295113, 'C', 'T'),  # c.−124C>T (forward strand) = G>A (reverse strand/VCF)
+    'C250T': ('chr5', 1295135, 'C', 'T'),  # c.−146C>T (forward strand) = G>A (reverse strand/VCF)
+}
 
-def _identify_promoter_mutation(pos: int, transcript_id: str, ref: str, alt: str) -> Optional[str]:
+# Reverse complement mapping for reverse strand genes
+REVERSE_COMPLEMENT = {'A': 'T', 'T': 'A', 'C': 'G', 'G': 'C'}
+
+# TSS-relative positions for fallback (bp upstream of TSS)
+TERT_PROMOTER_TSS_OFFSETS = {
+    'C228T': -124,  # TERT promoter mutation
+    'C250T': -146,  # TERT promoter mutation
+}
+
+
+def _identify_promoter_mutation(pos: int, chrom: str, ref: str, alt: str, transcript_id: Optional[str] = None) -> Optional[str]:
     """
-    Identify if a variant is a known promoter mutation based on its position relative to TSS.
+    Identify if a variant is a known promoter mutation.
     
-    Promoter mutation names like "C228T" refer to positions relative to transcription start site (TSS):
-    - C228T = -124 bp upstream of TSS
-    - C250T = -146 bp upstream of TSS
+    Uses two methods:
+    1. Hardcoded genomic positions (primary method):
+       - C228T (c.−124C>T): chr5:1295113
+       - C250T (c.−146C>T): chr5:1295135
+    2. TSS-relative positions (fallback method):
+       - C228T = -124 bp upstream of TSS
+       - C250T = -146 bp upstream of TSS
     
     Parameters
     ----------
     pos : int
         Genomic position of the variant
-    transcript_id : str
-        Ensembl transcript ID (e.g., "ENST00000310581")
+    chrom : str
+        Chromosome (e.g., "chr5" or "5")
     ref : str
         Reference allele (e.g., "C")
     alt : str
         Alternate allele (e.g., "T")
+    transcript_id : str, optional
+        Ensembl transcript ID (e.g., "ENST00000310581") for TSS-relative fallback
     
     Returns
     -------
     str or None
         Mutation name (e.g., "C228T", "C250T") or None if not a known promoter mutation
     """
-    # Map of TSS-relative positions to mutation names
-    # Format: bp upstream of TSS -> mutation_name
-    promoter_offsets = {
-        -124: 'C228T',  # TERT promoter mutation
-        -146: 'C250T',  # TERT promoter mutation
-    }
+    # Check C>T mutations (forward strand) or G>A mutations (reverse strand/VCF)
+    # TERT is on reverse strand, so C>T appears as G>A in VCF
+    is_forward_strand = (ref == 'C' and alt == 'T')
+    is_reverse_strand = (ref == 'G' and alt == 'A')
     
-    # Only check C>T mutations
-    if ref != 'C' or alt != 'T':
+    if not (is_forward_strand or is_reverse_strand):
         return None
     
-    try:
-        # Get transcript details from Ensembl
-        transcript_url = f"https://rest.ensembl.org/lookup/id/{transcript_id}?content-type=application/json"
-        response = requests.get(transcript_url)
-        if response.status_code != 200:
-            return None
+    # Method 1: Check hardcoded genomic positions (primary method)
+    for mutation_name, (chrom_str, expected_pos, ref_nuc, alt_nuc) in TERT_PROMOTER_POSITIONS.items():
+        # Check if this matches forward strand (C>T) or reverse strand (G>A)
+        matches_forward = (ref == ref_nuc and alt == alt_nuc)
+        matches_reverse = (ref == REVERSE_COMPLEMENT.get(ref_nuc) and alt == REVERSE_COMPLEMENT.get(alt_nuc))
         
-        transcript_data = response.json()
-        strand = transcript_data.get('strand', 1)
-        tss = transcript_data.get('start') if strand == 1 else transcript_data.get('end')
-        
-        # Calculate offset from TSS
-        # For forward strand: upstream = decreasing coordinates, so offset = pos - tss (negative)
-        # For reverse strand: upstream = increasing coordinates, so offset = tss - pos (negative)
-        if strand == 1:
-            offset = pos - tss  # Negative if upstream
-        else:
-            offset = tss - pos  # Negative if upstream (TERT is reverse strand)
-        
-        # Check if offset matches a known promoter mutation (allow ±2bp tolerance)
-        for known_offset, mutation_name in promoter_offsets.items():
-            if abs(offset - known_offset) <= 2:
-                return mutation_name
+        if matches_forward or matches_reverse:
+            # Check if position matches (allow both chr5 and 5 format)
+            if pos == expected_pos:
+                if chrom == chrom_str or chrom == chrom_str.lstrip('chr') or \
+                   (chrom.startswith('chr') and chrom[3:] == chrom_str.lstrip('chr')) or \
+                   (not chrom.startswith('chr') and f'chr{chrom}' == chrom_str):
+                    return mutation_name
+    
+    # Method 2: Fallback to TSS-relative positions if transcript_id is available
+    if transcript_id:
+        try:
+            
+            # Get transcript details from Ensembl
+            transcript_url = f"https://rest.ensembl.org/lookup/id/{transcript_id}?content-type=application/json"
+            response = requests.get(transcript_url)
+            if response.status_code == 200:
+                transcript_data = response.json()
+                strand = transcript_data.get('strand', 1)
+                tss = transcript_data.get('start') if strand == 1 else transcript_data.get('end')
                 
-    except Exception as e:
-        # Silently fail - will fall back to other matching methods
-        pass
+                # Calculate offset from TSS
+                # For forward strand: upstream = decreasing coordinates, so offset = pos - tss (negative)
+                # For reverse strand: upstream = increasing coordinates, so offset = tss - pos (negative)
+                if strand == 1:
+                    offset = pos - tss  # Negative if upstream
+                else:
+                    offset = tss - pos  # Negative if upstream (TERT is reverse strand)
+                
+                # Check if offset matches a known promoter mutation (allow ±2bp tolerance)
+                for mutation_name, known_offset in TERT_PROMOTER_TSS_OFFSETS.items():
+                    if abs(offset - known_offset) <= 2:
+                        return mutation_name
+        except Exception:
+            # Silently fail - will return None
+            pass
     
     return None
 
 
-def _get_promoter_genomic_positions(gene_name: str, mutations_list: List[str], df_all_snv_indel: pd.DataFrame) -> Dict[str, int]:
+def _get_promoter_genomic_positions(gene_name: str, mutations_list: List[str]) -> Dict[str, Tuple[str, int]]:
     """
-    Get genomic positions for promoter mutations using TSS-relative positions.
+    Get genomic positions for promoter mutations.
     
-    Promoter mutation names like "C228T" refer to positions relative to transcription start site (TSS):
-    - C228T = -124 bp upstream of TSS
-    - C250T = -146 bp upstream of TSS
-    
-    This function:
-    1. Gets the canonical transcript and TSS from Ensembl
-    2. Calculates genomic positions based on TSS-relative positions
-    3. Verifies variants exist at those positions matching REF/ALT
+    Uses two methods:
+    1. Hardcoded genomic positions (primary method): Uses TERT_PROMOTER_POSITIONS
+    2. TSS-relative positions (fallback method): Uses TERT_PROMOTER_TSS_OFFSETS
     
     Parameters
     ----------
@@ -93,96 +122,63 @@ def _get_promoter_genomic_positions(gene_name: str, mutations_list: List[str], d
         Gene symbol (e.g., "TERT")
     mutations_list : list[str]
         List of mutation names (e.g., ["C228T", "C250T"])
-    df_all_snv_indel : pd.DataFrame
-        All SNV/indel variants to search in
         
     Returns
     -------
-    dict[str, int]
-        Mapping of mutation name to genomic position
+    dict[str, tuple[str, int]]
+        Mapping of mutation name to (chromosome, position) tuple
     """    
     positions = {}
     
-    # Map of known promoter mutations to their TSS-relative positions
-    # Format: mutation_name -> bp upstream of TSS
-    promoter_tss_offsets = {
-        'C228T': -124,  # TERT promoter mutation
-        'C250T': -146,  # TERT promoter mutation
-    }
-    
-    # Get gene coordinates
-    gene_coords = get_gene_coordinates(gene_name)
-    if gene_coords is None:
-        return positions
-    
-    chrom_str = gene_coords['chromosome']  # e.g., "chr5"
-    
-    # Get canonical transcript to find TSS
-    try:
-        gene_id = gene_coords['ensembl_id']
-        url = f"https://rest.ensembl.org/lookup/id/{gene_id}?content-type=application/json"
-        response = requests.get(url)
-        if response.status_code != 200:
-            return positions
+    # For each mutation, first try hardcoded positions
+    for mutation in mutations_list:
+        if mutation in TERT_PROMOTER_POSITIONS:
+            chrom_str, expected_pos, _, _ = TERT_PROMOTER_POSITIONS[mutation]
+            positions[mutation] = (chrom_str, expected_pos)
+            continue
         
-        gene_data = response.json()
-        canonical_transcript_id = gene_data.get('canonical_transcript')
-        
-        if canonical_transcript_id:
-            # Get transcript details
-            transcript_url = f"https://rest.ensembl.org/lookup/id/{canonical_transcript_id}?content-type=application/json"
-            transcript_response = requests.get(transcript_url)
-            if transcript_response.status_code == 200:
-                transcript_data = transcript_response.json()
-                strand = transcript_data.get('strand', 1)
-                tss = transcript_data.get('start') if strand == 1 else transcript_data.get('end')
+        # Method 2: Fallback to TSS-relative calculation
+        if mutation in TERT_PROMOTER_TSS_OFFSETS:
+            try:
+                # Get gene coordinates
+                gene_coords = get_gene_coordinates(gene_name)
+                if gene_coords is None:
+                    continue
                 
-                # For each mutation, calculate genomic position from TSS
-                for mutation in mutations_list:
-                    if mutation not in promoter_tss_offsets:
-                        continue
-                    
-                    tss_offset = promoter_tss_offsets[mutation]
-                    ref_nuc = mutation[0]  # First character (REF)
-                    alt_nuc = mutation[-1]  # Last character (ALT)
-                    
-                    # Calculate genomic position
-                    # For forward strand: upstream = TSS - offset (offset is negative)
-                    # For reverse strand: upstream = TSS + offset (offset is negative, so we add)
-                    if strand == 1:
-                        expected_pos = tss + tss_offset  # tss_offset is negative, so this subtracts
-                    else:
-                        expected_pos = tss - tss_offset  # For reverse strand, upstream is + direction
-                    
-                    # Verify variant exists at this position with matching REF/ALT
-                    matching_variants = df_all_snv_indel[
-                        (df_all_snv_indel['gene_name'] == gene_name) &
-                        (df_all_snv_indel['CHROM'] == chrom_str) &
-                        (df_all_snv_indel['POS'] == expected_pos) &
-                        (df_all_snv_indel['REF'] == ref_nuc) &
-                        (df_all_snv_indel['ALT'] == alt_nuc)
-                    ]
-                    
-                    if not matching_variants.empty:
-                        positions[mutation] = expected_pos
-                    else:
-                        # Try searching within a small window (±5bp) in case of coordinate differences
-                        window_variants = df_all_snv_indel[
-                            (df_all_snv_indel['gene_name'] == gene_name) &
-                            (df_all_snv_indel['CHROM'] == chrom_str) &
-                            (df_all_snv_indel['POS'] >= expected_pos - 5) &
-                            (df_all_snv_indel['POS'] <= expected_pos + 5) &
-                            (df_all_snv_indel['REF'] == ref_nuc) &
-                            (df_all_snv_indel['ALT'] == alt_nuc)
-                        ]
-                        if not window_variants.empty:
-                            # Use the closest position
-                            closest_pos = window_variants['POS'].iloc[0]
-                            positions[mutation] = closest_pos
-                            print(f"  Note: {gene_name} {mutation} found at {closest_pos} (expected {expected_pos}, TSS={tss})")
+                chrom_str = gene_coords['chromosome']  # e.g., "chr5"
+                
+                # Get canonical transcript to find TSS
+                gene_id = gene_coords['ensembl_id']
+                url = f"https://rest.ensembl.org/lookup/id/{gene_id}?content-type=application/json"
+                response = requests.get(url)
+                if response.status_code != 200:
+                    continue
+                
+                gene_data = response.json()
+                canonical_transcript_id = gene_data.get('canonical_transcript')
+                
+                if canonical_transcript_id:
+                    # Get transcript details
+                    transcript_url = f"https://rest.ensembl.org/lookup/id/{canonical_transcript_id}?content-type=application/json"
+                    transcript_response = requests.get(transcript_url)
+                    if transcript_response.status_code == 200:
+                        transcript_data = transcript_response.json()
+                        strand = transcript_data.get('strand', 1)
+                        tss = transcript_data.get('start') if strand == 1 else transcript_data.get('end')
                         
-    except Exception as e:
-        print(f"Warning: Could not get promoter positions for {gene_name} from Ensembl: {e}")
+                        tss_offset = TERT_PROMOTER_TSS_OFFSETS[mutation]
+                        
+                        # Calculate genomic position
+                        # For forward strand: upstream = TSS - offset (offset is negative)
+                        # For reverse strand: upstream = TSS + offset (offset is negative, so we add)
+                        if strand == 1:
+                            expected_pos = tss + tss_offset  # tss_offset is negative, so this subtracts
+                        else:
+                            expected_pos = tss - tss_offset  # For reverse strand, upstream is + direction
+                        
+                        positions[mutation] = (chrom_str, expected_pos)
+            except Exception as e:
+                print(f"Warning: Could not get promoter positions for {gene_name} {mutation} from Ensembl: {e}")
     
     return positions
 
@@ -287,8 +283,6 @@ def create_comprehensive_patient_gene_matrix(
         if 'location' in genes_mut_df.columns:
             location_val = str(row.get('location', '')).lower().strip()
             is_promoter = location_val == 'promoter'
-            if is_promoter:
-                print(f"  Detected {gene} as promoter mutations")
         
         # Use display name with "p" suffix for promoter genes, original name for computation
         display_gene = f"{gene}p" if is_promoter else gene
@@ -305,34 +299,69 @@ def create_comprehensive_patient_gene_matrix(
             continue
         
         patients_with_mutation = set()
-        for mutation in mutations_list:
-            if is_promoter:
-                # Promoter mutations: identify by checking position relative to TSS using transcript_id from variant
-                ref_nuc = mutation[0]  # First character
-                alt_nuc = mutation[-1]  # Last character
-                
-                # Filter variants matching REF/ALT
-                matching_variants = gene_variants[
-                    (gene_variants['REF'] == ref_nuc) &
-                    (gene_variants['ALT'] == alt_nuc)
-                ].copy()
-                
-                # For each matching variant, check if it's the specific promoter mutation
-                for _, variant_row in matching_variants.iterrows():
-                    identified_mutation = _identify_promoter_mutation(
-                        variant_row['POS'],
-                        variant_row['transcript_id'],
-                        variant_row['REF'],
-                        variant_row['ALT']
-                    )
-                    if identified_mutation == mutation:
-                        patients_with_mutation.add(variant_row['sample'])
-            else:
-                # Coding mutations: check amino acid changes
+        if is_promoter:
+            # Promoter mutations: use hardcoded genomic positions
+            mutation_positions = _get_promoter_genomic_positions(gene, mutations_list)
+            
+            # Filter variants directly at the known positions (single filtering step)
+            for mutation in mutations_list:
+                if mutation in mutation_positions:
+                    chrom_str, expected_pos = mutation_positions[mutation]
+                    _, _, ref_nuc, alt_nuc = TERT_PROMOTER_POSITIONS[mutation]
+                    
+                    # TERT is on reverse strand, so C>T mutations appear as G>A in VCF
+                    # Check for both forward strand (C>T) and reverse strand (G>A) representations
+                    ref_rev = REVERSE_COMPLEMENT.get(ref_nuc)
+                    alt_rev = REVERSE_COMPLEMENT.get(alt_nuc)
+                    
+                    # Filter variants at the exact position (check both strand orientations)
+                    matching_variants = df_all_snv_indel[
+                        (
+                            (df_all_snv_indel['CHROM'] == chrom_str) |
+                            (df_all_snv_indel['CHROM'] == chrom_str.lstrip('chr'))
+                        ) &
+                        (df_all_snv_indel['POS'] == expected_pos) &
+                        (
+                            # Forward strand: C>T
+                            ((df_all_snv_indel['REF'] == ref_nuc) & (df_all_snv_indel['ALT'] == alt_nuc)) |
+                            # Reverse strand: G>A (reverse complement)
+                            ((ref_rev is not None) & (alt_rev is not None) & 
+                             (df_all_snv_indel['REF'] == ref_rev) & (df_all_snv_indel['ALT'] == alt_rev))
+                        )
+                    ]
+                    patients_with_mutation.update(matching_variants['sample'].unique())
+                else:
+                    # Fallback: use _identify_promoter_mutation if position not found
+                    if mutation in TERT_PROMOTER_POSITIONS:
+                        _, _, ref_nuc, alt_nuc = TERT_PROMOTER_POSITIONS[mutation]
+                    else:
+                        ref_nuc = mutation[0]
+                        alt_nuc = mutation[-1]
+                    
+                    matching_variants = gene_variants[
+                        (gene_variants['REF'] == ref_nuc) &
+                        (gene_variants['ALT'] == alt_nuc)
+                    ].copy()
+                    
+                    for _, variant_row in matching_variants.iterrows():
+                        transcript_id = variant_row.get('transcript_id') if 'transcript_id' in variant_row else None
+                        identified_mutation = _identify_promoter_mutation(
+                            variant_row['POS'],
+                            variant_row['CHROM'],
+                            variant_row['REF'],
+                            variant_row['ALT'],
+                            transcript_id=transcript_id
+                        )
+                        if identified_mutation == mutation:
+                            patients_with_mutation.add(variant_row['sample'])
+        else:
+            # Coding mutations: check amino acid changes
+            for mutation in mutations_list:
                 aa_mask = gene_variants['amino_acid'].str.contains(mutation, na=False, case=False)
                 patients_with_mutation.update(gene_variants[aa_mask]['sample'].unique())
                 
                 # Also try nucleotide check as fallback (for cases like C228T format in coding region)
+                # Note: If mutation is in cDNA notation for reverse strand genes, VCF will have reverse complement
                 if len(mutation) >= 3 and mutation[0].isalpha() and mutation[-1].isalpha():
                     try:
                         pos_match = re.search(r'(\d+)', mutation)
@@ -340,11 +369,41 @@ def create_comprehensive_patient_gene_matrix(
                             pos_str = pos_match.group(1)
                             ref_nuc = mutation[0]
                             alt_nuc = mutation[-1]
-                            nuc_mask = (
-                                (gene_variants['REF'] == ref_nuc) &
-                                (gene_variants['ALT'] == alt_nuc) &
-                                (gene_variants['POS'].astype(str).str.contains(pos_str, na=False))
-                            )
+                            
+                            # Check if gene is on reverse strand (for strand-aware nucleotide matching)
+                            gene_coords = get_gene_coordinates(gene)
+                            is_reverse_strand = False
+                            if gene_coords:
+                                try:
+                                    gene_id = gene_coords['ensembl_id']
+                                    url = f"https://rest.ensembl.org/lookup/id/{gene_id}?content-type=application/json"
+                                    response = requests.get(url, timeout=5)
+                                    if response.status_code == 200:
+                                        gene_data = response.json()
+                                        strand = gene_data.get('strand', 1)
+                                        is_reverse_strand = (strand == -1)
+                                except:
+                                    pass  # Fall back to forward strand assumption
+                            
+                            # Match forward strand (as reported) or reverse complement (as in VCF)
+                            ref_rev = REVERSE_COMPLEMENT.get(ref_nuc)
+                            alt_rev = REVERSE_COMPLEMENT.get(alt_nuc)
+                            
+                            if is_reverse_strand and ref_rev and alt_rev:
+                                # Gene is on reverse strand: check reverse complement in VCF
+                                nuc_mask = (
+                                    (gene_variants['REF'] == ref_rev) &
+                                    (gene_variants['ALT'] == alt_rev) &
+                                    (gene_variants['POS'].astype(str).str.contains(pos_str, na=False))
+                                )
+                            else:
+                                # Gene is on forward strand or strand unknown: check as reported
+                                nuc_mask = (
+                                    (gene_variants['REF'] == ref_nuc) &
+                                    (gene_variants['ALT'] == alt_nuc) &
+                                    (gene_variants['POS'].astype(str).str.contains(pos_str, na=False))
+                                )
+                            
                             patients_with_mutation.update(gene_variants[nuc_mask]['sample'].unique())
                     except:
                         pass
