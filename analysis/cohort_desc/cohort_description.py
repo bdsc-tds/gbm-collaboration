@@ -1,3 +1,5 @@
+"""Script for describing the cohort data."""
+
 # %% load packages, function and data
 import pandas as pd
 import numpy as np

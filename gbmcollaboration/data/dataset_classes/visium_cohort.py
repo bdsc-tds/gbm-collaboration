@@ -80,7 +80,7 @@ class VisiumCohort:
             list_sample_ids = [
                 sample_id
                 for sample_id in list_sample_ids
-                if sample_id not in ignore_sample_ids
+                if not any(ign in sample_id for ign in ignore_sample_ids)
             ]
 
         # Check that there is no duplicated block in the dataset, with sampleX_vis and sampleX_vbu for example
@@ -230,6 +230,26 @@ class VisiumCohort:
         )
         return sample_id, deconv, deconv_frac
 
+    def load_image_sample(self, sample_id: str) -> tuple[str, np.ndarray]:
+        """Load the counts data for a given sample."""
+        uns_spatial, obsm_spatial = self._dict_visium_samples[sample_id].load_images()
+        return sample_id, uns_spatial, obsm_spatial
+
+    def load_images_cohort(self) -> dict[str, Any]:
+
+        images_list = Parallel(n_jobs=-1, prefer="threads")(
+            delayed(self.load_image_sample)(sample_id)
+            for sample_id in self.list_sample_ids
+        )
+
+        uns_spatial = {}
+        obsm_spatial = {}
+        for (sample_id, uns_, obsm_) in images_list:
+            uns_spatial[sample_id] = uns_
+            obsm_spatial[sample_id] = obsm_
+
+        return {'uns_spatial':uns_spatial, 'obsm_spatial':obsm_spatial}
+
     def load_deconvolution_cohort(
         self,
         celltype_mapping_dict=None,
@@ -264,6 +284,7 @@ class VisiumCohort:
             )
             for sample_id in self.list_sample_ids
         )
+
         # Necessary step in parallel version
         # Otherwise the sample's attribute are not modified
         # including the list_celltypes, deconvolution, deconvolution_frac, loaded_deconvolution attributes

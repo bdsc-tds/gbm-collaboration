@@ -10,9 +10,11 @@ import subprocess
 
 # choice of version of the processing for visium
 FOLDER_VERSION = {
-    "sc_rna": "v4",
-    "visium": "v5",
-    "clinical": "live"
+    "sc_rna": "v5",
+    "visium": "v7",
+    "clinical": "v3",
+    "wes": "v2",
+    "rnaseq":"v2"
 }
 # can be v1/v2/v3/live, live is not stable and can change through time
 
@@ -28,18 +30,6 @@ def get_zarr_directories(bucket_name, prefix=""):
 
         # Filter .zarr folders
         zarr_folders = [line.split()[-1].rstrip('/') for line in result.stdout.splitlines() if line.endswith('.zarr/')]
-
-        # for UKER data, we need to exclude samples with numbers above 310
-        if "40ce7e61-5ff6-467e-9972-0c85705f086c" in prefix:
-            zarr_folders = [
-                folder for folder in zarr_folders if int(folder.split("_")[-2][:-1]) <= UKER_MAX_ID
-            ]
-
-        # same for CHUV, exclude samples above 207
-        if "b5bd8840-cc6e-4de2-a78a-22315e9d1734" in prefix:
-            zarr_folders = [
-                folder for folder in zarr_folders if int(folder.split("_")[-2][:-1]) <= CHUV_MAX_ID
-            ]
 
         # Build full paths
         full_zarr_paths = [f"s3://{bucket_name}/{prefix}{zarr_folder}" for zarr_folder in zarr_folders]
@@ -84,19 +74,22 @@ def generate_data_path(
     data_paths = {
         "Processed clinical": get_s3_path(clinical_id, f"{FOLDER_VERSION['clinical']}/tables/processed_clinical_data.csv"),
         "Key events": get_s3_path(clinical_id, f"{FOLDER_VERSION['clinical']}/tables/patient_key_events.csv"),
-        "Bulk RNA raw counts": get_s3_path(bulkrna_id, "raw_counts.tsv"),
-        "Bulk RNA TPM": get_s3_path(bulkrna_id, "tpm_counts.tsv"),
-        "Bulk RNA normalized counts": get_s3_path(bulkrna_id, "deseq2norm_counts.tsv"),
-        "WES CNV deletion": get_s3_path(wes_id, "cohort_level/cnv/binary_deletion_status.csv"),
-        "WES CNV amplification": get_s3_path(wes_id, "cohort_level/cnv/binary_duplication_status.csv"),
-        "WES mutations": get_s3_path(wes_id, "cohort_level/snv_indel/binary_oncogenic_alteration_status.csv"),
+        "Bulk RNA raw counts": get_s3_path(bulkrna_id, f"{FOLDER_VERSION['rnaseq']}/raw_counts.tsv"),
+        "Bulk RNA TPM": get_s3_path(bulkrna_id, f"{FOLDER_VERSION['rnaseq']}/tpm_counts.tsv"),
+        "Bulk RNA normalized counts": get_s3_path(bulkrna_id, f"{FOLDER_VERSION['rnaseq']}/deseq2norm_counts.tsv"),
+        "WES CNV deletion": get_s3_path(wes_id, f"{FOLDER_VERSION['wes']}/cohort_level/cnv/binary_deletion_status.csv"),
+        "WES CNV amplification": get_s3_path(wes_id, f"{FOLDER_VERSION['wes']}/cohort_level/cnv/binary_duplication_status.csv"),
+        "WES mutations": get_s3_path(wes_id, f"{FOLDER_VERSION['wes']}/cohort_level/snv_indel/binary_oncogenic_alteration_status.csv"),
         "HE_images": get_s3_path(he_images_id, "HE"),
         "HE_features_H0": get_s3_path(he_features_id, "image_features/features_H0"),
         "Spatial Zarr Files": load_zarr_func,
         "Single-cell RNA": str(get_s3_path(single_cell_id, f"{FOLDER_VERSION['sc_rna']}/dataset_level/dataset-{single_cell_id}/merge_samples/sc_merged_annotated.zarr")),
         "WES TMB": load_tmb_func,
+        "Cell2location": get_s3_path(he_features_id, f"{FOLDER_VERSION['visium']}/without_spotclean/cell2loc/AnnData_objects/"),
     }
     return data_paths
+
+
 
 ### CHUV DATA
 DATA_ID_CHUV = {
@@ -118,6 +111,19 @@ DATA_ID_UKER = {
     "UKER_sc_rna": "09ce5d6d-e8de-464a-91c1-c534823200d0"
 }
 
+### CR DATA
+DATA_ID_CR = {
+    "CR_clinical": "9e8255bd-f5fd-4be2-9b14-71f45c90ef77",
+    "CR_bulkrna": "34bed287-1bf3-4a70-bff2-cb154061586b",
+    "CR_wes": "53cde683-5a68-4340-a817-e92d74084281",
+    "CR_he_images": "b0d0f0c7-a904-4331-ad1c-f86ca0527120",
+    "CR_he_features": "f0415978-2385-4067-b215-13e699a0f7a7",
+    "CR_sc_rna":"ebf3efa8-c8e8-47e1-a56f-68835d75c653"
+}
+
+
+
+
 # Check if running in GitHub Actions
 IN_GITHUB_ACTIONS = os.getenv("GITHUB_ACTIONS") == "true"
 # Conditionally set up the data path dictionary
@@ -130,19 +136,29 @@ if not IN_GITHUB_ACTIONS:
         bucket_name="pa-bi4jtrdsa151p4d3m-jepjxh9qrwgxphe8hd3r6exicahnoeuw1b-s3alias",
         prefix=f"40ce7e61-5ff6-467e-9972-0c85705f086c/{FOLDER_VERSION['visium']}/without_spotclean/SpatialData/"
     )
+    load_zarr_cr_files = get_zarr_directories(
+        bucket_name="pa-bi4jtrdsa151p4d3m-jepjxh9qrwgxphe8hd3r6exicahnoeuw1b-s3alias",
+        prefix=f"f0415978-2385-4067-b215-13e699a0f7a7/{FOLDER_VERSION['visium']}/without_spotclean/SpatialData/"
+    )
     load_tmb_chuv = load_wes_sample_level_metrics(
         bucket_name="pa-bi4jtrdsa151p4d3m-jepjxh9qrwgxphe8hd3r6exicahnoeuw1b-s3alias",
-        prefix=DATA_ID_CHUV["CHUV_wes"]
+        prefix=DATA_ID_CHUV["CHUV_wes"]+f"/{FOLDER_VERSION['wes']}"
     )
     load_tmb_uker = load_wes_sample_level_metrics(
         bucket_name="pa-bi4jtrdsa151p4d3m-jepjxh9qrwgxphe8hd3r6exicahnoeuw1b-s3alias",
-        prefix=DATA_ID_UKER["UKER_wes"]
+        prefix=DATA_ID_UKER["UKER_wes"]+f"/{FOLDER_VERSION['wes']}"
+    )
+    load_tmb_cr = load_wes_sample_level_metrics(
+        bucket_name="pa-bi4jtrdsa151p4d3m-jepjxh9qrwgxphe8hd3r6exicahnoeuw1b-s3alias",
+        prefix=DATA_ID_CR["CR_wes"]+f"/{FOLDER_VERSION['wes']}"
     )
 else:
     load_zarr_chuv_files = []
     load_zarr_uker_files = []
+    load_zarr_cr_files = []
     load_tmb_chuv = []
     load_tmb_uker = []
+    load_tmb_cr = []
 
 DATA_PATH_CHUV_FILES = generate_data_path(
     DATA_ID_CHUV["CHUV_clinical"],
@@ -164,6 +180,17 @@ DATA_PATH_UKER_FILES = generate_data_path(
     load_zarr_uker_files,
     DATA_ID_UKER["UKER_sc_rna"],
     load_tmb_uker,
+)
+
+DATA_PATH_CR_FILES = generate_data_path(
+    DATA_ID_CR["CR_clinical"],
+    DATA_ID_CR["CR_bulkrna"],
+    DATA_ID_CR["CR_wes"],
+    DATA_ID_CR["CR_he_images"],
+    DATA_ID_CR["CR_he_features"],
+    load_zarr_cr_files,
+    DATA_ID_CR["CR_sc_rna"],
+    load_tmb_cr,
 )
 
 MOSAIC_DATA_DICT_FILENAME = Path(__file__).parent / "metadata" / "gbm_dict.xlsx"
@@ -241,35 +268,99 @@ AVG_NUM_DAYS_PER_YEAR = 365.25
 
 # patient with IDH1 mutation, to potentially exclude
 # from tabular data (not present in visium data)
-PATIENTS_IDH1_MUT = ["ER_G_272a_vis", "ER_G_273a_vis", "ER_G_292b_vis", "ER_G_292a_vis"]
+PATIENTS_IDH1_MUT = ["ER_G_272a", "ER_G_273a", "ER_G_292b", "ER_G_292a"]
 
-# samples to exclude from the UKER dataset
+# samples to exclude: pending review/no data/blank from excel sheet
+BAD_QUALITY_CHUV_VISIUM = [
+    "CH_G_157a",
+    "CH_G_188a",
+    "CH_G_532a",
+    "CH_G_533a",
+    "CH_G_534a",
+    "CH_G_535a",
+    "CH_G_536a",
+]
 BAD_QUALITY_UKER_VISIUM = [
-    "ER_G_196b_vis",
-    "ER_G_199a_vis",
-    "ER_G_200a_vis",
-    "ER_G_203a_vis",
+    "ER_G_196b",
+    "ER_G_199a",
+    "ER_G_200a",
+    "ER_G_203a",
+    "ER_G_204a",
+    "ER_G_265a",
+    "ER_G_266a",
+    "ER_G_267b",
+    "ER_G_278a",
+    "ER_G_290a",
+    "ER_G_301a",
+    "ER_G_301b",
+    "ER_G_308b",
+    "ER_G_665b",
+    "ER_G_744a",
+    "ER_G_745a",
+    "ER_G_746a",
+    "ER_G_748a",
+    "ER_G_749a",
+    "ER_G_750a",
+    "ER_G_752a",
+    "ER_G_753a",
+    "ER_G_754a",
+    "ER_G_755a",
+    "ER_G_756a",
+    "ER_G_757a",
+    "ER_G_298b",
+    "ER_G_645b",
+    "ER_G_747a",
+    "ER_G_751a",
+    "ER_G_759a",
+    "ER_G_760a",
+    "ER_G_664a",
+    "ER_G_675a",
+    "ER_G_758a",
+
+    # duplicates: exclude all slides except the one marked passing QC
     "ER_G_209a_vis",
     "ER_G_210a_vbu",
-    "ER_G_265a_vis",
-    "ER_G_266a_vis",
     "ER_G_267a_vis",
-    "ER_G_267b_vis",
-    "ER_G_273a_vis",
     "ER_G_274a_vis",
-    "ER_G_278a_vis",
-    "ER_G_278b_vis",
     "ER_G_281a_vis",
-    "ER_G_282a_vis",
-    "ER_G_284a_vis",
     "ER_G_286a_vis",
-    "ER_G_292a_vis",
-    "ER_G_308b_vis",
+    "ER_G_288a_vis",
+    "ER_G_635a_vis",
+    "ER_G_636a_vis",
+
+    # exclude this one with missing deconvolution columns
+    "ER_G_288a_vb2",
+
+
+    # from Spencer (checking clinical data)
+    "ER_G_195b",
+    "ER_G_267b",
+    "ER_G_274b",
+    "ER_G_276b",
+    "ER_G_278a",
+    "ER_G_282b",
+    "ER_G_284a",
+    "ER_G_288b",
+    "ER_G_290a",
+    "ER_G_292b",
+    "ER_G_298b",
+    "ER_G_301a",
+    "ER_G_301b",
+    "ER_G_303b",
+    "ER_G_308b",
+    "ER_G_310b",
+    "ER_G_645b",
+    "ER_G_665b",
+    "ER_G_272a",
+    "ER_G_664a",
+    "ER_G_675a"
 ]
 
-# samples to remove from the CHUV dataset
-BAD_QUALITY_CHUV_VISIUM = ["CH_G_157a_vis"]
+BAD_QUALITY_CR_VISIUM = []
 
+# list of samples from the "bad" batch of probes
+# can be used to exclude them in the analysis to ensure
+# it has no strong effect on the results
 PROBE_ISSUE_CHUV = [
     "CH_G_191a",
     "CH_G_199a",
@@ -350,3 +441,6 @@ PROBE_ISSUE_UKER = [
     "ER_G_282b",
     "ER_G_284a",
 ]
+
+# infercnv
+PATH_GTF = "/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/resources/infercnv/gencode.v32.annotation.gtf"

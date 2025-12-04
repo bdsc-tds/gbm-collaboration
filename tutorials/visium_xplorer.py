@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from matplotlib.backends.backend_pdf import PdfPages
 
-from gbmcollaboration import CHUVDataCenter, UKERDataCenter
+from gbmcollaboration import CHUVDataCenter, UKERDataCenter, CRDataCenter, AllDataCenters
 from gbmcollaboration.viz.visium_heatmap import (
     plot_celltype_abun_visium,
     plot_gene_expression_visium
@@ -17,13 +17,23 @@ from gbmcollaboration.viz.visium_heatmap import (
 # Constants
 center = "CHUV" # or "CHUV"
 normalization = "raw_count"  # Can be "raw_count", "log_norm_count", "norm_count", "SCTransform"
-deconvolution_slot_name = "deconv_cohort_level_4_2steps"
+deconvolution_slot_name = "deconv_cohort_level_4"
 # other deconvolution available: 'deconv_GBMatlas_2steps',
 # 'deconv_sample_level_custom1', 'deconv_cohort_level_2',
 # 'deconv_GBMatlas', 'deconv_hipe'
 
-# %% -- Load spatial data for a given center
-# Load spatial data for a given center
+# %% -- Load spatial data as anndata for all centers
+
+adata = AllDataCenters.load_spatial_adata(
+    exclude_low_quality_visium=True,
+    exclude_idh1_mut=False,
+    list_sample_id=None,
+    normalization="raw_count",
+    radius=1,
+    deconvolution_slot_name=deconvolution_slot_name,
+)
+
+# %% Load spatial data for a given center
 if center == "UKER":
     center_data = UKERDataCenter
 else:
@@ -31,6 +41,7 @@ else:
 
 # %% -- Load spatial data for the full cohort
 # Load spatial data for the full cohort
+# You can also use .load_spatial_adata
 spatial_object = center_data.load_spatial(
     normalization=normalization,
     deconvolution_slot_name=deconvolution_slot_name,
@@ -41,7 +52,7 @@ spatial_object = center_data.load_spatial(
 # you can now access the genecounts_df attribute or celltype_df attribute as such:
 spatial_counts_df = spatial_object.genecounts_df
 cellabun_df = spatial_object.celltype_df
-spatial_counts_df.head()
+cellabun_df.head()
 
 # the coordinates of the spots can be found as the last two columns of the dataframes
 
@@ -57,6 +68,7 @@ spatial_object = center_data.load_spatial(
 
 spatial_counts_df = spatial_object.genecounts_df
 cellabun_df = spatial_object.celltype_df
+cellabun_df.head()
 
 # %% -- Plotting the cell type abundance on Visium image
 # Plotting the cell type abundance on Visium image

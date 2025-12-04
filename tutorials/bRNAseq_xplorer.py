@@ -9,7 +9,7 @@ from sklearn.decomposition import PCA
 from umap import UMAP
 
 
-from gbmcollaboration import CHUVDataCenter, UKERDataCenter
+from gbmcollaboration import CHUVDataCenter, UKERDataCenter, AllDataCenters
 
 # %% -- Define constants
 # Choose your normalization method
@@ -21,6 +21,9 @@ pd.set_option('display.max_rows', None)
 pd.set_option('display.max_columns', None)
 
 # %% -- Load the data across centers
+all_centers = AllDataCenters
+
+# or just one center at a time
 chuv_center = CHUVDataCenter
 uker_center = UKERDataCenter
 

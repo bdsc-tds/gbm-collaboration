@@ -2,10 +2,12 @@
 
 from collections.abc import Iterable
 from typing import Any, Optional
+from loguru import logger
 
 import matplotlib
 import pandas as pd
 from lifelines import CoxPHFitter
+from lifelines.plotting import add_at_risk_counts
 from lifelines.statistics import (
     KaplanMeierFitter,
     logrank_test,
@@ -178,7 +180,9 @@ def kmplot(
     convert_days_to_months: bool = True,
     add_hazard_ratio: bool = False,
     add_logrank_pvalue: bool = False,
+    at_risk_counts: bool = False,
     ax: Optional[matplotlib.axes.Axes] = None,
+    title: str = None
 ) -> Optional[matplotlib.figure.Figure]:
     """Plot a Kaplan Meier curve of the data.
 
@@ -236,20 +240,32 @@ def kmplot(
     else:
         fig = None
 
+    kmf_list = []
+
     kmf = KaplanMeierFitter()
     if hue is None:
         kmf.fit(df[x])
         kmf.plot(ax=ax)
-        ax.set_title(f"Kaplan Meier curve for {x}")
+        kmf_list.append(kmf)
+
+        if title is None:
+            title = x
     else:
         if hue_order is None:
             hue_order = df[hue].unique()
         for hue_value in hue_order:
             mask = df[hue] == hue_value
+            n_total = mask.sum()
+            n_events = df.loc[mask, "event"].sum()
+            n_censored = n_total - n_events
+
             kmf.fit(df[mask][x], df[mask]["event"])
-            kmf.plot(ax=ax, label=hue_value)
+            kmf.plot(ax=ax, label=f"{hue_value} (n={n_total}, censored={int(n_censored)})")
+            kmf_list.append(kmf)
+
         ax.legend(title=hue, loc="best")
-        ax.set_title(f"Kaplan Meier curve for {x} (by {hue})")
+        if title is None:
+            title = hue
         if add_logrank_pvalue:
             x_pos = 0.01 * ax.get_xlim()[1]
             y_pos = 0.01
@@ -265,6 +281,11 @@ def kmplot(
             text = f"HR={hazard_ratio:.2f} [{ci[0]:.2f}, {ci[1]:.2f}]"
             ax.text(x_pos, y_pos, text, fontsize=10)
 
+    # Add at-risk counts
+    if at_risk_counts:
+        add_at_risk_counts(*kmf_list, ax=ax)
+
+    ax.set_title(title)
     ax.set_xlabel(f"Time ({unit})")
     ax.set_ylabel("Survival probability")
 
