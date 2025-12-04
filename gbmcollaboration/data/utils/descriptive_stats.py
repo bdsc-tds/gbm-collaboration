@@ -39,7 +39,7 @@ def create_demographic_table(df: pd.DataFrame, path_to_file: str, verbose: bool 
     """Create demographic table.
 
     Parameters
-    ----------
+
     df : pd.DataFrame
         Dataframe containing all features at baseline.
     path_to_file : str
@@ -73,7 +73,7 @@ def create_demographic_table(df: pd.DataFrame, path_to_file: str, verbose: bool 
     demographic_table["Count"] = np.nan
     demographic_table["Categories"] = np.nan
 
-    # ---------- Pre-cast df columns based on template "Type" ----------
+    # Pre-cast df columns based on template "Type"
     for _, row in template_demo.iterrows():
         var = row["Variable"]
         typ = str(row["Type"]).strip().lower()
@@ -85,7 +85,7 @@ def create_demographic_table(df: pd.DataFrame, path_to_file: str, verbose: bool 
             # ensure object for categorical summaries
             df[var] = df[var].astype("object")
 
-    # ---------- Fill table ----------
+    # Fill table
     for col in template_demo.Variable:
         if verbose:
             print(f"Looking for variable {col}")
@@ -144,7 +144,7 @@ def create_demographic_table(df: pd.DataFrame, path_to_file: str, verbose: bool 
         elif verbose:
             print(f"Variable {col} not found in this center.")
 
-    # ---------- Final formatting ----------
+    # Final formatting
     # Convert Observed, Missing, Count to integers (drop .0)
     for col_int in ["Observed", "Missing", "Count"]:
         if col_int in demographic_table.columns:

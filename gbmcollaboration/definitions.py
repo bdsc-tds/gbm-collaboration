@@ -18,10 +18,6 @@ FOLDER_VERSION = {
 }
 # can be v1/v2/v3/live, live is not stable and can change through time
 
-# Specify the maximum ID number for each center to load the data
-UKER_MAX_ID = 310
-CHUV_MAX_ID = 207
-
 
 def get_zarr_directories(bucket_name, prefix=""):
     try:
