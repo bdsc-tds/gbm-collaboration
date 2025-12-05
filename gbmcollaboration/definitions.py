@@ -268,91 +268,101 @@ PATIENTS_IDH1_MUT = ["ER_G_272a", "ER_G_273a", "ER_G_292b", "ER_G_292a"]
 
 # samples to exclude: pending review/no data/blank from excel sheet
 BAD_QUALITY_CHUV_VISIUM = [
-    "CH_G_157a",
-    "CH_G_188a",
-    "CH_G_532a",
-    "CH_G_533a",
-    "CH_G_534a",
-    "CH_G_535a",
-    "CH_G_536a",
+    "CH_G_157a_vis", #fail CRO
+    "CH_G_188a_vis", #actually not present in visium data
+    "CH_G_454a_vis", # failed & repeated
+    "CH_G_455a_vis", # failed & repeated
+    "CH_G_455a_vbu", # failed & repeated
+    "CH_G_456a_vis", # failed & repeated
+    "CH_G_457a_vis", # failed & repeated
+    "CH_G_458a_vis", # failed & repeated
+    "CH_G_459a_vis", # failed & repeated
+    "CH_G_460a_vis", # failed & repeated
+    "CH_G_461a_vis", # failed & repeated
 ]
+
 BAD_QUALITY_UKER_VISIUM = [
-    "ER_G_196b",
-    "ER_G_199a",
-    "ER_G_200a",
-    "ER_G_203a",
-    "ER_G_204a",
-    "ER_G_265a",
-    "ER_G_266a",
-    "ER_G_267b",
-    "ER_G_278a",
-    "ER_G_290a",
-    "ER_G_301a",
-    "ER_G_301b",
-    "ER_G_308b",
-    "ER_G_665b",
-    "ER_G_744a",
-    "ER_G_745a",
-    "ER_G_746a",
-    "ER_G_748a",
-    "ER_G_749a",
-    "ER_G_750a",
-    "ER_G_752a",
-    "ER_G_753a",
-    "ER_G_754a",
-    "ER_G_755a",
-    "ER_G_756a",
-    "ER_G_757a",
-    "ER_G_298b",
-    "ER_G_645b",
-    "ER_G_747a",
-    "ER_G_751a",
-    "ER_G_759a",
-    "ER_G_760a",
-    "ER_G_664a",
-    "ER_G_675a",
-    "ER_G_758a",
+    "ER_G_196b_vis", # (relapse) failed not repeated
+    "ER_G_199a_vis", # failed not repeated
+    "ER_G_200a_vis", # failed not repeated
+    "ER_G_203a_vis", # failed not repeated
+    "ER_G_204a_vis", # failed not repeated
+    "ER_G_265a_vis", # failed not repeated
+    "ER_G_266a_vis", # failed not repeated
+    "ER_G_267b_vis", # (relapse) failed not repeated
+    "ER_G_278a_vis", # (relapse) failed not repeated
+    "ER_G_290a_vis", # no enought tumor content, other baseline available
+    "ER_G_298b_vis", # (relapse) failed not repeated
+    "ER_G_301a_vis", # failed not repeated
+    "ER_G_301b_vis", # (relapse) failed not repeated
+    "ER_G_308b_vis", # (relapse) failed not repeated
+    "ER_G_645b_vis", # (relapse) failed not repeated
+    "ER_G_665b_vis", # (relapse) failed not repeated
+    "ER_G_744a_vis", # failed not repeated
+    "ER_G_745a_vis", # failed not repeated
+    "ER_G_746a_vbu", # failed not repeated
+    "ER_G_748a_vis", # failed not repeated
+    "ER_G_749a_vis", # failed not repeated
+    "ER_G_754a_vis", # failed not repeated
+    "ER_G_756a_vis", # failed not repeated
+    "ER_G_757a_vis", # failed not repeated
+    "ER_G_747a_vis", # failed not repeated
+    "ER_G_750a_vis", # failed not repeated
+    "ER_G_751a_vis", # failed not repeated
+    "ER_G_752a_vis", # failed not repeated
+    "ER_G_753a_vis", # failed not repeated
+    "ER_G_755a_vis", # failed not repeated
+    "ER_G_759a_vis", # failed not repeated
+
+    # not excluded but low heteregoneity > flag, too check
+    # ER_G_645a_vis
 
     # duplicates: exclude all slides except the one marked passing QC
-    "ER_G_209a_vis",
-    "ER_G_210a_vbu",
-    "ER_G_267a_vis",
-    "ER_G_274a_vis",
-    "ER_G_281a_vis",
-    "ER_G_286a_vis",
-    "ER_G_288a_vis",
-    "ER_G_635a_vis",
-    "ER_G_636a_vis",
+    "ER_G_209a_vis", # failed & repeated
+    "ER_G_210a_vbu", # failed & repeated
+    "ER_G_267a_vis", # failed & repeated
+    "ER_G_274a_vis", # failed & repeated
+    "ER_G_281a_vis", # failed & repeated
+    "ER_G_286a_vis", # failed & repeated
+    "ER_G_288a_vis", # failed & used backup section
+    "ER_G_288b_vis", # # relapse failed & repeated
+    "ER_G_292b_vis", # relapse failed & repeated
+    "ER_G_635a_vis", # failed & repeated
+    "ER_G_636a_vis", # failed & repeated
 
     # exclude this one with missing deconvolution columns
     "ER_G_288a_vb2",
 
-
     # from Spencer (checking clinical data)
-    "ER_G_195b",
-    "ER_G_267b",
-    "ER_G_274b",
-    "ER_G_276b",
-    "ER_G_278a",
-    "ER_G_282b",
-    "ER_G_284a",
-    "ER_G_288b",
-    "ER_G_290a",
-    "ER_G_292b",
-    "ER_G_298b",
-    "ER_G_301a",
-    "ER_G_301b",
-    "ER_G_303b",
-    "ER_G_308b",
-    "ER_G_310b",
-    "ER_G_645b",
-    "ER_G_665b",
-    "ER_G_272a",
-    "ER_G_664a",
-    "ER_G_675a"
+    "ER_G_195b_vis", # relapse not failed, why exclude?
+    "ER_G_274b_vis", # relapse not failed
+    "ER_G_276b_vis", # relapse not failed
+    "ER_G_282b_vis", # relapse not failed
+    "ER_G_284a_vis", # relapse not failed
+    "ER_G_303b_vis", # relapse not failed
+    "ER_G_310b_vis", # relapse not failed
 ]
 
 BAD_QUALITY_CR_VISIUM = []
+
+# Exclude sample completely after Clinical checking
+PATIENT_EXCLUSION = [
+    # CHUV
+    "CH_G_454a", #pending final submission (clinical label missing)" #_vis failed
+    "CH_G_532a", #pending final submission"
+    "CH_G_533a", #pending final submission"
+    "CH_G_534a", #pending final submission"
+    "CH_G_535a", #pending final submission"
+    "CH_G_536a", #pending final submission"
+
+    # UKER
+    "ER_G_565a", #pending final submission (clinical label missing)"
+    "ER_G_628a", #pending final submission (clinical label missing)"
+    "ER_G_664a", #pending final submission"
+    "ER_G_675a", #pending final submission"
+    "ER_G_758a", #pending final submission"
+    "ER_G_760a", #pending final submission"
+]
 
 # infercnv
 PATH_GTF = "/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/resources/infercnv/gencode.v32.annotation.gtf"
