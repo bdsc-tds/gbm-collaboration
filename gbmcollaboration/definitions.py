@@ -332,15 +332,6 @@ BAD_QUALITY_UKER_VISIUM = [
 
     # exclude this one with missing deconvolution columns
     "ER_G_288a_vb2",
-
-    # from Spencer (checking clinical data)
-    "ER_G_195b_vis", # relapse not failed, why exclude?
-    "ER_G_274b_vis", # relapse not failed
-    "ER_G_276b_vis", # relapse not failed
-    "ER_G_282b_vis", # relapse not failed
-    "ER_G_284a_vis", # relapse not failed
-    "ER_G_303b_vis", # relapse not failed
-    "ER_G_310b_vis", # relapse not failed
 ]
 
 BAD_QUALITY_CR_VISIUM = []
