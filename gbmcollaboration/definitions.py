@@ -334,7 +334,9 @@ BAD_QUALITY_UKER_VISIUM = [
     "ER_G_288a_vb2",
 ]
 
-BAD_QUALITY_CR_VISIUM = []
+BAD_QUALITY_CR_VISIUM = [
+    #"CR_G_307a_vis" and "CR_G_317a_vis" might be swapped
+]
 
 # Exclude sample completely after Clinical checking
 PATIENT_EXCLUSION = [
