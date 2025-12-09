@@ -339,20 +339,20 @@ BAD_QUALITY_CR_VISIUM = []
 # Exclude sample completely after Clinical checking
 PATIENT_EXCLUSION = [
     # CHUV
-    "CH_G_454a", #pending final submission (clinical label missing)" #_vis failed
-    "CH_G_532a", #pending final submission"
-    "CH_G_533a", #pending final submission"
-    "CH_G_534a", #pending final submission"
-    "CH_G_535a", #pending final submission"
-    "CH_G_536a", #pending final submission"
+    "CH_G_454", #pending final submission (clinical label missing)" #_vis failed
+    "CH_G_532", #pending final submission"
+    "CH_G_533", #pending final submission"
+    "CH_G_534", #pending final submission"
+    "CH_G_535", #pending final submission"
+    "CH_G_536", #pending final submission"
 
     # UKER
-    "ER_G_565a", #pending final submission (clinical label missing)"
-    "ER_G_628a", #pending final submission (clinical label missing)"
-    "ER_G_664a", #pending final submission"
-    "ER_G_675a", #pending final submission"
-    "ER_G_758a", #pending final submission"
-    "ER_G_760a", #pending final submission"
+    "ER_G_565", #pending final submission (clinical label missing)"
+    "ER_G_628", #pending final submission (clinical label missing)"
+    "ER_G_664", #pending final submission"
+    "ER_G_675", #pending final submission"
+    "ER_G_758", #pending final submission"
+    "ER_G_760", #pending final submission"
 ]
 
 # infercnv
