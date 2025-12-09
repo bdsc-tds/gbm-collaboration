@@ -48,7 +48,11 @@ class DataCenter(NamedTuple):
     name: str
     sources: dict[str, DataSource]
 
-    def load_tabular(self, exclude_idh1_mut: bool = False, exclude_patient_ids: bool = False):
+    def load_tabular(
+        self,
+        exclude_idh1_mut: bool = False,
+        exclude_patient_ids: bool = False,
+        exclude_relapse: bool = False,):
         """Load tabular data.
 
         Parameters
@@ -58,7 +62,10 @@ class DataCenter(NamedTuple):
             list of IDH1-mutated samples, by default False.
         exclude_patient_ids : bool
             If True, removes samples from the data whose indices are in the predefined
-            list of excluded patients, by default True.
+            list of excluded patients, by default False.
+        exclude_relapse : bool
+            If True, removes samples from the data whose indices are in the predefined
+            list of relapse samples, by default False.
 
         Returns
         -------
@@ -68,9 +75,9 @@ class DataCenter(NamedTuple):
 
         def apply_exclusions(
             df: pd.DataFrame,
-            exclude_idh1_mut: bool = True,
-            exclude_patient_ids: bool = True,
-            exclude_relapse: bool = True
+            exclude_idh1_mut: bool,
+            exclude_patient_ids: bool,
+            exclude_relapse: bool
         ):
             """Apply all exclusion rules to a dataframe."""
 
@@ -171,6 +178,9 @@ class DataCenter(NamedTuple):
         exclude_patient_ids : bool
             If True, removes samples from the data whose indices are in the predefined
             list of excluded patients, by default False.
+        exclude_relapse : bool
+            If True, removes samples from the data whose indices are in the predefined
+            list of relapse samples, by default False.
         list_sample_id : list[str]
             List of sample IDs to load. If None, load the full cohort.
             Default is None.
@@ -288,6 +298,9 @@ class DataCenter(NamedTuple):
         exclude_patients : bool
             If True, removes samples from the data whose indices are in the predefined
             list of excluded patients, by default False.
+        exclude_relapse : bool
+            If True, removes samples from the data whose indices are in the predefined
+            list of relapse samples, by default False.
         """
         if "sc_rna" in self.sources:
             file_path = self.sources["sc_rna"].files["Single-cell RNA"].name
