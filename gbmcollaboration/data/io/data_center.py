@@ -16,6 +16,8 @@ from gbmcollaboration.definitions import (
     BAD_QUALITY_CHUV_VISIUM,
     BAD_QUALITY_UKER_VISIUM,
     BAD_QUALITY_CR_VISIUM,
+    PATIENT_EXCLUSION,
+    RELAPSE_EXCLUSION,
     PATIENTS_IDH1_MUT,
 )
 from gbmcollaboration.utils.spatial_obj_to_df import (
@@ -46,7 +48,11 @@ class DataCenter(NamedTuple):
     name: str
     sources: dict[str, DataSource]
 
-    def load_tabular(self, exclude_idh1_mut: bool = False):
+    def load_tabular(
+        self,
+        exclude_idh1_mut: bool = False,
+        exclude_patient_ids: bool = False,
+        exclude_relapse: bool = False):
         """Load tabular data.
 
         Parameters
@@ -54,6 +60,12 @@ class DataCenter(NamedTuple):
         exclude_idh1_mut : bool
             If True, removes samples from the data whose indices are in the predefined
             list of IDH1-mutated samples, by default False.
+        exclude_patient_ids : bool
+            If True, removes samples from the data whose indices are in the predefined
+            list of excluded patients, by default False.
+        exclude_relapse : bool
+            If True, removes samples from the data whose indices are in the predefined
+            list of relapse samples, by default False.
 
         Returns
         -------
@@ -61,56 +73,89 @@ class DataCenter(NamedTuple):
             Dictionary of dataframes for each source that are tabular.
         """
 
-        def exclude_idh1mut(df):
-            # remove the suffix from visium
-            mutated_patient = PATIENTS_IDH1_MUT.copy()
-            # convert PATIENTS_IDH1_MUT to a set for faster lookups
-            patients_set = set(mutated_patient)
-            # create a pattern to match any of the patient IDs in the set
-            pattern = "|".join(patients_set)
+        def apply_exclusions(
+            df: pd.DataFrame,
+            exclude_idh1_mut: bool,
+            exclude_patient_ids: bool,
+            exclude_relapse: bool
+        ):
+            """Apply all exclusion rules to a dataframe."""
 
-            # check if any column or index contains the pattern
-            column_matches = df.columns[df.columns.str.contains(pattern)]
-            index_matches = df.index[df.index.str.contains(pattern)]
+            # --- Exclude IDH1-mut patients ---
+            if exclude_idh1_mut:
+                patients_set = set(PATIENTS_IDH1_MUT)
+                pattern = "|".join(patients_set)
 
-            # drop matched columns or index rows
-            if not column_matches.empty:
-                print(
-                    f"IDH1mut: excluding {len(column_matches)} columns from tabular data."
-                )
-                df = df.drop(columns=column_matches)
-            elif not index_matches.empty:
-                print(
-                    f"IDH1mut: excluding {len(index_matches)} rows from tabular data."
-                )
-                df = df.drop(index=index_matches)
-            else:
-                print("IDH1 mutation samples not found in the columns or index.")
+                col_matches = df.columns[df.columns.str.contains(pattern)]
+                idx_matches = df.index[df.index.str.contains(pattern)]
+
+                if not col_matches.empty:
+                    print(f"IDH1mut: excluding {len(col_matches)} columns.")
+                    df = df.drop(columns=col_matches)
+                if not idx_matches.empty:
+                    print(f"IDH1mut: excluding {len(idx_matches)} rows.")
+                    df = df.drop(index=idx_matches)
+
+            # --- Exclude specific patients ---
+            if exclude_patient_ids:
+                patients_set = set(PATIENT_EXCLUSION)
+                pattern = "|".join(patients_set)
+
+                col_matches = df.columns[df.columns.str.contains(pattern)]
+                idx_matches = df.index[df.index.str.contains(pattern)]
+
+                if not col_matches.empty:
+                    print(f"Patients: excluding {len(col_matches)} columns.")
+                    df = df.drop(columns=col_matches)
+                if not idx_matches.empty:
+                    print(f"Patients: excluding {len(idx_matches)} rows.")
+                    df = df.drop(index=idx_matches)
+
+            # --- Exclude relapse sample ---
+            if exclude_relapse:
+                patients_set = set(RELAPSE_EXCLUSION)
+                pattern = "|".join(patients_set)
+
+                col_matches = df.columns[df.columns.str.contains(pattern)]
+                idx_matches = df.index[df.index.str.contains(pattern)]
+
+                if not col_matches.empty:
+                    print(f"Relapse samples: excluding {len(col_matches)} columns.")
+                    df = df.drop(columns=col_matches)
+                if not idx_matches.empty:
+                    print(f"Relapse samples: excluding {len(idx_matches)} rows.")
+                    df = df.drop(index=idx_matches)
 
             return df
 
         return {
             source_name: {
-                file_name: (
-                    exclude_idh1mut(file_.load()) if exclude_idh1_mut else file_.load()
+                file_name: apply_exclusions(
+                    file_.load(),
+                    exclude_idh1_mut=exclude_idh1_mut,
+                    exclude_patient_ids=exclude_patient_ids,
+                    exclude_relapse=exclude_relapse,
                 )
-                for file_name, file_ in source.files.items()  # Only call items() if source.files is a dict
+                for file_name, file_ in source.files.items()
             }
             if isinstance(source.files, dict)
-            else (
-                exclude_idh1mut(source.files.load())
-                if exclude_idh1_mut
-                else source.files.load()
+            else apply_exclusions(
+                source.files.load(),
+                exclude_idh1_mut=exclude_idh1_mut,
+                exclude_patient_ids=exclude_patient_ids,
+                exclude_relapse=exclude_relapse,
             )
-            # Load only the sources that are clinical, bulk_rna
             for source_name, source in self.sources.items()
-            if source_name in ["clinical", "bulk_rna", "wes"]#, "he"]
+            if source_name in ["clinical", "bulk_rna", "wes"]
         }
+
 
     def load_spatial(
         self,
         exclude_low_quality_visium: bool = False,
         exclude_idh1_mut: bool = False,
+        exclude_patient_ids: bool = False,
+        exclude_relapse: bool = False,
         list_sample_id: Optional[list[str]] = None,
         normalization: str = "raw_count",
         radius: int = 1,
@@ -128,6 +173,12 @@ class DataCenter(NamedTuple):
         exclude_idh1_mut : bool
             If True, removes samples from the data whose indices are in the predefined
             list of IDH1-mutated samples, by default False.
+        exclude_patient_ids : bool
+            If True, removes samples from the data whose indices are in the predefined
+            list of excluded patients, by default False.
+        exclude_relapse : bool
+            If True, removes samples from the data whose indices are in the predefined
+            list of relapse samples, by default False.
         list_sample_id : list[str]
             List of sample IDs to load. If None, load the full cohort.
             Default is None.
@@ -177,6 +228,20 @@ class DataCenter(NamedTuple):
                 ignore_sample_ids += PATIENTS_IDH1_MUT
             print("Excluding IDH1 mutated samples if any present.")
 
+        if exclude_patient_ids:
+            if ignore_sample_ids is None:
+                ignore_sample_ids = PATIENT_EXCLUSION
+            else:
+                ignore_sample_ids += PATIENT_EXCLUSION
+            print("Excluding predefined patients if any present.")
+
+        if exclude_relapse:
+            if ignore_sample_ids is None:
+                ignore_sample_ids = RELAPSE_EXCLUSION
+            else:
+                ignore_sample_ids += RELAPSE_EXCLUSION
+            print("Excluding relapse patients if any present.")
+
         if source:
             # instantiate VisiumDataLoader
             print( "Instantiating loader.")
@@ -215,7 +280,10 @@ class DataCenter(NamedTuple):
         else:
             return {}
 
-    def load_singlecell(self, exclude_idh1_mut: bool = False):
+    def load_singlecell(
+        self, exclude_idh1_mut: bool = False,
+        exclude_patients: bool = False,
+        exclude_relapse: bool = False):
         """Load single-cell data.
 
         Returns
@@ -225,6 +293,12 @@ class DataCenter(NamedTuple):
         exclude_idh1_mut : bool
             If True, removes samples from the data whose indices are in the predefined
             list of IDH1-mutated samples, by default False.
+        exclude_patients : bool
+            If True, removes samples from the data whose indices are in the predefined
+            list of excluded patients, by default False.
+        exclude_relapse : bool
+            If True, removes samples from the data whose indices are in the predefined
+            list of relapse samples, by default False.
         """
         if "sc_rna" in self.sources:
             file_path = self.sources["sc_rna"].files["Single-cell RNA"].name
@@ -233,6 +307,18 @@ class DataCenter(NamedTuple):
             if exclude_idh1_mut:
                 print("Excluding IDH1 mutated samples if any present.")
                 adata = adata[~adata.obs["orig.ident"].isin(PATIENTS_IDH1_MUT)]
+            if exclude_relapse:
+                print("Excluding relapse samples if any present.")
+                adata = adata[~adata.obs["orig.ident"].isin(RELAPSE_EXCLUSION)]
+            if exclude_patients:
+                # need to search for the samples that match the patient ids, since
+                # the sample ids have suffixes
+                PATIENT_EXCLUSION_MATCHES = []
+                for patient_id in PATIENT_EXCLUSION:
+                    matches = [s for s in adata.obs["orig.ident"].unique() if patient_id in s]
+                    PATIENT_EXCLUSION_MATCHES.extend(matches)
+                print(f"Excluding {len(PATIENT_EXCLUSION_MATCHES)} samples from predefined patients ids.")
+                adata = adata[~adata.obs["orig.ident"].isin(PATIENT_EXCLUSION_MATCHES)]
             return adata
         else:
             raise ValueError("Single-cell data is not available in this data center.")
@@ -267,22 +353,27 @@ class DataCenters:
     def load_spatial(self, *args, **kwargs):
         return self._apply("load_spatial", *args, **kwargs)
 
-    def load_spatial_adata(self,
-        exclude_low_quality_visium=True,
-        exclude_idh1_mut=True,
-        list_sample_id=None,
-        normalization="log_norm_count",
-        radius=1,
-        deconvolution_slot_name="deconv_cohort_level_4",
-        load_images = False,
-        load_deconvolution = True,
-        ):
+    def load_spatial_adata(
+        self,
+        exclude_low_quality_visium: bool = True,
+        exclude_idh1_mut: bool = True,
+        exclude_patient_ids: bool = True,
+        exclude_relapse: bool = True,
+        list_sample_id: Optional[list[str]] = None,
+        normalization: str = "log_norm_count",
+        radius: int = 1,
+        deconvolution_slot_name: str = "deconv_cohort_level_4",
+        load_images: bool = False,
+        load_deconvolution: bool = True
+    ):
         """Load entire Visium cohort as anndata."""
 
         # Load all data
         loaded_objects = self.load_spatial(
             exclude_low_quality_visium=exclude_low_quality_visium,
             exclude_idh1_mut=exclude_idh1_mut,
+            exclude_patient_ids=exclude_patient_ids,
+            exclude_relapse=exclude_relapse,
             list_sample_id=list_sample_id,
             normalization=normalization,
             radius=radius,
