@@ -332,6 +332,7 @@ BAD_QUALITY_UKER_VISIUM = [
 
     # exclude this one with missing deconvolution columns
     "ER_G_288a_vb2",
+
 ]
 
 BAD_QUALITY_CR_VISIUM = []
@@ -353,6 +354,26 @@ PATIENT_EXCLUSION = [
     "ER_G_675", #pending final submission"
     "ER_G_758", #pending final submission"
     "ER_G_760", #pending final submission"
+
+    # Relapse samples to be excluded everywhere for now
+    # from Spencer checks
+    "ER_G_195b",
+    "ER_G_274b",
+    "ER_G_276b",
+    "ER_G_282b",
+    "ER_G_284a",
+    "ER_G_303b",
+    "ER_G_310b",
+    # added from the tracker below:
+    "ER_G_288b", # used for meta control?
+    "ER_G_292b", # used for meta control?
+    "CH_G_164b",
+    "CH_G_168b",
+    "CH_G_180b",
+    "CH_G_186b",
+    "CH_G_189b",
+    "CH_G_189c",
+    "CH_G_194b",
 ]
 
 # infercnv
