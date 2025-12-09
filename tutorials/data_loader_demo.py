@@ -14,7 +14,6 @@ from gbmcollaboration import CHUVDataCenter, UKERDataCenter, CRDataCenter, AllDa
 # %% Available constants that can be used to filter the data
 from gbmcollaboration import (
     PATIENTS_IDH1_MUT,
-    PATIENT_EXCLUSION,
     BAD_QUALITY_UKER_VISIUM,
     BAD_QUALITY_CHUV_VISIUM,
     BAD_QUALITY_CR_VISIUM
@@ -82,8 +81,7 @@ cr_spatial_object = cr_center.load_spatial(
     normalization="raw_count",
     deconvolution_slot_name="deconv_cohort_level_4",
     exclude_low_quality_visium=True,
-    exclude_idh1_mut=True,
-    exclude_patient_ids=True)
+    exclude_idh1_mut=True)
 # cr_spatial_object is a dictionary with the samples ID as keys and the counts in each spot as values
 
 # Obtain the counts

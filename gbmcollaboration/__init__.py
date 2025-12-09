@@ -7,5 +7,6 @@ from gbmcollaboration.definitions import (
     BAD_QUALITY_CR_VISIUM,
     PATIENTS_IDH1_MUT,
     PATIENT_EXCLUSION,
+    RELAPSE_EXCLUSION,
     PATH_GTF
 )

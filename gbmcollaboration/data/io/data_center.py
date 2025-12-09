@@ -17,6 +17,7 @@ from gbmcollaboration.definitions import (
     BAD_QUALITY_UKER_VISIUM,
     BAD_QUALITY_CR_VISIUM,
     PATIENT_EXCLUSION,
+    RELAPSE_EXCLUSION,
     PATIENTS_IDH1_MUT,
 )
 from gbmcollaboration.utils.spatial_obj_to_df import (
@@ -68,7 +69,8 @@ class DataCenter(NamedTuple):
         def apply_exclusions(
             df: pd.DataFrame,
             exclude_idh1_mut: bool = True,
-            exclude_patient_ids: bool = True
+            exclude_patient_ids: bool = True,
+            exclude_relapse: bool = True
         ):
             """Apply all exclusion rules to a dataframe."""
 
@@ -104,12 +106,30 @@ class DataCenter(NamedTuple):
 
             return df
 
+            # --- Exclude relapse sample ---
+            if exclude_relapse:
+                patients_set = set(RELAPSE_EXCLUSION)
+                pattern = "|".join(patients_set)
+
+                col_matches = df.columns[df.columns.str.contains(pattern)]
+                idx_matches = df.index[df.index.str.contains(pattern)]
+
+                if not col_matches.empty:
+                    print(f"Relapse samples: excluding {len(col_matches)} columns.")
+                    df = df.drop(columns=col_matches)
+                if not idx_matches.empty:
+                    print(f"Relapse samples: excluding {len(idx_matches)} rows.")
+                    df = df.drop(index=idx_matches)
+
+            return df
+
         return {
             source_name: {
                 file_name: apply_exclusions(
                     file_.load(),
                     exclude_idh1_mut=exclude_idh1_mut,
-                    exclude_patient_ids=exclude_patient_ids
+                    exclude_patient_ids=exclude_patient_ids,
+                    exclude_relapse=exclude_relapse,
                 )
                 for file_name, file_ in source.files.items()
             }
@@ -117,7 +137,8 @@ class DataCenter(NamedTuple):
             else apply_exclusions(
                 source.files.load(),
                 exclude_idh1_mut=exclude_idh1_mut,
-                exclude_patient_ids=exclude_patient_ids
+                exclude_patient_ids=exclude_patient_ids,
+                exclude_relapse=exclude_relapse,
             )
             for source_name, source in self.sources.items()
             if source_name in ["clinical", "bulk_rna", "wes"]
@@ -129,6 +150,7 @@ class DataCenter(NamedTuple):
         exclude_low_quality_visium: bool = False,
         exclude_idh1_mut: bool = False,
         exclude_patient_ids: bool = False,
+        exclude_relapse: bool = False,
         list_sample_id: Optional[list[str]] = None,
         normalization: str = "raw_count",
         radius: int = 1,
@@ -205,6 +227,13 @@ class DataCenter(NamedTuple):
                 ignore_sample_ids += PATIENT_EXCLUSION
             print("Excluding predefined patients if any present.")
 
+        if exclude_relapse:
+            if ignore_sample_ids is None:
+                ignore_sample_ids = RELAPSE_EXCLUSION
+            else:
+                ignore_sample_ids += RELAPSE_EXCLUSION
+            print("Excluding predefined patients if any present.")
+
         if source:
             # instantiate VisiumDataLoader
             print( "Instantiating loader.")
@@ -243,7 +272,10 @@ class DataCenter(NamedTuple):
         else:
             return {}
 
-    def load_singlecell(self, exclude_idh1_mut: bool = False, exclude_patients: bool = False):
+    def load_singlecell(
+        self, exclude_idh1_mut: bool = False,
+        exclude_patients: bool = False,
+        exclude_relapse: bool = False):
         """Load single-cell data.
 
         Returns
@@ -264,6 +296,9 @@ class DataCenter(NamedTuple):
             if exclude_idh1_mut:
                 print("Excluding IDH1 mutated samples if any present.")
                 adata = adata[~adata.obs["orig.ident"].isin(PATIENTS_IDH1_MUT)]
+            if exclude_relapse:
+                print("Excluding relapse samples if any present.")
+                adata = adata[~adata.obs["orig.ident"].isin(RELAPSE_EXCLUSION)]
             if exclude_patients:
                 # need to search for the samples that match the patient ids, since
                 # the sample ids have suffixes

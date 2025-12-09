@@ -353,8 +353,10 @@ PATIENT_EXCLUSION = [
     "ER_G_664", #pending final submission"
     "ER_G_675", #pending final submission"
     "ER_G_758", #pending final submission"
-    "ER_G_760", #pending final submission"
+    "ER_G_760" #pending final submission"
+]
 
+RELAPSE_EXCLUSION = [
     # Relapse samples to be excluded everywhere for now
     # from Spencer checks
     "ER_G_195b",
