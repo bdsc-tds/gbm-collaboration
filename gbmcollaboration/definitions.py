@@ -368,14 +368,14 @@ RELAPSE_EXCLUSION = [
     "ER_G_310b",
     # added from the tracker below:
     "ER_G_288b", # used for meta control?
-    "ER_G_292b", # used for meta control?
+    "ER_G_292b",
     "CH_G_164b",
     "CH_G_168b",
     "CH_G_180b",
     "CH_G_186b",
     "CH_G_189b",
     "CH_G_189c",
-    "CH_G_194b",
+    "CH_G_194b"
 ]
 
 # infercnv

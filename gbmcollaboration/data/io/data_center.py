@@ -52,7 +52,7 @@ class DataCenter(NamedTuple):
         self,
         exclude_idh1_mut: bool = False,
         exclude_patient_ids: bool = False,
-        exclude_relapse: bool = False,):
+        exclude_relapse: bool = False):
         """Load tabular data.
 
         Parameters
@@ -110,8 +110,6 @@ class DataCenter(NamedTuple):
                 if not idx_matches.empty:
                     print(f"Patients: excluding {len(idx_matches)} rows.")
                     df = df.drop(index=idx_matches)
-
-            return df
 
             # --- Exclude relapse sample ---
             if exclude_relapse:
@@ -242,7 +240,7 @@ class DataCenter(NamedTuple):
                 ignore_sample_ids = RELAPSE_EXCLUSION
             else:
                 ignore_sample_ids += RELAPSE_EXCLUSION
-            print("Excluding predefined patients if any present.")
+            print("Excluding relapse patients if any present.")
 
         if source:
             # instantiate VisiumDataLoader
@@ -355,22 +353,27 @@ class DataCenters:
     def load_spatial(self, *args, **kwargs):
         return self._apply("load_spatial", *args, **kwargs)
 
-    def load_spatial_adata(self,
-        exclude_low_quality_visium=True,
-        exclude_idh1_mut=True,
-        list_sample_id=None,
-        normalization="log_norm_count",
-        radius=1,
-        deconvolution_slot_name="deconv_cohort_level_4",
-        load_images = False,
-        load_deconvolution = True,
-        ):
+    def load_spatial_adata(
+        self,
+        exclude_low_quality_visium: bool = True,
+        exclude_idh1_mut: bool = True,
+        exclude_patient_ids: bool = True,
+        exclude_relapse: bool = True,
+        list_sample_id: Optional[list[str]] = None,
+        normalization: str = "log_norm_count",
+        radius: int = 1,
+        deconvolution_slot_name: str = "deconv_cohort_level_4",
+        load_images: bool = False,
+        load_deconvolution: bool = True
+    ):
         """Load entire Visium cohort as anndata."""
 
         # Load all data
         loaded_objects = self.load_spatial(
             exclude_low_quality_visium=exclude_low_quality_visium,
             exclude_idh1_mut=exclude_idh1_mut,
+            exclude_patient_ids=exclude_patient_ids,
+            exclude_relapse=exclude_relapse,
             list_sample_id=list_sample_id,
             normalization=normalization,
             radius=radius,
