@@ -47,8 +47,7 @@ class DataCenter(NamedTuple):
     name: str
     sources: dict[str, DataSource]
 
-    def load_tabular(self, exclude_idh1_mut: bool = False, exclude_patients: bool = True,
-                     exclude_samples_ids: Optional[list[str]] = None):
+    def load_tabular(self, exclude_idh1_mut: bool = False, exclude_patient_ids: bool = False):
         """Load tabular data.
 
         Parameters
@@ -56,12 +55,9 @@ class DataCenter(NamedTuple):
         exclude_idh1_mut : bool
             If True, removes samples from the data whose indices are in the predefined
             list of IDH1-mutated samples, by default False.
-        exclude_patients : bool
+        exclude_patient_ids : bool
             If True, removes samples from the data whose indices are in the predefined
             list of excluded patients, by default True.
-        exclude_samples_ids : list[str] | None
-            List of sample IDs to exclude. If None, no samples are excluded.
-            Default is None.
 
         Returns
         -------
@@ -72,7 +68,7 @@ class DataCenter(NamedTuple):
         def apply_exclusions(
             df: pd.DataFrame,
             exclude_idh1_mut: bool = True,
-            exclude_patients_ids: bool = True
+            exclude_patient_ids: bool = True
         ):
             """Apply all exclusion rules to a dataframe."""
 
@@ -92,7 +88,7 @@ class DataCenter(NamedTuple):
                     df = df.drop(index=idx_matches)
 
             # --- Exclude specific patients ---
-            if exclude_patients_ids:
+            if exclude_patient_ids:
                 patients_set = set(PATIENT_EXCLUSION)
                 pattern = "|".join(patients_set)
 
@@ -113,7 +109,7 @@ class DataCenter(NamedTuple):
                 file_name: apply_exclusions(
                     file_.load(),
                     exclude_idh1_mut=exclude_idh1_mut,
-                    exclude_patients_ids=exclude_patients_ids
+                    exclude_patient_ids=exclude_patient_ids
                 )
                 for file_name, file_ in source.files.items()
             }
@@ -121,7 +117,7 @@ class DataCenter(NamedTuple):
             else apply_exclusions(
                 source.files.load(),
                 exclude_idh1_mut=exclude_idh1_mut,
-                exclude_patients_ids=exclude_patients_ids
+                exclude_patient_ids=exclude_patient_ids
             )
             for source_name, source in self.sources.items()
             if source_name in ["clinical", "bulk_rna", "wes"]

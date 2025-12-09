@@ -264,7 +264,7 @@ AVG_NUM_DAYS_PER_YEAR = 365.25
 
 # patient with IDH1 mutation, to potentially exclude
 # from tabular data (not present in visium data)
-PATIENTS_IDH1_MUT = ["ER_G_272a", "ER_G_273a", "ER_G_292b", "ER_G_292a"]
+PATIENTS_IDH1_MUT = ["ER_G_272a", "ER_G_273a", "ER_G_292b", "ER_G_292a", "ER_G_663a"]
 
 # samples to exclude: pending review/no data/blank from excel sheet
 BAD_QUALITY_CHUV_VISIUM = [
