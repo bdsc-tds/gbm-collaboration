@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 import functools
 import gc
 import scanpy as sc
@@ -126,6 +125,8 @@ class DataCenter(NamedTuple):
                 if not idx_matches.empty:
                     print(f"Relapse samples: excluding {len(idx_matches)} rows.")
                     df = df.drop(index=idx_matches)
+
+            return df
 
         return {
             source_name: {
