@@ -5,12 +5,12 @@ import pandas as pd
 import numpy as np
 
 # load clinical data
-from gbmcollaboration import CHUVDataCenter, UKERDataCenter
+from gbmcollaboration import CHUVDataCenter, UKERDataCenter, CRDataCenter, AllDataCenters
 from gbmcollaboration.data.utils.descriptive_stats import create_demographic_table
 
 # constants
-Project = "BoC"  # "BoC" or "Glimmer"
-date = "2025-08-19"  # e.g., "2025-08-18" if you want it in the filename
+Project = "Glimmer"  # "BoC" or "Glimmer"
+date = "2025-12-10"  # e.g., "2025-08-18" if you want it in the filename
 BASE_DATA_DIR = "/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/descriptive_stats"
 ADD_OVERALL_ROW = True  # set False if you don't want an overall summary
 
@@ -63,15 +63,19 @@ excluded_features = [
     "Systemic therapy implant", "os_years", "pfs_years",
 ]
 
-# load both centers
+# load all centers
 centers = [
     ("UKER", UKERDataCenter),
     ("CHUV", CHUVDataCenter),
+    ("CR", CRDataCenter)
 ]
 
 def _load_center_df(center_cls, project):
     """Load and filter a center's clinical dataframe according to your rules."""
-    source_dict = center_cls.load_tabular(exclude_idh1_mut=True)
+    source_dict = center_cls.load_tabular(
+        exclude_idh1_mut=True,
+        exclude_patient_ids=True,
+        exclude_relapse=True)
     df = source_dict["clinical"]["processed gbm clinical"]
 
     if project == "BoC":
@@ -108,7 +112,7 @@ if ADD_OVERALL_ROW:
     pooled_df = pd.concat(pooled, ignore_index=True)
 
     overall = create_demographic_table(pooled_df, f"{BASE_DATA_DIR}", verbose=False)
-    overall.insert(0, "Center", "Both Centers")
+    overall.insert(0, "Center", "All Centers")
 
     combined = pd.concat([combined, overall], ignore_index=True)
 
