@@ -264,7 +264,7 @@ AVG_NUM_DAYS_PER_YEAR = 365.25
 
 # patient with IDH1 mutation, to potentially exclude
 # from tabular data (not present in visium data)
-PATIENTS_IDH1_MUT = ["ER_G_272a", "ER_G_273a", "ER_G_292b", "ER_G_292a"]
+PATIENTS_IDH1_MUT = ["ER_G_272a", "ER_G_273a", "ER_G_292b", "ER_G_292a", "ER_G_663a"]
 
 # samples to exclude: pending review/no data/blank from excel sheet
 BAD_QUALITY_CHUV_VISIUM = [
@@ -332,6 +332,7 @@ BAD_QUALITY_UKER_VISIUM = [
 
     # exclude this one with missing deconvolution columns
     "ER_G_288a_vb2",
+
 ]
 
 
@@ -420,6 +421,48 @@ PROBE_ISSUE_UKER = [
     "ER_G_294a",
     "ER_G_282b",
     "ER_G_284a"
+]
+
+
+# Exclude sample completely after Clinical checking
+PATIENT_EXCLUSION = [
+    # CHUV
+    "CH_G_454", #pending final submission (clinical label missing)" #_vis failed
+    "CH_G_532", #pending final submission"
+    "CH_G_533", #pending final submission"
+    "CH_G_534", #pending final submission"
+    "CH_G_535", #pending final submission"
+    "CH_G_536", #pending final submission"
+
+    # UKER
+    "ER_G_565", #pending final submission (clinical label missing)"
+    "ER_G_628", #pending final submission (clinical label missing)"
+    "ER_G_664", #pending final submission"
+    "ER_G_675", #pending final submission"
+    "ER_G_758", #pending final submission"
+    "ER_G_760" #pending final submission"
+]
+
+RELAPSE_EXCLUSION = [
+    # Relapse samples to be excluded everywhere for now
+    # from Spencer checks
+    "ER_G_195b",
+    "ER_G_274b",
+    "ER_G_276b",
+    "ER_G_282b",
+    "ER_G_284a",
+    "ER_G_303b",
+    "ER_G_310b",
+    # added from the tracker below:
+    "ER_G_288b", # used for meta control?
+    "ER_G_292b",
+    "CH_G_164b",
+    "CH_G_168b",
+    "CH_G_180b",
+    "CH_G_186b",
+    "CH_G_189b",
+    "CH_G_189c",
+    "CH_G_194b"
 ]
 
 # infercnv
