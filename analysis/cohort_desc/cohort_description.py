@@ -9,32 +9,10 @@ from gbmcollaboration import CHUVDataCenter, UKERDataCenter, CRDataCenter, AllDa
 from gbmcollaboration.data.utils.descriptive_stats import create_demographic_table
 
 # constants
-Project = "Glimmer"  # "BoC" or "Glimmer"
-date = "2025-12-10"  # e.g., "2025-08-18" if you want it in the filename
+PROJECT = "Glimmer"
+DATE = "2025-12-10"  # e.g., "2025-08-18" if you want it in the filename
 BASE_DATA_DIR = "/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/descriptive_stats"
 ADD_OVERALL_ROW = True  # set False if you don't want an overall summary
-
-# BoC sample list
-BoC_samples = [
-    # training/testing samples
-    "ER_G_195a", "ER_G_196a", "ER_G_197a", "ER_G_198a", "ER_G_201a",
-    "ER_G_202a", "ER_G_206a", "ER_G_207a", "ER_G_307a", "ER_G_205a",
-    "CH_G_151a", "CH_G_152a", "CH_G_153a", "CH_G_154a",
-    "CH_G_155a", "CH_G_156a", "CH_G_158a", "CH_G_159a", "CH_G_160a",
-    "CH_G_161a", "CH_G_162a", "CH_G_163a", "CH_G_164a", "CH_G_165a",
-    "CH_G_166a", "CH_G_167a", "CH_G_168a", "CH_G_169a", "CH_G_170a",
-    "CH_G_171a", "CH_G_172a", "CH_G_173a", "CH_G_174a", "CH_G_175a",
-    "CH_G_176a", "CH_G_177a", "CH_G_181a", "CH_G_182a", "CH_G_183a",
-    "CH_G_184a", "CH_G_185a", "CH_G_186a", "CH_G_187a", "CH_G_191a",
-    # validation samples
-    'CH_G_180a', 'CH_G_189a', 'CH_G_190a', 'CH_G_192a',
-    'CH_G_193a', 'CH_G_195a', 'CH_G_196a', 'CH_G_197a', 'CH_G_198a',
-    'CH_G_199a', 'CH_G_200a', 'CH_G_201a', 'CH_G_202a', 'CH_G_203a',
-    'CH_G_204a', 'CH_G_205a', 'CH_G_206a', 'CH_G_207a', 'ER_G_269a',
-    'ER_G_270a', 'ER_G_276a', 'ER_G_280a', 'ER_G_284b', 'ER_G_285a',
-    'ER_G_294a', 'ER_G_295a', 'ER_G_298a', 'ER_G_299a', 'ER_G_300a',
-    'ER_G_306a', 'ER_G_308a', 'ER_G_310a'
-]
 
 # features to exclude from clinical df:
 excluded_features = [
@@ -70,7 +48,7 @@ centers = [
     ("CR", CRDataCenter)
 ]
 
-def _load_center_df(center_cls, project):
+def _load_center_df(center_cls):
     """Load and filter a center's clinical dataframe according to your rules."""
     source_dict = center_cls.load_tabular(
         exclude_idh1_mut=True,
@@ -78,23 +56,21 @@ def _load_center_df(center_cls, project):
         exclude_relapse=True)
     df = source_dict["clinical"]["processed gbm clinical"]
 
-    if project == "BoC":
-        df = df[df["Tumour block ID for MOSAIC"].isin(BoC_samples)]
-    elif project == "Glimmer":
-        df = df[df["Sample collection chronology"] == "Baseline"]
-        # drop the duplicated (low tumor content) samples if found
-        exclude_sample = "ER_G_290a"
-        df = df[df["Tumour block ID for MOSAIC"]!= exclude_sample]
+    df = df[df["Sample collection chronology"] == "Baseline"]
+    # drop the duplicated (low tumor content) samples if found
+    exclude_sample = "ER_G_290a"
+    df = df[df["Tumour block ID for MOSAIC"]!= exclude_sample]
 
     # drop outlier values for one sample:
-    df = df[df["GB - Baseline hemoglobin level (g/dL)"] < 1000]
+    # need to find back this sample before excluding
+    # df = df[df["GB - Baseline hemoglobin level (g/dL)"] < 1000]
 
     return df
 
 # %% build a single demographic table with center under each feature
 tables = []
 for center_name, center_cls in centers:
-    clin_df = _load_center_df(center_cls, Project)
+    clin_df = _load_center_df(center_cls)
     print(f"[{center_name}] Clinical df shape:", clin_df.shape)
 
     demo = create_demographic_table(clin_df, f"{BASE_DATA_DIR}", verbose=False)
@@ -108,7 +84,7 @@ if ADD_OVERALL_ROW:
     # Create a pooled baseline dataframe across centers (same filters already applied)
     pooled = []
     for _, center_cls in centers:
-        pooled.append(_load_center_df(center_cls, Project))
+        pooled.append(_load_center_df(center_cls))
     pooled_df = pd.concat(pooled, ignore_index=True)
 
     overall = create_demographic_table(pooled_df, f"{BASE_DATA_DIR}", verbose=False)
@@ -123,7 +99,7 @@ combined = combined.sort_values(["Variable", "Center"], kind="stable").reset_ind
 combined = combined[~combined["Variable"].isin(excluded_features)]
 
 # saving
-data_path = f"{BASE_DATA_DIR}/processed/demographic_table_{date}_{Project}.csv"
+data_path = f"{BASE_DATA_DIR}/processed/demographic_table_{DATE}_{PROJECT}.csv"
 combined.to_csv(data_path, index=False)
 print("Saved:", data_path)
 
