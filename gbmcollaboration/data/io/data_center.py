@@ -282,7 +282,7 @@ class DataCenter(NamedTuple):
 
     def load_singlecell(
         self, exclude_idh1_mut: bool = False,
-        exclude_patients: bool = False,
+        exclude_patient_ids: bool = False,
         exclude_relapse: bool = False):
         """Load single-cell data.
 
@@ -293,7 +293,7 @@ class DataCenter(NamedTuple):
         exclude_idh1_mut : bool
             If True, removes samples from the data whose indices are in the predefined
             list of IDH1-mutated samples, by default False.
-        exclude_patients : bool
+        exclude_patient_ids : bool
             If True, removes samples from the data whose indices are in the predefined
             list of excluded patients, by default False.
         exclude_relapse : bool
@@ -310,7 +310,7 @@ class DataCenter(NamedTuple):
             if exclude_relapse:
                 print("Excluding relapse samples if any present.")
                 adata = adata[~adata.obs["orig.ident"].isin(RELAPSE_EXCLUSION)]
-            if exclude_patients:
+            if exclude_patient_ids:
                 # need to search for the samples that match the patient ids, since
                 # the sample ids have suffixes
                 PATIENT_EXCLUSION_MATCHES = []
