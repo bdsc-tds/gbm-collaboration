@@ -127,12 +127,6 @@ class DataCenter(NamedTuple):
                     print(f"Relapse samples: excluding {len(idx_matches)} rows.")
                     df = df.drop(index=idx_matches)
 
-        def load_and_filter(file_obj):
-            df = file_obj.load()
-            if exclude_idh1_mut:
-                df = exclude_idh1mut(df)
-            return df
-
         return {
             source_name: {
                 file_name: apply_exclusions(
