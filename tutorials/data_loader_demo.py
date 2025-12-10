@@ -105,7 +105,7 @@ common_celltypes = cr_spatial_object.common_celltypes
 # %% Load the single-cell data
 single_cell_obj = cr_center.load_singlecell(
     exclude_idh1_mut = True,
-    exclude_patients = True,
+    exclude_patients_ids = True,
     exclude_relapse = True
 )
 
