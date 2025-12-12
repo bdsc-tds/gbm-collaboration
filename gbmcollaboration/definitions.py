@@ -353,7 +353,10 @@ PATIENT_EXCLUSION = [
     "ER_G_664", #pending final submission"
     "ER_G_675", #pending final submission"
     "ER_G_758", #pending final submission"
-    "ER_G_760" #pending final submission"
+    "ER_G_760", #pending final submission"
+
+    # CR
+    "CR_G_335a" #pending final submission (clinical label missing)"
 ]
 
 RELAPSE_EXCLUSION = [
@@ -369,6 +372,8 @@ RELAPSE_EXCLUSION = [
     # added from the tracker below:
     "ER_G_288b", # used for meta control?
     "ER_G_292b",
+    "ER_G_665b",
+    "ER_G_645b",
     "CH_G_164b",
     "CH_G_168b",
     "CH_G_180b",
