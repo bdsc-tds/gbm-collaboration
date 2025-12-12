@@ -4,6 +4,7 @@
 # CNV WES matrix of all samples across centers, and this should have been
 # saved in:
 # "/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/results/WES/cnv_matrix/cnv_wes_matrix_full_cohorts.csv"
+# to do so, run PART 1 of the script "generate_cnv_wes_matrix.py"
 
 # %% -- Imports
 import pandas as pd
