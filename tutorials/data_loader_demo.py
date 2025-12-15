@@ -77,6 +77,9 @@ uker_center.load_tabular(exclude_idh1_mut=True)
 CNVamp = source_dict["wes"]["WES CNV amplification"]
 CNVamp.head(2)
 
+# %%
+CNVdel = source_dict["wes"]["WES CNV deletion"]
+
 # %% Or the loading of the TMB values
 TMB = source_dict["wes"]["WES TMB"]
 TMB.head(2)

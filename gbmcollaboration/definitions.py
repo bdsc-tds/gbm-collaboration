@@ -353,10 +353,10 @@ PATIENT_EXCLUSION = [
     "ER_G_664", #pending final submission"
     "ER_G_675", #pending final submission"
     "ER_G_758", #pending final submission"
-    "ER_G_760", #pending final submission"
+    "ER_G_760" #pending final submission"
 
     # CR
-    "CR_G_335a" #pending final submission (clinical label missing)"
+    "CR_G_335a", #pending final submission (clinical label missing)"
 ]
 
 RELAPSE_EXCLUSION = [
@@ -380,7 +380,23 @@ RELAPSE_EXCLUSION = [
     "CH_G_186b",
     "CH_G_189b",
     "CH_G_189c",
-    "CH_G_194b"
+    "CH_G_194b",
+]
+
+SURVIVAL_EXCLUSION = [
+    "CR_G_351a",
+    "CR_G_353a",
+    "CR_G_354a",
+    "CR_G_357a",
+    "CR_G_362a",
+    "CR_G_363a",
+    "CR_G_350a",
+    "CR_G_367a",
+    "CR_G_372a",
+    "CR_G_373a",
+    "CR_G_376a",
+    "CR_G_378a",
+    "CR_G_380a"
 ]
 
 # infercnv

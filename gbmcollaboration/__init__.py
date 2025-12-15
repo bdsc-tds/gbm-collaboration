@@ -8,5 +8,6 @@ from gbmcollaboration.definitions import (
     PATIENTS_IDH1_MUT,
     PATIENT_EXCLUSION,
     RELAPSE_EXCLUSION,
+    SURVIVAL_EXCLUSION,
     PATH_GTF
 )
