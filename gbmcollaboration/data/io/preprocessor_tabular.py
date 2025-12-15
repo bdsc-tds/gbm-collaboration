@@ -44,7 +44,7 @@ class BaseDataCleaner(ABC):
 
 
 class MOSAICLightClinicalDataCleaner(BaseDataCleaner):
-    """Add Subject Id as index and remove columns with only nan values.
+    """Add Sample Id as index and remove columns with only nan values.
 
     Useful only for the original clinical data from MOSAIC.
 
@@ -68,7 +68,7 @@ class MOSAICLightClinicalDataCleaner(BaseDataCleaner):
         pd.DataFrame
             x with no typos, parsed dates
         """
-        x.set_index("Subject Id", inplace=True)
+        x.set_index("Tumour block ID for MOSAIC", inplace=True)
 
         # Remove columns with only nan values
         x.dropna(axis=1, how="all", inplace=True)
@@ -101,7 +101,7 @@ class MOSAICClinicalDataCleaner(BaseDataCleaner):
         pd.DataFrame
             x with no typos, parsed dates
         """
-        x.set_index("Subject Id", inplace=True)
+        x.set_index("Tumour block ID for MOSAIC", inplace=True)
 
         # Remove columns specific to other TAs
         # Remove columns if the column name contains a keyword in KEYWORDS_COL_TO_REMOVE
@@ -227,7 +227,7 @@ class MOSAICKeyEventsDataCleaner(BaseDataCleaner):
 
 
 class MOSAICBulkRNADataCleaner(BaseDataCleaner):
-    """Clean Key Events data file from MOSAIC.
+    """Clean bulkRNA data file from MOSAIC.
 
     Remove typos, preprocess data columns.
 
@@ -292,7 +292,7 @@ class MOSAICWESDataCleaner(BaseDataCleaner):
         x = x.set_index("gene_name")
         x = x.drop(columns=["ensembl_gene_id"])
         x = x.T  # Transpose the data to have patient id in index
-        x.index.name = "Subject Id"
+        x.index.name = "Sample Id"
 
         return x
 
@@ -330,8 +330,8 @@ class MOSAICWESTMBDataCleaner(BaseDataCleaner):
 
         # concatenate the dataframes
         df = pd.concat(dfs, ignore_index=True)
-        df.rename(columns={"sample_id" : "Subject Id"}, inplace=True)
-        df.set_index("Subject Id", inplace=True)
+        df.rename(columns={"sample_id" : "Sample Id"}, inplace=True)
+        df.set_index("Sample Id", inplace=True)
         # divide each number in n_snv_target_regions_per_mb by 1e6
         df["n_snv_target_regions_per_mb"] = df["n_snv_target_regions_per_mb"]
         df["n_indel_target_regions_per_mb"] = df["n_indel_target_regions_per_mb"]
@@ -365,9 +365,9 @@ class MOSAICHEDataCleaner(BaseDataCleaner):
         pd.DataFrame
             x with no typos, parsed dates
         """
-        x.loc[:, "Subject Id"] = x["path"].apply(lambda v: v.name[:9])
-        x.loc[:, "patient id"] = x["Subject Id"].apply(lambda v: v[:-1])
-        x = x.set_index("Subject Id")
+        x.loc[:, "Sample Id"] = x["path"].apply(lambda v: v.name[:9])
+        x.loc[:, "patient id"] = x["Sample Id"].apply(lambda v: v[:-1])
+        x = x.set_index("Sample Id")
         return x
 
 
@@ -396,11 +396,11 @@ class MOSAICHEFeaturesDataCleaner(BaseDataCleaner):
         pd.DataFrame
             x with no typos, parsed dates
         """
-        x.loc[:, "Subject Id"] = x["path"].apply(lambda v: v.parent.name[:9])
-        x.loc[:, "patient id"] = x["Subject Id"].apply(lambda v: v[:-1])
+        x.loc[:, "Sample Id"] = x["path"].apply(lambda v: v.parent.name[:9])
+        x.loc[:, "patient id"] = x["Sample Id"].apply(lambda v: v[:-1])
         x.loc[:, "mask_path"] = x["path"].apply(lambda v: v.parent / "mask.png")
         x.loc[:, "info_path"] = x["path"].apply(
             lambda v: v.parent / "tiling_tool_format.json"
         )
-        x = x.set_index("Subject Id")
+        x = x.set_index("Sample Id")
         return x
