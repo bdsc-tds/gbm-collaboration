@@ -13,27 +13,26 @@ import os
 from typing import List
 from pathlib import Path
 import subprocess
-
-# %% I think here we need to load a single cell adata?
-# %%
-# append the wes cnv profile
-path_wes = "/home/sagemaker-user/gbm-collaboration/notebooks/cnv_wes_matrix_full_cohorts.csv"
-wes_profile = pd.read_csv(path_wes, index_col=0)
-wes_profile
-
-# %% create a pseudobulk object
-import pandas as pd
-import numpy as np
 import anndata as ad
 
+# %% -- Load the single-cell adata object saved in EFS
+# Pre-step: load the adata and keep only the malignant cells
+single_cell_obj = ad.read_h5ad("/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/results/scRNAseq/infercnv/infercnv_adata.h5ad")
+
+# append the wes cnv profile
+path_wes = "/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/results/WES/cnv_matrix/cnv_wes_matrix_full_cohorts.csv"
+wes_profile = pd.read_csv(path_wes, index_col=0)
+
+
+# %% -- Create a pseudobulk object
 # Step 1: Get the grouping variable
 group_col = "orig.ident"
-groups = single_cell_obj_malignant.obs[group_col].unique()
+groups = single_cell_obj.obs[group_col].unique()
 
 # Step 2: Aggregate X by group
 # Make sure it's a dense matrix if it's sparse
-X = single_cell_obj_malignant.X.toarray() if not isinstance(single_cell_obj_malignant.X, np.ndarray) else single_cell_obj_malignant.X
-df = pd.DataFrame(X, index=single_cell_obj_malignant.obs[group_col])
+X = single_cell_obj.X.toarray() if not isinstance(single_cell_obj.X, np.ndarray) else single_cell_obj.X
+df = pd.DataFrame(X, index=single_cell_obj.obs[group_col])
 
 # Sum expression per gene per group
 pseudobulk_matrix = df.groupby(df.index).sum().T  # genes x samples
@@ -41,25 +40,21 @@ pseudobulk_matrix = df.groupby(df.index).sum().T  # genes x samples
 # Step 3: Create a new AnnData object
 pseudobulk_adata = ad.AnnData(X=pseudobulk_matrix.values.T)  # samples x genes
 pseudobulk_adata.obs[group_col] = pseudobulk_matrix.columns
-pseudobulk_adata.var_names = single_cell_obj_malignant.var_names
+pseudobulk_adata.var_names = single_cell_obj.var_names
 pseudobulk_adata.obs_names = pseudobulk_matrix.columns
+pseudobulk_adata.uns["cnv"] = single_cell_obj.uns["cnv"]
+pseudobulk_adata.var = single_cell_obj.var
 
-# %%
-pseudobulk_adata.uns["cnv"] = single_cell_obj_malignant.uns["cnv"]
-pseudobulk_adata.var = single_cell_obj_malignant.var
-
-# %%
-#pseudobulk_adata = pseudobulk_adata[pseudobulk_adata.obs[group_col].str.startswith("CH")]
+# %% -- Append the WES matrix profile to the object
 pseudobulk_adata.obsm["X_cnv"] = wes_profile.loc[pseudobulk_adata.obs[group_col]].values
+# keep only the common ids in wes_profile.index and pseudobulk_adata.obs["orig.ident"]
 
-# %%
+# %% -- Start calculation and plotting
 cnv.tl.pca(pseudobulk_adata)
 cnv.pp.neighbors(pseudobulk_adata)
-
-# %%
 cnv.tl.leiden(pseudobulk_adata)
 
-# %%
+# %% -- Calculate dendogram
 sc.tl.dendrogram(
     pseudobulk_adata,
     groupby="cnv_leiden",
@@ -69,8 +64,7 @@ sc.tl.dendrogram(
     optimal_ordering=True
 )
 
-
-# %%
+# %% -- Plotting
 cnv.pl.chromosome_heatmap_summary(
     pseudobulk_adata,
     groupby="cnv_leiden",
@@ -164,24 +158,24 @@ pseudobulk_adata[pseudobulk_adata.obs["cnv_leiden"]=="6"].obs[group_col].unique(
 
 # %%
 cnv.pl.chromosome_heatmap_summary(
-    single_cell_obj_malignant[single_cell_obj_malignant.obs["orig.ident"].isin(['CH_G_153a', 'CH_G_156a', 'CH_G_186a', 'CH_G_186b', 'CH_G_207a'])],
+    single_cell_obj[single_cell_obj.obs["orig.ident"].isin(['CH_G_153a', 'CH_G_156a', 'CH_G_186a', 'CH_G_186b', 'CH_G_207a'])],
     groupby="cnv_leiden",
     dendrogram=False,
     figsize=(15,10),
     show=False
 )
 # %%
-single_cell_obj_malignant[single_cell_obj_malignant.obs["orig.ident"]=="CH_G_153a"].uns["cnv"]
+single_cell_obj[single_cell_obj.obs["orig.ident"]=="CH_G_153a"].uns["cnv"]
 
 # %%
-list_gene_expression = single_cell_obj_malignant.var[
-    (single_cell_obj_malignant.var["chromosome"]=="chr12") &
-    (single_cell_obj_malignant.var["start"]>57530102) &
-    (single_cell_obj_malignant.var["end"]<106510198)
+list_gene_expression = single_cell_obj.var[
+    (single_cell_obj.var["chromosome"]=="chr12") &
+    (single_cell_obj.var["start"]>57530102) &
+    (single_cell_obj.var["end"]<106510198)
 ]["gene"]
 # %%
 
-single_cell_153 = single_cell_obj_malignant[single_cell_obj_malignant.obs["orig.ident"]=="CH_G_153a"]
+single_cell_153 = single_cell_obj[single_cell_obj.obs["orig.ident"]=="CH_G_153a"]
 mean_expression = single_cell_153[:, list_gene_expression].X.mean(axis=0)
 # %%
 mean_expression_df = pd.DataFrame(mean_expression.T, index=list_gene_expression, columns=["mean_expr"])
@@ -199,22 +193,22 @@ wes_cnv_df = pd.read_csv(wes_cnv).set_index("orig.ident")
 wes_cnv_df_cl4 = wes_cnv_df[wes_cnv_df["cnv_leiden"]==4].index.tolist()
 
 # %%
-single_cell_obj_malignant.obs["wes_cl4"] = "0"
-single_cell_obj_malignant.obs.loc[
-    single_cell_obj_malignant.obs["orig.ident"].isin(wes_cnv_df_cl4),
+single_cell_obj.obs["wes_cl4"] = "0"
+single_cell_obj.obs.loc[
+    single_cell_obj.obs["orig.ident"].isin(wes_cnv_df_cl4),
     "wes_cl4"
 ] = "1"
 
-single_cell_obj_malignant_cl4 = single_cell_obj_malignant[single_cell_obj_malignant.obs["wes_cl4"]=="1"]
+single_cell_obj_cl4 = single_cell_obj[single_cell_obj.obs["wes_cl4"]=="1"]
 
 # %%
-cnv.pl.chromosome_heatmap(single_cell_obj_malignant_cl4, groupby="cnv_leiden", dendrogram=False)
+cnv.pl.chromosome_heatmap(single_cell_obj_cl4, groupby="cnv_leiden", dendrogram=False)
 
 # %%
 # %%
 cluster = "25"
 chromosome = "chr19"
-#single_cell_obj = single_cell_obj_malignant.copy()
+#single_cell_obj = single_cell_obj.copy()
 # Ensure genes have associated chromosome and position information
 single_cell_obj.var['chromosome'] = single_cell_obj.var['chromosome'].astype(str)  # Ensure it's a string
 # Subset genes on chromosome 2
