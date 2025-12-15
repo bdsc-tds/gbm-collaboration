@@ -127,7 +127,6 @@ patients_set = (
 pattern = "|".join(patients_set)
 
 idx_matches = log2_matrix.index[
-    #log2_matrix.index.str.contains(pattern)
     log2_matrix.index.astype(str).str.contains(pattern)
 ]
 
@@ -135,15 +134,21 @@ if not idx_matches.empty:
     print(f"Excluding {len(idx_matches)} rows.")
     log2_matrix = log2_matrix.drop(index=idx_matches)
 
+# load bins for exploring
+bins = pd.read_csv(PATH_BINS_SINGLECELL)
 # Exclude bins that are unique in some chromosome
 bins.chromosome.value_counts()
 # here chromosome 21 and Y only have one bin, and add noise
 # in the heatmap.
 
+# %%
+bins_to_exclude = bins[bins["chromosome"].isin(["chr21","chrY"])][["bin"]].index.tolist()
+log2_matrix_curated = log2_matrix.drop(columns=bins_to_exclude)
+
 # %% -- Save or explore
-#log2_matrix.to_csv(
-#    "/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/results/WES/cnv_matrix/cnv_wes_matrix_full_cohorts_.csv"
-#    )
+log2_matrix_curated.to_csv(
+    "/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/results/WES/cnv_matrix/cnv_wes_matrix_full_cohorts.csv"
+    )
 
 # --------------------PART 2--------------------------------
 # %% -- Exploration of the data to find any issue
@@ -160,7 +165,7 @@ import matplotlib.pyplot as plt
 from sklearn.preprocessing import StandardScaler
 
 # load data
-log2_matrix = pd.read_csv("/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/results/WES/cnv_matrix/cnv_wes_matrix_full_cohorts_.csv")
+log2_matrix = pd.read_csv("/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/results/WES/cnv_matrix/cnv_wes_matrix_full_cohorts.csv")
 log2_matrix = log2_matrix.set_index("Unnamed: 0")
 
 bins = pd.read_csv(PATH_BINS_SINGLECELL)
@@ -203,7 +208,7 @@ df_pca.loc[sample_below_threshold]
 
 # %% -- Explore the CNV profiles of some outliers on PCA
 # plot the heatmap for sample CR_G_315a
-sample_id = "CH_G_192a" #"CR_G_366a" "ER_G_196a" "CR_G_315a"
+sample_id = "CH_G_192a" #"CR_G_366a" "ER_G_196a" "CR_G_315a" "CH_G_192a"
 sample_log2 = log2_matrix.loc[sample_id].values
 sample_bins = log2_matrix.columns
 sample_bins_df = bins[bins["bin"].isin(sample_bins)].copy()
@@ -263,7 +268,7 @@ def plot_cnv_clustermap(
     q=(0.02, 0.98),          # quantiles pour l'échelle
     metric="correlation",    # souvent mieux que euclidean pour profils
     method="average",
-    col_cluster=True,
+    col_cluster=False,
     row_cluster=True,
 ):
     # bornes robustes
