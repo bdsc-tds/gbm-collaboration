@@ -9,11 +9,17 @@
 # %% -- Imports
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 import os
 from typing import List
 from pathlib import Path
 import subprocess
 import anndata as ad
+import infercnvpy as cnv
+import scanpy as sc
+
+# Constants
+RESULTS_DIR = Path("/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/results/WES/infercnv/")
 
 # %% -- Load the single-cell adata object saved in EFS
 # Pre-step: load the adata and keep only the malignant cells
@@ -23,31 +29,52 @@ single_cell_obj = ad.read_h5ad("/home/sagemaker-user/custom-file-systems/efs/fs-
 path_wes = "/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/results/WES/cnv_matrix/cnv_wes_matrix_full_cohorts.csv"
 wes_profile = pd.read_csv(path_wes, index_col=0)
 
-
 # %% -- Create a pseudobulk object
-# Step 1: Get the grouping variable
-group_col = "orig.ident"
-groups = single_cell_obj.obs[group_col].unique()
+# Step 1: Get the sample id variable
+sample_col = "orig.ident"
 
 # Step 2: Aggregate X by group
 # Make sure it's a dense matrix if it's sparse
 X = single_cell_obj.X.toarray() if not isinstance(single_cell_obj.X, np.ndarray) else single_cell_obj.X
-df = pd.DataFrame(X, index=single_cell_obj.obs[group_col])
+df = pd.DataFrame(X, index=single_cell_obj.obs[sample_col])
 
 # Sum expression per gene per group
 pseudobulk_matrix = df.groupby(df.index).sum().T  # genes x samples
 
 # Step 3: Create a new AnnData object
 pseudobulk_adata = ad.AnnData(X=pseudobulk_matrix.values.T)  # samples x genes
-pseudobulk_adata.obs[group_col] = pseudobulk_matrix.columns
+pseudobulk_adata.obs[sample_col] = pseudobulk_matrix.columns
 pseudobulk_adata.var_names = single_cell_obj.var_names
 pseudobulk_adata.obs_names = pseudobulk_matrix.columns
 pseudobulk_adata.uns["cnv"] = single_cell_obj.uns["cnv"]
 pseudobulk_adata.var = single_cell_obj.var
 
+# %% - Keep only the common ids in wes_profile.index and pseudobulk_adata.obs["orig.ident"]
+pb_ids = pseudobulk_adata.obs[sample_col].astype(str)
+wes_ids = wes_profile.index.astype(str)
+
+# 1. Check for missing samples
+missing = pb_ids[~pb_ids.isin(wes_ids)]
+if len(missing) > 0:
+    raise ValueError(f"Missing WES profiles for samples: {missing.unique()}")
+# Missing sample id ['ER_G_743a'] in WES data
+
+# %% Keep only samples present in WES
+keep_mask = pb_ids.isin(wes_ids)
+
+print(f"Dropping {(~keep_mask).sum()} pseudobulk sample(s):",
+      pb_ids[~keep_mask].unique())
+
+# Subset pseudobulk
+pseudobulk_adata = pseudobulk_adata[keep_mask].copy()
+
+# 2. Check uniqueness
+pb_ids = pseudobulk_adata.obs[sample_col].astype(str) # relist
+assert pb_ids.is_unique, "Duplicate sample IDs in pseudobulk_adata.obs"
+assert wes_profile.index.is_unique, "Duplicate sample IDs in wes_profile.index"
+
 # %% -- Append the WES matrix profile to the object
-pseudobulk_adata.obsm["X_cnv"] = wes_profile.loc[pseudobulk_adata.obs[group_col]].values
-# keep only the common ids in wes_profile.index and pseudobulk_adata.obs["orig.ident"]
+pseudobulk_adata.obsm["X_cnv"] = wes_profile.loc[pseudobulk_adata.obs[sample_col]].values
 
 # %% -- Start calculation and plotting
 cnv.tl.pca(pseudobulk_adata)
@@ -71,101 +98,59 @@ cnv.pl.chromosome_heatmap_summary(
     figsize=(15,5),
     dendrogram=True)
 
-# %%
+# %% -- Count how many samples found in each cluster
 print(pseudobulk_adata.obs["cnv_leiden"].value_counts())
+# cnv_leiden
+# 0    65
+# 1    48
+# 2    38
+# 3    36
+# 4    32
+# 5    28
+# 6    18
 
-# %%
-# add sample origin (baseline, relapse)
-label_origin = pd.read_csv("/home/sagemaker-user/gbm-collaboration/notebooks/Label_samples.csv")
-label_origin.set_index("Sample ID", inplace=True)
-label_origin
+# %% -- Save the Leiden cluster
+leiden_cluster_baseline = pd.DataFrame(pseudobulk_adata.obs["cnv_leiden"])
+leiden_cluster_baseline.to_csv(RESULTS_DIR / "leiden_cluster_wes_baseline_samples.csv", sep=",", index=True)
 
-pseudobulk_adata.obs["label_origin"] = label_origin.loc[pseudobulk_adata.obs["orig.ident"]]
-
-# %%
-pd.crosstab(pseudobulk_adata.obs["label_origin"], pseudobulk_adata.obs["cnv_leiden"])
-
-# %%
-pseudobulk_adata_baseline = pseudobulk_adata[pseudobulk_adata.obs["label_origin"]=="Baseline"]
-cnv.tl.pca(pseudobulk_adata_baseline)
-cnv.pp.neighbors(pseudobulk_adata_baseline)
-cnv.tl.leiden(pseudobulk_adata_baseline)
-sc.tl.dendrogram(
-    pseudobulk_adata_baseline,
-    groupby="cnv_leiden",
-    use_rep="X_cnv",
-    cor_method="pearson",
-    linkage_method="single",      # or single or average
-    optimal_ordering=True
-)
-cnv.pl.chromosome_heatmap_summary(
-    pseudobulk_adata_baseline,
-    groupby="cnv_leiden",
-    figsize=(15,5),
-    dendrogram=True)
-
-# %%
-pseudobulk_adata_relapse = pseudobulk_adata[pseudobulk_adata.obs["label_origin"]=="Relapse"]
-cnv.tl.pca(pseudobulk_adata_relapse)
-cnv.pp.neighbors(pseudobulk_adata_relapse)
-cnv.tl.leiden(pseudobulk_adata_relapse)
-sc.tl.dendrogram(
-    pseudobulk_adata_relapse,
-    groupby="cnv_leiden",
-    use_rep="X_cnv",
-    cor_method="pearson",
-    linkage_method="single",      # or single or average
-    optimal_ordering=True
-)
-cnv.pl.chromosome_heatmap_summary(
-    pseudobulk_adata_relapse,
-    groupby="cnv_leiden",
-    figsize=(20,5),
-    dendrogram=True)
-
-# %%
-leiden_cluster_baseline = pd.DataFrame(pseudobulk_adata_baseline.obs["cnv_leiden"])
-leiden_cluster_baseline.to_csv("leiden_cluster_wes_baseline_samples.csv", sep=",", index=True)
-
-# %%
-# calculate CNV score on the WES profile
-import matplotlib.pyplot as plt
-
+# %% -- Calculate CNV score on the WES profile
 # Generate UMAP
-cnv.tl.umap(pseudobulk_adata_baseline)
-cnv.tl.cnv_score(pseudobulk_adata_baseline, groupby="cnv_leiden")
+cnv.tl.umap(pseudobulk_adata)
+cnv.tl.cnv_score(pseudobulk_adata, groupby="cnv_leiden")
 
 # Create composite figure
-fig, ((ax1, ax2)) = plt.subplots(2, 1, figsize=(5, 11))
+fig, ((ax1, ax2)) = plt.subplots(1, 2, figsize=(11, 5))
 #ax4.axis("off")  # turn off the empty subplot
 
 # Plot UMAPs into specific axes
 cnv.pl.umap(
-    pseudobulk_adata_baseline,
+    pseudobulk_adata,
     color="cnv_leiden",
     legend_loc="on data",
     legend_fontoutline=2,
     ax=ax1,
     show=False
 )
-cnv.pl.umap(pseudobulk_adata_baseline, color="cnv_score", ax=ax2, show=True)
+cnv.pl.umap(pseudobulk_adata, color="cnv_score", ax=ax2, show=True)
 
 #####################
-###### check previous cluster 6 with chr12 alterations #####
+###### check previous cluster 1 with chr12 alterations #####
 ####################
+
 # %%
-pseudobulk_adata[pseudobulk_adata.obs["cnv_leiden"]=="6"].obs[group_col].unique()
+pseudobulk_adata[pseudobulk_adata.obs["cnv_leiden"]=="1"].obs[sample_col].unique()
 
 # %%
 cnv.pl.chromosome_heatmap_summary(
-    single_cell_obj[single_cell_obj.obs["orig.ident"].isin(['CH_G_153a', 'CH_G_156a', 'CH_G_186a', 'CH_G_186b', 'CH_G_207a'])],
+    single_cell_obj[single_cell_obj.obs["orig.ident"].isin(['CH_G_159a', 'CH_G_168a', 'CH_G_169a', 'CH_G_172a', 'CH_G_173a'])],
     groupby="cnv_leiden",
     dendrogram=False,
     figsize=(15,10),
     show=False
 )
+
 # %%
-single_cell_obj[single_cell_obj.obs["orig.ident"]=="CH_G_153a"].uns["cnv"]
+single_cell_obj[single_cell_obj.obs["orig.ident"]=="CH_G_159a"].uns["cnv"]
 
 # %%
 list_gene_expression = single_cell_obj.var[
@@ -173,6 +158,7 @@ list_gene_expression = single_cell_obj.var[
     (single_cell_obj.var["start"]>57530102) &
     (single_cell_obj.var["end"]<106510198)
 ]["gene"]
+
 # %%
 
 single_cell_153 = single_cell_obj[single_cell_obj.obs["orig.ident"]=="CH_G_153a"]
@@ -182,9 +168,6 @@ mean_expression_df = pd.DataFrame(mean_expression.T, index=list_gene_expression,
 # %%
 mean_expression_df.sort_values(by="mean_expr", ascending=False)
 # %%
-
-
-
 
 # %% look at which tumor clones is associated with WES CNV profile 4
 wes_cnv = "/home/sagemaker-user/gbm-collaboration/notebooks/leiden_cluster_wes_baseline_samples.csv"

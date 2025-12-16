@@ -332,3 +332,5 @@ sns.pairplot(
     diag_kind="hist"
 )
 plt.show()
+
+# %%
