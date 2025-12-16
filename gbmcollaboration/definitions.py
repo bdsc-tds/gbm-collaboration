@@ -363,11 +363,17 @@ RELAPSE_EXCLUSION = [
     # Relapse samples to be excluded everywhere for now
     # from Spencer checks
     "ER_G_195b",
+    "ER_G_196b", # failed visium but present in other modalities
+    "ER_G_267b", # failed visium but present in other modalities
+    "ER_G_278a", # failed visium but present in other modalities
     "ER_G_274b",
     "ER_G_276b",
     "ER_G_282b",
     "ER_G_284a",
+    "ER_G_298b", # failed visium but present in other modalities
+    "ER_G_301b", # failed visium but present in other modalities
     "ER_G_303b",
+    "ER_G_308b", # failed visium but present in other modalities
     "ER_G_310b",
     # added from the tracker below:
     "ER_G_288b", # used for meta control?
