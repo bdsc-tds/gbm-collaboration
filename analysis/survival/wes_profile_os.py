@@ -249,7 +249,7 @@ for col in ["1326", "981"]: # or df.columns:
 
 # %% -- Load the WES CNV profiles, previously generated
 df_wes_leiden_cluster = pd.read_csv(
-    "/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/results/WES/infercnv/leiden_cluster_wes_baseline_samples.csv"
+    "/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/results/WES/infercnv/leiden_cluster_wes_baseline_samples_exclX.csv"
 )
 df_wes_leiden_cluster.set_index("orig.ident", inplace=True)
 
