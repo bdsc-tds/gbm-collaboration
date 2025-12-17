@@ -183,7 +183,7 @@ print(wes_adata.obs["cnv_leiden"].value_counts())
 
 # %% -- Save the Leiden cluster
 leiden_cluster_baseline = pd.DataFrame(wes_adata.obs["cnv_leiden"])
-leiden_cluster_baseline.to_csv(RESULTS_DIR / "leiden_cluster_wes_baseline_samples.csv", sep=",", index=True)
+leiden_cluster_baseline.to_csv(RESULTS_DIR / "WES/infercnv/leiden_cluster_wes_baseline_samples.csv", sep=",", index=True)
 
 # %% -- Calculate CNV score on the WES profile
 # Generate UMAP

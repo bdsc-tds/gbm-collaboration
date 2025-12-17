@@ -50,6 +50,10 @@ for center in [CHUVDataCenter, UKERDataCenter, CRDataCenter]:
 df_concat = pd.concat(merged_df, ignore_index=False)
 print("Dataframes from the three centers have been merged.")
 
+################################################################
+################ PART 1: survival per bin ################
+################################################################
+
 # %% -- Load the WES CNV profiles, previously generated
 df_wes_profile = pd.read_csv("/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/results/WES/cnv_matrix/cnv_wes_matrix_full_cohorts.csv")
 df_wes_profile.rename(columns={"Unnamed: 0":"Tumour block ID for MOSAIC"}, inplace=True)
@@ -238,3 +242,240 @@ for col in ["1326", "981"]: # or df.columns:
         df_kmplot["981 category"] = df_kmplot["981"].map(lambda x: f"log2ratio < {lim_log2ratio}" if x < lim_log2ratio else f"log2ratio > {lim_log2ratio}")
         fig, ax = plt.subplots(1, 1, figsize=(8, 6))
         fig = kmplot(df_kmplot, x="OS", hue="981 category", add_hazard_ratio=True, add_logrank_pvalue=True, ax=ax)
+
+################################################################
+################ PART 2: survival per leiden cluster ################
+################################################################
+
+# %% -- Load the WES CNV profiles, previously generated
+df_wes_leiden_cluster = pd.read_csv(
+    "/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/results/WES/infercnv/leiden_cluster_wes_baseline_samples.csv"
+)
+df_wes_leiden_cluster.set_index("orig.ident", inplace=True)
+
+# %% -- Merge clusters with OS and build survival columns
+# OS is encoded as signed time: event if OS>0, time = abs(OS)
+df_surv = df_concat[["OS"]].copy()
+df_surv["OS_event"] = df_surv["OS"] > 0
+df_surv["OS_time"] = df_surv["OS"].abs()
+
+df_cluster_surv = df_wes_leiden_cluster.merge(df_surv[["OS_time", "OS_event"]], how="inner",
+                                              left_index=True, right_index=True)
+
+# --- infer cluster column name robustly
+cluster_candidates = [c for c in df_cluster_surv.columns if "leiden" in c.lower() or "cluster" in c.lower()]
+if len(cluster_candidates) == 0:
+    # fallback: take the first non-survival column
+    cluster_col = [c for c in df_cluster_surv.columns if c not in ["OS_time", "OS_event"]][0]
+else:
+    cluster_col = cluster_candidates[0]
+
+df_cluster_surv[cluster_col] = df_cluster_surv[cluster_col].astype(str)
+
+print(f"Using cluster column: {cluster_col}")
+print("Clusters:", sorted(df_cluster_surv[cluster_col].unique()))
+
+# %% -- Cox: each cluster vs all others (univariate)
+from lifelines import CoxPHFitter
+import numpy as np
+
+cox_rows = []
+clusters = sorted(df_cluster_surv[cluster_col].unique())
+
+for cl in clusters:
+    tmp = df_cluster_surv[["OS_time", "OS_event", cluster_col]].copy()
+    tmp["is_cluster"] = (tmp[cluster_col] == cl).astype(int)
+
+    # Skip if degenerate
+    n_in = int(tmp["is_cluster"].sum())
+    n_out = int((1 - tmp["is_cluster"]).sum())
+    if n_in < 5 or n_out < 5:
+        cox_rows.append({
+            "cluster": cl, "n_in": n_in, "n_out": n_out,
+            "HR": np.nan, "CI95_low": np.nan, "CI95_high": np.nan, "p": np.nan
+        })
+        continue
+
+    cph = CoxPHFitter()
+    cph.fit(tmp[["OS_time", "OS_event", "is_cluster"]],
+            duration_col="OS_time", event_col="OS_event")
+
+    s = cph.summary.loc["is_cluster"]
+    cox_rows.append({
+        "cluster": cl,
+        "n_in": n_in,
+        "n_out": n_out,
+        "HR": float(s["exp(coef)"]),
+        "CI95_low": float(s["exp(coef) lower 95%"]),
+        "CI95_high": float(s["exp(coef) upper 95%"]),
+        "p": float(s["p"])
+    })
+
+df_cox_cluster_vs_rest = pd.DataFrame(cox_rows).sort_values("p")
+print("\nCox (cluster vs all others):")
+print(df_cox_cluster_vs_rest)
+
+# %% -- KM curves: all clusters on the same plot
+from lifelines import KaplanMeierFitter
+import matplotlib.pyplot as plt
+
+fig, ax = plt.subplots(1, 1, figsize=(9, 7))
+
+kmf = KaplanMeierFitter()
+for cl in clusters:
+    mask = (df_cluster_surv[cluster_col] == cl)
+    if mask.sum() == 0:
+        continue
+    kmf.fit(
+        durations=df_cluster_surv.loc[mask, "OS_time"],
+        event_observed=df_cluster_surv.loc[mask, "OS_event"],
+        label=f"Cluster {cl} (n={mask.sum()})"
+    )
+    kmf.plot_survival_function(ax=ax, ci_show=False)
+
+ax.set_title("Overall survival by Leiden cluster (KM)")
+ax.set_xlabel("Time")
+ax.set_ylabel("Survival probability")
+ax.legend(title="Leiden clusters", loc="best")
+plt.tight_layout()
+plt.show()
+
+# %% -- Forest plot
+################################################################
+################ FOREST PLOT: CLUSTER VS REST ###################
+################################################################
+
+import matplotlib.pyplot as plt
+import numpy as np
+
+# Clean dataframe
+df_forest = df_cox_cluster_vs_rest.copy()
+df_forest = df_forest.dropna(subset=["HR"])
+df_forest = df_forest.sort_values("HR")
+
+# Y positions
+y_pos = np.arange(len(df_forest))
+
+fig, ax = plt.subplots(figsize=(8, 0.6 * len(df_forest) + 2))
+
+# Plot HRs with CI
+ax.errorbar(
+    x=df_forest["HR"],
+    y=y_pos,
+    xerr=[
+        df_forest["HR"] - df_forest["CI95_low"],
+        df_forest["CI95_high"] - df_forest["HR"]
+    ],
+    fmt="o",
+    color="black",
+    ecolor="black",
+    capsize=3
+)
+
+# Reference line
+ax.axvline(1, color="grey", linestyle="--")
+
+# Y-axis labels with sample size
+ax.set_yticks(y_pos)
+ax.set_yticklabels(
+    [
+        f"Cluster {cl} (n={n})"
+        for cl, n in zip(df_forest["cluster"], df_forest["n_in"])
+    ]
+)
+
+ax.set_xlabel("Hazard ratio (cluster vs all others)")
+ax.set_title("Overall survival – Leiden clusters")
+
+# Annotate p-values
+for i, p in enumerate(df_forest["p"]):
+    ax.text(
+        x=df_forest["CI95_high"].max() * 1.05,
+        y=i,
+        s=f"p = {p:.3g}",
+        va="center",
+        fontsize=9
+    )
+
+plt.tight_layout()
+plt.show()
+
+################################################################
+################ CATEGORICAL COX: LEIDEN CLUSTERS ################
+################################################################
+
+# %% -- Run a categorical CoxPH
+from lifelines import CoxPHFitter
+
+df_cox_cat = df_cluster_surv[[cluster_col, "OS_time", "OS_event"]].copy()
+
+# Make clusters categorical
+df_cox_cat[cluster_col] = df_cox_cat[cluster_col].astype("category")
+
+# Choose reference cluster (largest by default = more stable)
+ref_cluster = df_cox_cat[cluster_col].value_counts().idxmax()
+print(f"Reference cluster: {ref_cluster}")
+
+# Reorder categories so reference is first
+new_cats = [ref_cluster] + [c for c in df_cox_cat[cluster_col].cat.categories if c != ref_cluster]
+df_cox_cat[cluster_col] = df_cox_cat[cluster_col].cat.reorder_categories(new_cats)
+
+# One-hot encode (drop reference)
+df_cox_dummies = pd.get_dummies(df_cox_cat, columns=[cluster_col], drop_first=True)
+
+# %%
+cph_cat = CoxPHFitter()
+cph_cat.fit(
+    df_cox_dummies,
+    duration_col="OS_time",
+    event_col="OS_event"
+)
+
+cph_cat.print_summary()
+
+# %%
+summary = cph_cat.summary.copy()
+summary["cluster"] = summary.index.str.replace(f"{cluster_col}_", "")
+summary = summary.reset_index(drop=True)
+
+summary = summary[[
+    "cluster",
+    "exp(coef)",
+    "exp(coef) lower 95%",
+    "exp(coef) upper 95%",
+    "p"
+]].rename(columns={
+    "exp(coef)": "HR",
+    "exp(coef) lower 95%": "CI95_low",
+    "exp(coef) upper 95%": "CI95_high"
+})
+
+summary["reference"] = ref_cluster
+summary = summary.sort_values("p")
+
+print(summary)
+
+# %%
+plt.figure(figsize=(7, 0.5 * len(summary) + 2))
+
+plt.errorbar(
+    x=summary["HR"],
+    y=summary["cluster"],
+    xerr=[
+        summary["HR"] - summary["CI95_low"],
+        summary["CI95_high"] - summary["HR"]
+    ],
+    fmt="o"
+)
+
+plt.axvline(1, color="black", linestyle="--")
+plt.xlabel("Hazard ratio (vs reference cluster)")
+plt.ylabel("Leiden cluster")
+plt.title(f"Cox model – Leiden clusters (ref = {ref_cluster})")
+plt.tight_layout()
+plt.show()
+
+# %%
+# CHECK ASSOCIATION WITH GENDER
+merge_leiden_sex = df_cluster_surv.merge(df_concat[["Administrative gender"]], left_index=True, right_index=True)
+# %%
