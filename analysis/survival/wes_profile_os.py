@@ -3,13 +3,16 @@
 # %% -- Import packages and load data
 import pandas as pd
 import numpy as np
-from sksurv.ensemble import RandomSurvivalForest#, RandomForestRegressor
+from sksurv.ensemble import RandomSurvivalForest
+from sklearn.ensemble import RandomForestRegressor
 from sksurv.util import Surv
 from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
 import seaborn as sns
 from lifelines.utils import concordance_index
 import shap
+from lifelines import CoxPHFitter, KaplanMeierFitter
+from lifelines.statistics import multivariate_logrank_test
 
 from gbmcollaboration import CHUVDataCenter, UKERDataCenter, CRDataCenter
 from gbmcollaboration import (
@@ -89,7 +92,6 @@ rsf.fit(X_scaled, y)
 # %% Now use SHAP for feature importance
 # 1. Scale CNV features
 X_scaled = pd.DataFrame(StandardScaler().fit_transform(X), columns=X.columns, index=X.index)
-#X_scaled = X.copy()
 
 # 2. Prepare survival object
 y = Surv.from_dataframe("OS_event", "OS_time", df_clinical)
@@ -247,61 +249,64 @@ for col in ["1326", "981"]: # or df.columns:
 ################ PART 2: survival per leiden cluster ################
 ################################################################
 
-# %% -- Load the WES CNV profiles, previously generated
+# %% --- Load Leiden clusters (autosomes-only) previously computed
 df_wes_leiden_cluster = pd.read_csv(
     "/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/results/WES/infercnv/leiden_cluster_wes_baseline_samples_exclX.csv"
 )
 df_wes_leiden_cluster.set_index("orig.ident", inplace=True)
 
-# %% -- Merge clusters with OS and build survival columns
-# OS is encoded as signed time: event if OS>0, time = abs(OS)
-df_surv = df_concat[["OS"]].copy()
-df_surv["OS_event"] = df_surv["OS"] > 0
-df_surv["OS_time"] = df_surv["OS"].abs()
+# %% Prepare dataframe
+cluster_col = "cnv_leiden"
+covariate_cols = ["Age (years)", "Administrative gender", "MGMT promoter methylation", "Site code"]
 
-df_cluster_surv = df_wes_leiden_cluster.merge(df_surv[["OS_time", "OS_event"]], how="inner",
-                                              left_index=True, right_index=True)
+# Pull OS + covariates from merged clinical df
+df_surv_cov = df_concat[["OS"] + covariate_cols].copy()
 
-# --- infer cluster column name robustly
-cluster_candidates = [c for c in df_cluster_surv.columns if "leiden" in c.lower() or "cluster" in c.lower()]
-if len(cluster_candidates) == 0:
-    # fallback: take the first non-survival column
-    cluster_col = [c for c in df_cluster_surv.columns if c not in ["OS_time", "OS_event"]][0]
-else:
-    cluster_col = cluster_candidates[0]
+# Map categorical covariates
+MAPPING = {
+    "MGMT promoter methylation": {"Unmethylated": 0, "Methylated": 1},
+    "Administrative gender": {"Male": 0, "Female": 1},
+    "Site code": {"CH": 0, "ER": 1, "CR": 2},
+}
+df_surv_cov = df_surv_cov.replace(MAPPING)
 
-df_cluster_surv[cluster_col] = df_cluster_surv[cluster_col].astype(str)
+# Merge clusters with survival/covariates
+df_cluster = df_wes_leiden_cluster[[cluster_col]].merge(
+    df_surv_cov,
+    how="inner",
+    left_index=True,
+    right_index=True
+).copy()
 
-print(f"Using cluster column: {cluster_col}")
-print("Clusters:", sorted(df_cluster_surv[cluster_col].unique()))
+df_cluster[cluster_col] = df_cluster[cluster_col].astype(int)
 
-# %% -- Cox: each cluster vs all others (univariate)
-from lifelines import CoxPHFitter
-import numpy as np
+print("Merged df shape:", df_cluster.shape)
+print("Cluster counts:\n", df_cluster[cluster_col].value_counts().sort_index())
 
-cox_rows = []
-clusters = sorted(df_cluster_surv[cluster_col].unique())
+# Build time/event in lifelines format
+df_cluster["OS.time"] = df_cluster["OS"].abs()
+df_cluster["OS.event"] = df_cluster["OS"] > 0
+
+# %% -- Adjusted Cox: each cluster vs all others (one model per cluster)
+clusters = sorted(df_cluster[cluster_col].unique())
+df_cluster_vs_rest_rows = []
 
 for cl in clusters:
-    tmp = df_cluster_surv[["OS_time", "OS_event", cluster_col]].copy()
+    tmp = df_cluster.copy()
     tmp["is_cluster"] = (tmp[cluster_col] == cl).astype(int)
 
-    # Skip if degenerate
+    use_cols = ["OS.time", "OS.event", "is_cluster"] + covariate_cols
+    tmp = tmp[use_cols].dropna()
+
     n_in = int(tmp["is_cluster"].sum())
     n_out = int((1 - tmp["is_cluster"]).sum())
-    if n_in < 5 or n_out < 5:
-        cox_rows.append({
-            "cluster": cl, "n_in": n_in, "n_out": n_out,
-            "HR": np.nan, "CI95_low": np.nan, "CI95_high": np.nan, "p": np.nan
-        })
-        continue
 
     cph = CoxPHFitter()
-    cph.fit(tmp[["OS_time", "OS_event", "is_cluster"]],
-            duration_col="OS_time", event_col="OS_event")
+    cph.fit(tmp, duration_col="OS.time", event_col="OS.event", show_progress=False)
 
+    # extract the adjusted effect for "is_cluster"
     s = cph.summary.loc["is_cluster"]
-    cox_rows.append({
+    df_cluster_vs_rest_rows.append({
         "cluster": cl,
         "n_in": n_in,
         "n_out": n_out,
@@ -311,171 +316,125 @@ for cl in clusters:
         "p": float(s["p"])
     })
 
-df_cox_cluster_vs_rest = pd.DataFrame(cox_rows).sort_values("p")
-print("\nCox (cluster vs all others):")
-print(df_cox_cluster_vs_rest)
+    # forest plot for this adjusted model (cluster term + covariates)
+    df_sum = cph.summary.reset_index().rename(columns={"index": "covariate"})
+    from statsmodels.stats.multitest import fdrcorrection
+    _, df_sum["fdr"] = fdrcorrection(df_sum["p"].values)
 
-# %% -- KM curves: all clusters on the same plot
-from lifelines import KaplanMeierFitter
-import matplotlib.pyplot as plt
-
-fig, ax = plt.subplots(1, 1, figsize=(9, 7))
-
-kmf = KaplanMeierFitter()
-for cl in clusters:
-    mask = (df_cluster_surv[cluster_col] == cl)
-    if mask.sum() == 0:
-        continue
-    kmf.fit(
-        durations=df_cluster_surv.loc[mask, "OS_time"],
-        event_observed=df_cluster_surv.loc[mask, "OS_event"],
-        label=f"Cluster {cl} (n={mask.sum()})"
+    plot_forest(
+        df_all=df_sum,
+        distances=[0.45, 0.15, 0.35],
+        figsize=(10, 3.8),
+        outcome="OS",
+        significance="p"  # or "FDR"
     )
-    kmf.plot_survival_function(ax=ax, ci_show=False)
+    plt.title(f"Adjusted Cox: cluster {cl} vs all others")
+    plt.show()
 
-ax.set_title("Overall survival by Leiden cluster (KM)")
-ax.set_xlabel("Time")
-ax.set_ylabel("Survival probability")
-ax.legend(title="Leiden clusters", loc="best")
-plt.tight_layout()
-plt.show()
+df_cox_cluster_vs_rest_adj = pd.DataFrame(df_cluster_vs_rest_rows).sort_values("p")
+print("\nAdjusted Cox (cluster vs rest) summary table:")
+print(df_cox_cluster_vs_rest_adj)
 
-# %% -- Forest plot
-################################################################
-################ FOREST PLOT: CLUSTER VS REST ###################
-################################################################
+# %% -- Adjusted categorical Cox (fixed reference cluster)
+# Choose reference cluster 0 since it's the largest
+ref_cluster = 0 if 0 in clusters else int(df_cluster[cluster_col].value_counts().idxmax())
+print(f"\nReference cluster for categorical Cox: {ref_cluster}")
 
-import matplotlib.pyplot as plt
-import numpy as np
+df_cat = df_cluster[[cluster_col, "OS.time", "OS.event"] + covariate_cols].dropna().copy()
+df_cat[cluster_col] = pd.Categorical(df_cat[cluster_col])
 
-# Clean dataframe
-df_forest = df_cox_cluster_vs_rest.copy()
-df_forest = df_forest.dropna(subset=["HR"])
-df_forest = df_forest.sort_values("HR")
+# reorder categories so reference is first
+new_cats = [ref_cluster] + [c for c in df_cat[cluster_col].cat.categories if c != ref_cluster]
+df_cat[cluster_col] = df_cat[cluster_col].cat.reorder_categories(new_cats)
 
-# Y positions
-y_pos = np.arange(len(df_forest))
+df_cat_dum = pd.get_dummies(df_cat, columns=[cluster_col], drop_first=True)
 
-fig, ax = plt.subplots(figsize=(8, 0.6 * len(df_forest) + 2))
-
-# Plot HRs with CI
-ax.errorbar(
-    x=df_forest["HR"],
-    y=y_pos,
-    xerr=[
-        df_forest["HR"] - df_forest["CI95_low"],
-        df_forest["CI95_high"] - df_forest["HR"]
-    ],
-    fmt="o",
-    color="black",
-    ecolor="black",
-    capsize=3
-)
-
-# Reference line
-ax.axvline(1, color="grey", linestyle="--")
-
-# Y-axis labels with sample size
-ax.set_yticks(y_pos)
-ax.set_yticklabels(
-    [
-        f"Cluster {cl} (n={n})"
-        for cl, n in zip(df_forest["cluster"], df_forest["n_in"])
-    ]
-)
-
-ax.set_xlabel("Hazard ratio (cluster vs all others)")
-ax.set_title("Overall survival – Leiden clusters")
-
-# Annotate p-values
-for i, p in enumerate(df_forest["p"]):
-    ax.text(
-        x=df_forest["CI95_high"].max() * 1.05,
-        y=i,
-        s=f"p = {p:.3g}",
-        va="center",
-        fontsize=9
-    )
-
-plt.tight_layout()
-plt.show()
-
-################################################################
-################ CATEGORICAL COX: LEIDEN CLUSTERS ################
-################################################################
-
-# %% -- Run a categorical CoxPH
-from lifelines import CoxPHFitter
-
-df_cox_cat = df_cluster_surv[[cluster_col, "OS_time", "OS_event"]].copy()
-
-# Make clusters categorical
-df_cox_cat[cluster_col] = df_cox_cat[cluster_col].astype("category")
-
-# Choose reference cluster (largest by default = more stable)
-ref_cluster = df_cox_cat[cluster_col].value_counts().idxmax()
-print(f"Reference cluster: {ref_cluster}")
-
-# Reorder categories so reference is first
-new_cats = [ref_cluster] + [c for c in df_cox_cat[cluster_col].cat.categories if c != ref_cluster]
-df_cox_cat[cluster_col] = df_cox_cat[cluster_col].cat.reorder_categories(new_cats)
-
-# One-hot encode (drop reference)
-df_cox_dummies = pd.get_dummies(df_cox_cat, columns=[cluster_col], drop_first=True)
-
-# %%
 cph_cat = CoxPHFitter()
-cph_cat.fit(
-    df_cox_dummies,
-    duration_col="OS_time",
-    event_col="OS_event"
+cph_cat.fit(df_cat_dum, duration_col="OS.time", event_col="OS.event", show_progress=False)
+
+df_sum_cat = cph_cat.summary.reset_index().rename(columns={"index": "covariate"})
+from statsmodels.stats.multitest import fdrcorrection
+_, df_sum_cat["fdr"] = fdrcorrection(df_sum_cat["p"].values)
+
+print("\nAdjusted categorical Cox summary (top hits):")
+print(df_sum_cat.sort_values("p").head(20))
+
+# Forest plot for categorical model (clusters + covariates)
+plot_forest(
+    df_all=df_sum_cat,
+    distances=[0.55, 0.15, 0.40],
+    figsize=(10, 6),
+    outcome="OS",
+    significance="FDR"  # or "FDR"
 )
+plt.title(f"Adjusted categorical Cox (ref cluster = {ref_cluster})")
+plt.show()
 
-cph_cat.print_summary()
-
-# %%
-summary = cph_cat.summary.copy()
-summary["cluster"] = summary.index.str.replace(f"{cluster_col}_", "")
-summary = summary.reset_index(drop=True)
-
-summary = summary[[
-    "cluster",
-    "exp(coef)",
-    "exp(coef) lower 95%",
-    "exp(coef) upper 95%",
-    "p"
-]].rename(columns={
+# Optional: extract only cluster terms into a clean table
+cluster_prefix = f"{cluster_col}_"
+df_cat_clusters = df_sum_cat[df_sum_cat["covariate"].str.startswith(cluster_prefix)].copy()
+df_cat_clusters["cluster"] = df_cat_clusters["covariate"].str.replace(cluster_prefix, "", regex=False)
+df_cat_clusters["reference"] = ref_cluster
+df_cat_clusters = df_cat_clusters[["cluster", "exp(coef)", "exp(coef) lower 95%", "exp(coef) upper 95%", "p", "reference"]]
+df_cat_clusters = df_cat_clusters.rename(columns={
     "exp(coef)": "HR",
     "exp(coef) lower 95%": "CI95_low",
     "exp(coef) upper 95%": "CI95_high"
-})
+}).sort_values("p")
 
-summary["reference"] = ref_cluster
-summary = summary.sort_values("p")
+print("\nAdjusted categorical Cox (cluster terms only):")
+print(df_cat_clusters)
 
-print(summary)
+# %% -- KM curves
+df_km = df_cluster[["OS", cluster_col]].copy()
+df_km[cluster_col] = df_km[cluster_col].astype(str)
 
-# %%
-plt.figure(figsize=(7, 0.5 * len(summary) + 2))
-
-plt.errorbar(
-    x=summary["HR"],
-    y=summary["cluster"],
-    xerr=[
-        summary["HR"] - summary["CI95_low"],
-        summary["CI95_high"] - summary["HR"]
-    ],
-    fmt="o"
+fig, ax = plt.subplots(1, 1, figsize=(9, 7))
+kmplot(
+    data=df_km,
+    x="OS",
+    hue=cluster_col,
+    hue_order=sorted(df_km[cluster_col].unique(), key=lambda x: int(x)),
+    convert_days_to_months=True,
+    add_hazard_ratio=False,      # only works for 2 groups
+    add_logrank_pvalue=False,    # global logrank isn't supported in that helper
+    at_risk_counts=False,
+    ax=ax,
+    title="Overall survival by WES CNV Leiden cluster (autosomes only)"
 )
-
-plt.axvline(1, color="black", linestyle="--")
-plt.xlabel("Hazard ratio (vs reference cluster)")
-plt.ylabel("Leiden cluster")
-plt.title(f"Cox model – Leiden clusters (ref = {ref_cluster})")
 plt.tight_layout()
 plt.show()
 
-# %%
-# CHECK ASSOCIATION WITH GENDER
-merge_leiden_sex = df_cluster_surv.merge(df_concat[["Administrative gender"]], left_index=True, right_index=True)
+# %% KM curves with multivariate_logrank_test
+fig, ax = plt.subplots(1, 1, figsize=(9, 7))
+kmplot(
+    data=df_km,
+    x="OS",
+    hue=cluster_col,
+    hue_order=sorted(df_km[cluster_col].unique(), key=lambda x: int(x)),
+    convert_days_to_months=True,
+    add_hazard_ratio=False,
+    add_logrank_pvalue=False,   # keep False; we’ll add global p ourselves
+    at_risk_counts=False,
+    ax=ax,
+    title="Overall survival by WES CNV Leiden cluster (autosomes only)"
+)
+
+df_lr = df_cluster[[ "OS", cluster_col ]].dropna().copy()
+df_lr["time"] = df_lr["OS"].abs()
+df_lr["event"] = df_lr["OS"] > 0
+
+res = multivariate_logrank_test(
+    event_durations=df_lr["time"],
+    groups=df_lr[cluster_col].astype(str),
+    event_observed=df_lr["event"]
+)
+
+p = float(res.p_value)
+p_txt = "Global log-rank: p<0.001" if p < 0.001 else f"Global log-rank: p={p:.3g}"
+
+ax.text(0.02, 0.02, p_txt, transform=ax.transAxes, fontsize=10, va="bottom")
+plt.tight_layout()
+plt.show()
+
 # %%
