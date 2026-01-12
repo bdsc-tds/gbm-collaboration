@@ -616,3 +616,330 @@ df_tumor_clones.to_csv(save_path, index=True)
 adata_tumor.layers.clear()
 adata_tumor.X = scipy.sparse.csr_matrix(adata_tumor.X.shape)
 adata_tumor.write(RESULTS_DIR / "infercnv_adata_malignant_only.h5ad")
+
+# %% -- Load cluster label WES
+df_wes_leiden_cluster = pd.read_csv(
+    "/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/results/WES/infercnv/leiden_cluster_wes_baseline_samples_exclX_Y_res0_4.csv"
+)
+df_wes_leiden_cluster.rename(columns={"cnv_leiden": "wes_cluster"}, inplace=True)
+
+# merge with the adata
+adata_tumor.obs = adata_tumor.obs.merge(
+    df_wes_leiden_cluster[["orig.ident", "wes_cluster"]],
+    on="orig.ident",
+    how="left"
+)
+
+# check
+adata_tumor.obs["wes_cluster"].value_counts()
+
+# %%
+ct_wes = pd.crosstab(
+    adata_tumor.obs["wes_cluster"],
+    adata_tumor.obs["cnv_leiden"],
+    normalize="index"
+)
+
+ct_wes.loc[2].sort_values(ascending=False).head(10)  # clones dominants dans WES cluster 2
+
+plt.figure(figsize=(10,4), dpi=300)
+sns.heatmap(ct_wes, cmap="viridis", vmin=0)
+plt.xlabel("CNV clone (cnv_leiden)")
+plt.ylabel("WES cluster")
+plt.tight_layout()
+plt.show()
+
+# %%
+# ajouter WES cluster au niveau patient
+ct_patient = pd.crosstab(
+    adata_tumor.obs["orig.ident"],
+    adata_tumor.obs["cnv_leiden"],
+    normalize="index"
+)
+
+patient_wes = (
+    adata_tumor.obs[["orig.ident", "wes_cluster"]]
+    .drop_duplicates()
+    .set_index("orig.ident")
+)
+ct_patient = ct_patient.join(patient_wes, how="inner")
+
+# %%
+clones_to_plot = adata_tumor.obs["cnv_leiden"].unique()
+
+df_long = (
+    ct_patient
+    .reset_index()
+    .melt(
+        id_vars=["orig.ident", "wes_cluster"],
+        value_vars=clones_to_plot,
+        var_name="cnv_leiden",
+        value_name="fraction"
+    )
+)
+
+df_long["WES_group"] = df_long["wes_cluster"].apply(lambda x: "WES cluster 2" if x == 2 else "Other")
+
+# %% Plot avec SYMLOG
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+palette = {
+    "WES cluster 2": "#D55E00",
+    "Other": "#4C72B0"
+}
+
+def add_group_medians(data, **kws):
+    ax = plt.gca()
+    for grp, sub in data.groupby("WES_group"):
+        med = sub["fraction"].median()
+        ax.axvline(med, color=palette.get(grp, "black"), linestyle="--", linewidth=1)
+
+g = sns.FacetGrid(
+    df_long,
+    row="cnv_leiden",
+    height=1.25,
+    aspect=4,
+    sharex=True,
+    sharey=False
+)
+
+g.map_dataframe(
+    sns.boxenplot,
+    x="fraction",
+    y="WES_group",
+    orient="h",
+    linewidth=1,
+    palette=palette
+)
+
+g.map_dataframe(
+    sns.stripplot,
+    x="fraction",
+    y="WES_group",
+    orient="h",
+    hue="WES_group",
+    palette=palette,
+    dodge=False,
+    jitter=0.20,
+    size=2.0,
+    alpha=0.35
+)
+
+g.map_dataframe(add_group_medians)
+
+# pseudo-log sur tous les axes
+for ax in g.axes.flat:
+    ax.set_xscale("symlog", linthresh=1e-3)  # ajuste 1e-4 / 1e-3 / 1e-2 selon tes fractions
+    if ax.get_legend() is not None:
+        ax.get_legend().remove()
+
+g.set_axis_labels("Fraction per patient (symlog)", "")
+g.set_titles(row_template="CNV clone {row_name}")
+
+plt.tight_layout()
+plt.show()
+
+# %% Plot sans symlog
+palette = {
+    "WES cluster 2": "#D55E00",
+    "Other": "#4C72B0"
+}
+
+def add_group_medians(data, **kws):
+    ax = plt.gca()
+    for grp, sub in data.groupby("WES_group"):
+        med = sub["fraction"].median()
+        ax.axvline(med, color=palette[grp], linestyle="--", linewidth=1)
+
+g = sns.FacetGrid(
+    df_long,
+    row="cnv_leiden",
+    height=1.25,
+    aspect=4,
+    sharex=True,
+    sharey=False
+)
+
+g.map_dataframe(
+    sns.boxenplot,
+    x="fraction",
+    y="WES_group",
+    orient="h",
+    linewidth=1,
+    palette=palette
+)
+
+g.map_dataframe(
+    sns.stripplot,
+    x="fraction",
+    y="WES_group",
+    orient="h",
+    hue="WES_group",
+    palette=palette,
+    dodge=False,
+    jitter=0.20,
+    size=2.0,
+    alpha=0.35
+)
+
+g.map_dataframe(add_group_medians)
+
+for ax in g.axes.flat:
+    if ax.get_legend() is not None:
+        ax.get_legend().remove()
+
+g.set_axis_labels("Fraction of CNV clone per patient", "")
+g.set_titles(row_template="CNV clone {row_name}")
+
+plt.tight_layout()
+plt.show()
+
+########################################################
+############## PART 3 OTHER EXPLORATORY ANALYSES ##############
+########################################################
+
+# %% -- Heatmap showing the log2FC of malignant transcriptional states
+# between cluster 4 and the other clusters
+
+clone_of_interest = "4"
+
+# distributions des états dans clone 4 et dans le reste
+s4 = adata_tumor.obs.loc[adata_tumor.obs["cnv_leiden"] == clone_of_interest, "celltype_level4_scanvi"]
+sR = adata_tumor.obs.loc[adata_tumor.obs["cnv_leiden"] != clone_of_interest, "celltype_level4_scanvi"]
+
+p4 = (s4.value_counts(normalize=True)).rename("p_clone4")
+pR = (sR.value_counts(normalize=True)).rename("p_rest")
+
+df = pd.concat([p4, pR], axis=1).fillna(0)
+
+# pseudo-count pour éviter division par 0
+eps = 1e-4
+df["log2FC_clone4_vs_rest"] = np.log2((df["p_clone4"] + eps) / (df["p_rest"] + eps))
+
+# tri par déplétion (valeurs les plus négatives)
+df_sorted = df.sort_values("log2FC_clone4_vs_rest")
+df_sorted.head(10)
+
+# garder tous les états, mais ordonner par log2FC
+heat = df_sorted[["log2FC_clone4_vs_rest"]].T
+
+plt.figure(figsize=(10, 1.2), dpi=300)
+sns.heatmap(
+    heat,
+    cmap="coolwarm",
+    center=0,
+    cbar_kws={"label": "log2FC (clone 4 vs rest)"}
+)
+plt.yticks([0.5], ["Clone 4 vs others"], rotation=0)
+plt.xticks(rotation=45, ha="right")
+plt.tight_layout()
+plt.show()
+
+# %% -- Now explore with all cells, not just tumoral
+RESULTS_DIR = Path("/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/results/scRNAseq/infercnv")
+SC_ADATA_PATH = "/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/results/scRNAseq/infercnv/infercnv_adata.h5ad"
+single_cell_obj = ad.read_h5ad(SC_ADATA_PATH)
+celltype_col = "celltype_level1_curated"
+
+# -- Drop the "doublet" compartment before clustering
+single_cell_obj_filt = single_cell_obj[~single_cell_obj.obs[celltype_col].isin(['Doublet', 'Doublet_TNK_nos'])]
+# drop also other_low_counts in level 4
+single_cell_obj_filt = single_cell_obj_filt[~single_cell_obj_filt.obs["celltype_level4_scanvi"].isin(["Other_LowCounts"])]
+single_cell_obj_filt.obs[celltype_col].value_counts()
+
+# %% -- Load the leiden clusters to look at cluster 2 in particular
+df_wes_leiden_cluster = pd.read_csv(
+    "/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/results/WES/infercnv/leiden_cluster_wes_baseline_samples_exclX_Y_res0_4.csv"
+)
+df_wes_leiden_cluster.rename(columns={"cnv_leiden": "wes_cluster"}, inplace=True)
+
+# merge with the adata
+single_cell_obj_filt.obs = single_cell_obj_filt.obs.merge(
+    df_wes_leiden_cluster[["orig.ident", "wes_cluster"]],
+    on="orig.ident",
+    how="left"
+)
+
+cluster = 2
+
+s4 = single_cell_obj_filt.obs.loc[
+    single_cell_obj_filt.obs["wes_cluster"] == cluster,
+    "celltype_level4_scanvi"
+].dropna()
+
+sR = single_cell_obj_filt.obs.loc[
+    single_cell_obj_filt.obs["wes_cluster"] != cluster,
+    "celltype_level4_scanvi"
+].dropna()
+
+# proportions
+p4 = s4.value_counts(normalize=True)
+pR = sR.value_counts(normalize=True)
+
+df = pd.concat(
+    [p4.rename("p_cluster2"), pR.rename("p_rest")],
+    axis=1
+).fillna(0)
+
+# filtrer when cell types are two few
+min_cells = 50
+keep = s4.value_counts()[lambda x: x >= min_cells].index
+df = df.loc[keep]
+
+# log2FC
+eps = 1e-3
+df["log2FC_cluster2_vs_rest"] = np.log2((df["p_cluster2"] + eps) / (df["p_rest"] + eps))
+
+df_sorted = df.sort_values("log2FC_cluster2_vs_rest")
+df_sorted
+
+# %% -- Visualisation
+heat = df_sorted[["log2FC_cluster2_vs_rest"]].T
+
+fig, ax = plt.subplots(figsize=(16, 2.6), dpi=300)
+
+sns.heatmap(
+    heat,
+    ax=ax,
+    cmap="coolwarm",
+    center=0,
+    cbar_kws={"label": "log2FC (cluster 2 vs rest)"},
+    linewidths=0.3,
+    linecolor="white"
+)
+
+# ticks y
+ax.set_yticks([0.5])
+ax.set_yticklabels(["Cluster 2 vs others"], rotation=0)
+
+# forcer tous les ticks x
+ax.set_xticks(np.arange(len(heat.columns)) + 0.5)
+ax.set_xticklabels(heat.columns, rotation=45, ha="right")
+
+# un peu de marge en haut
+fig.subplots_adjust(top=0.78)
+
+# annotations en coordonnées d'axe (0..1), donc indépendantes du nb de celltypes
+bbox = dict(boxstyle="round,pad=0.25", fc="white", ec="none", alpha=0.85)
+
+ax.text(
+    0.08, 1.18,
+    "Stromal / immunosuppressive\ncompartments",
+    transform=ax.transAxes,
+    ha="center", va="bottom",
+    fontsize=10,
+    bbox=bbox
+)
+
+ax.text(
+    0.93, 1.18,
+    "IFN & vascular\nprograms",
+    transform=ax.transAxes,
+    ha="center", va="bottom",
+    fontsize=10,
+    bbox=bbox
+)
+
+plt.tight_layout()
+plt.show()
