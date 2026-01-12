@@ -597,6 +597,21 @@ plt.ylabel("CNV-defined clonal cluster")
 plt.tight_layout()
 plt.show()
 
+# %% -- Save other stuffs
+print("Computing ITH scores based on CNAs")
+cnv.tl.ithcna(adata_tumor, groupby="orig.ident", use_rep='X_cnv', key_added='ithcna', inplace=True)
+print("Computing ITH scores based on GEX")
+cnv.tl.ithcna(adata_tumor, groupby="orig.ident", key_added='ithgex', inplace=True)
+
+save_path = RESULTS_DIR / "ith_scores_clean"
+adata_tumor.obs[['ithcna','ithgex']].to_csv(save_path)
+
+save_path = RESULTS_DIR / "tumor_clone_annotation_clean.csv"
+df_tumor_clones = pd.DataFrame(
+    adata_tumor.obs[["cnv_leiden", "cnv_score"]].copy()
+)
+df_tumor_clones.to_csv(save_path, index=True)
+
 # %% Save this latest adata containing clean (as much as possible) malignant cells
 adata_tumor.layers.clear()
 adata_tumor.X = scipy.sparse.csr_matrix(adata_tumor.X.shape)
