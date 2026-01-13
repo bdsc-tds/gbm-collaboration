@@ -14,6 +14,7 @@ import infercnvpy as cnv
 from pathlib import Path
 import anndata as ad
 from scipy.stats import mannwhitneyu
+import plotly.graph_objects as go
 
 from gbmcollaboration import AllDataCenters
 from gbmcollaboration.utils.infercnv_utils import InferCNVAnalyzer
@@ -214,30 +215,32 @@ REF_CELL_TYPES = [
 ]
 ref_mask = single_cell_obj_filt.obs["celltype_level4_scanvi"].isin(REF_CELL_TYPES)
 
-threshold = np.percentile(
+iCNV_threshold = np.percentile(
     single_cell_obj_filt.obs.loc[ref_mask, "cnv_score"],
-    99  # or 95 for a looser cutoff
+    99
 )
 
-single_cell_obj_filt.obs["cnv_status"] = np.where(
-    single_cell_obj_filt.obs["cnv_score"] > threshold,
-    "malignant",
-    "non-malignant"
+# iCNV status = inferCNV-derived CNV burden class
+single_cell_obj_filt.obs["iCNV_status"] = np.where(
+    single_cell_obj_filt.obs["cnv_score"] > iCNV_threshold,
+    "iCNV-high",
+    "iCNV-low"
 )
 
-# %% -- Plot the heatmap with those new categories
+# %% -- Plot the heatmap with inferCNV burden classes (optional quick check)
 cnv.pl.chromosome_heatmap(
     single_cell_obj_filt,
-    groupby="cnv_status",
+    groupby="iCNV_status",
     use_rep="cnv",
     figsize=(16, 3),
     cmap="bwr"
 )
 
-# %% -- Cross with the cell types to check if overcalling non-malignant
+# %% -- Cross-tab lineage (level 1 curated) vs inferCNV burden class
+# (No claim of malignancy here: this is purely iCNV signal vs lineage.)
 ctab = pd.crosstab(
     single_cell_obj_filt.obs["celltype_level1_curated"],
-    single_cell_obj_filt.obs["cnv_status"],
+    single_cell_obj_filt.obs["iCNV_status"],
     normalize="index"
 )
 ctab
@@ -251,54 +254,195 @@ ctab
 # So a global CNV threshold is under-calling real malignant cells and
 # shouldn't be used alone
 
-# %% -- Keep both lineage-based tumor flag and CNV burden
-tumor_types = ["Malignant", "Other"]  # since you said "Other" contains malignant
-single_cell_obj_filt.obs["tumor_lineage"] = (
-    single_cell_obj_filt.obs["celltype_level1_curated"].isin(tumor_types)
+# %% -- Define transcriptomic lineage status (tumor-lineage vs non-tumor lineage)
+tumor_types = ["Malignant", "Other"]  # you said "Other" contains malignant
+single_cell_obj_filt.obs["lineage_status"] = np.where(
+    single_cell_obj_filt.obs["celltype_level1_curated"].isin(tumor_types),
+    "tumor-lineage",
+    "non-tumor lineage"
 )
-single_cell_obj_filt.obs["cnv_burden"] = single_cell_obj_filt.obs["cnv_score"]
 
-r = single_cell_obj_filt.obs["cnv_score"].rank(method="average", pct=True)
+# Store numeric score too (kept as-is)
+single_cell_obj_filt.obs["iCNV_score"] = single_cell_obj_filt.obs["cnv_score"]
 
-single_cell_obj_filt.obs["tumor_cnv_group"] = (
-    single_cell_obj_filt.obs["tumor_lineage"]
-    .map({True: "tumor", False: "normal"})
-    .astype(str)
-    + "_"
-    + single_cell_obj_filt.obs["cnv_status"].astype(str)
+# Combined group (for summaries/plots)
+single_cell_obj_filt.obs["lineage_iCNV_group"] = (
+    single_cell_obj_filt.obs["lineage_status"].astype(str)
+    + " / "
+    + single_cell_obj_filt.obs["iCNV_status"].astype(str)
 ).astype("category")
 
-save_path = RESULTS_DIR / "heatmap_summary_tumor_cnv_group.pdf"
-cnv.pl.chromosome_heatmap_summary(
-    single_cell_obj_filt,
-    groupby="tumor_cnv_group",
-    save=save_path
+# Optional: enforce a consistent order in plots
+desired_order = [
+    "non-tumor lineage / iCNV-low",
+    "non-tumor lineage / iCNV-high",
+    "tumor-lineage / iCNV-low",
+    "tumor-lineage / iCNV-high",
+]
+present = [x for x in desired_order if x in single_cell_obj_filt.obs["lineage_iCNV_group"].cat.categories]
+single_cell_obj_filt.obs["lineage_iCNV_group"] = single_cell_obj_filt.obs["lineage_iCNV_group"].cat.reorder_categories(
+    present, ordered=True
 )
 
-# %% -- Plot the distribution
+# %% -- Heatmap summary by combined group
+save_path = RESULTS_DIR / "heatmap_summary_lineage_iCNV_group.pdf"
+# ---- Add n and % to group labels for summary heatmap ----
+group_col = "lineage_iCNV_group"
+
+grp = single_cell_obj_filt.obs[group_col].astype(str)
+counts = grp.value_counts()
+pct = counts / counts.sum() * 100
+
+label_map = {
+    g: f"{g}\n(n={counts[g]:,}, {pct[g]:.1f}%)"
+    for g in counts.index
+}
+
+single_cell_obj_filt.obs["lineage_iCNV_group_labeled"] = (
+    grp.map(label_map).astype("category")
+)
+
+# Preserve group order
+orig_order = single_cell_obj_filt.obs[group_col].cat.categories
+new_order = [label_map[g] for g in orig_order if g in label_map]
+
+single_cell_obj_filt.obs["lineage_iCNV_group_labeled"] = (
+    single_cell_obj_filt.obs["lineage_iCNV_group_labeled"]
+    .cat.reorder_categories(new_order, ordered=True)
+)
+
+axs = cnv.pl.chromosome_heatmap_summary(
+    single_cell_obj_filt,
+    groupby="lineage_iCNV_group_labeled",
+    figsize=(10, 5),
+    show=False,
+)
+ax = max(axs.values(), key=lambda a: len(a.get_yticklabels()))
+fig = ax.figure
+ax.tick_params(axis="y", labelsize=12)
+ax.tick_params(axis="x", labelsize=10)
+ax.set_ylabel("")
+
+for a in fig.axes:
+    if a is not ax:
+        a.tick_params(labelsize=10)
+
+fig.savefig(save_path, bbox_inches="tight")
+plt.close(fig)
+
+# %% -- Heatmap not summarize to see the size of the clusters
+cnv.pl.chromosome_heatmap(
+    single_cell_obj_filt,
+    groupby="lineage_iCNV_group"
+)
+
+# %% -- Distribution plot (KDE) of inferCNV CNV score by combined group
 fig, ax = plt.subplots(figsize=(7, 3.6), dpi=300)
 sns.kdeplot(
     data=single_cell_obj_filt.obs,
-    x="cnv_score",
-    hue="tumor_cnv_group",
+    x="iCNV_score",
+    hue="lineage_iCNV_group",
     fill=True,
     common_norm=False,
     alpha=0.35,
     linewidth=2,
     ax=ax
 )
-ax.axvline(threshold, color="black", linestyle="--", linewidth=1)
-ax.set_xlabel("inferCNV CNV score")
+ax.axvline(iCNV_threshold, color="black", linestyle="--", linewidth=1)
+ax.set_xlabel("inferCNV CNV score (iCNV score)")
 ax.set_ylabel("Density")
 sns.despine(ax=ax)
 plt.tight_layout()
-save_path = RESULTS_DIR / "kde_cnv_score.pdf"
-plt.savefig(
-    save_path,
-    format="pdf",
-    bbox_inches="tight"
-)
+
+save_path = RESULTS_DIR / "kde_iCNV_score.pdf"
+plt.savefig(save_path, format="pdf", bbox_inches="tight")
 plt.show()
+
+# %% -- Sankey plot showing the counts of cell types in each
+# group
+# params
+LEVEL2_COL = "celltype_level2_scanvi"
+GROUP_COL  = "lineage_iCNV_group"
+
+MIN_LEVEL2_CELLS = 30          # collapse rare level 2 categories
+
+obs = single_cell_obj_filt.obs.copy()
+
+# Sanity checks
+for col in [LEVEL2_COL, GROUP_COL]:
+    if col not in obs.columns:
+        raise KeyError(f"{col} not found in obs.columns")
+
+# Collapse rare level 2 categories for readability (robust to categoricals)
+lvl2 = obs[LEVEL2_COL].astype(str)
+
+lvl2_counts = lvl2.value_counts()
+rare_lvl2 = lvl2_counts[lvl2_counts < MIN_LEVEL2_CELLS].index
+
+obs["level2_sankey"] = lvl2.where(~lvl2.isin(rare_lvl2), other="Other_level2")
+
+# Build contingency table
+ct = (
+    obs[["level2_sankey", GROUP_COL]]
+    .value_counts()
+    .reset_index(name="value")
+)
+
+# Nodes
+sources = ct["level2_sankey"].unique().tolist()
+targets = ct[GROUP_COL].astype(str).unique().tolist()
+labels = sources + targets
+idx = {lab: i for i, lab in enumerate(labels)}
+
+# Fix node positions to reduce horizontal stretch
+x_sources = [0.05] * len(sources)
+x_targets = [0.55] * len(targets)
+x_positions = x_sources + x_targets
+
+y_positions = None  # let Plotly stack them automatically
+
+# Sankey plot
+fig = go.Figure(data=[go.Sankey(
+    arrangement="snap",
+    node=dict(
+        label=labels,
+        x=x_positions,
+        pad=12,
+        thickness=12,
+        line=dict(width=0.5)
+    ),
+    link=dict(
+        source=ct["level2_sankey"].map(idx).values,
+        target=ct[GROUP_COL].astype(str).map(idx).values,
+        value=ct["value"].values
+    )
+)])
+
+fig.update_layout(
+    font_size=14,
+    width=800,
+    height=500,
+    margin=dict(l=10, r=10, t=40, b=10),
+)
+
+fig.update_traces(
+    node=dict(thickness=16, pad=14)
+)
+
+# Always works: interactive HTML
+html_path = RESULTS_DIR / "sankey_level2_scanvi_to_lineage_iCNV_group.html"
+fig.write_html(str(html_path))
+
+# Optional static exports (requires kaleido)
+for ext in ["pdf", "svg", "png"]:
+    out = RESULTS_DIR / f"sankey_level2_scanvi_to_lineage_iCNV_group.{ext}"
+    try:
+        fig.write_image(str(out))
+    except Exception as e:
+        print(f"Could not export {ext}: {e}")
+
+fig.show()
+print("Saved:", html_path)
 
 # %% -- Now treat only the malignant cells for visualization
 adata_tumor = single_cell_obj_filt[
