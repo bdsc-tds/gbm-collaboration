@@ -251,7 +251,7 @@ for col in ["1326", "981"]: # or df.columns:
 
 # %% --- Load Leiden clusters (autosomes-only) previously computed
 df_wes_leiden_cluster = pd.read_csv(
-    "/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/results/WES/infercnv/leiden_cluster_wes_baseline_samples_exclX.csv"
+    "/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/results/WES/infercnv/leiden_cluster_wes_baseline_samples_exclX_Y_res0_4.csv"
 )
 df_wes_leiden_cluster.set_index("orig.ident", inplace=True)
 
@@ -326,7 +326,7 @@ for cl in clusters:
         distances=[0.45, 0.15, 0.35],
         figsize=(10, 3.8),
         outcome="OS",
-        significance="p"  # or "FDR"
+        significance="FDR"  # or "FDR"
     )
     plt.title(f"Adjusted Cox: cluster {cl} vs all others")
     plt.show()
@@ -414,7 +414,7 @@ kmplot(
     hue_order=sorted(df_km[cluster_col].unique(), key=lambda x: int(x)),
     convert_days_to_months=True,
     add_hazard_ratio=False,
-    add_logrank_pvalue=False,   # keep False; we’ll add global p ourselves
+    add_logrank_pvalue=False,   # keep False; we’ll add global p after
     at_risk_counts=False,
     ax=ax,
     title="Overall survival by WES CNV Leiden cluster (autosomes only)"
