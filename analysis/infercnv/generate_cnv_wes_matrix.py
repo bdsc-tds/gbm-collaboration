@@ -139,10 +139,11 @@ bins = pd.read_csv(PATH_BINS_SINGLECELL)
 # Exclude bins that are unique in some chromosome
 bins.chromosome.value_counts()
 # here chromosome 21 and Y only have one bin, and add noise
-# in the heatmap.
+# in the heatmap. But we keep 21 because it's difficult to justify the removal
+# we also want to exclude chrX
 
 # %%
-bins_to_exclude = bins[bins["chromosome"].isin(["chr21","chrY"])][["bin"]].index.tolist()
+bins_to_exclude = bins[bins["chromosome"].isin(["chrY", "chrX"])][["bin"]].index.tolist()
 log2_matrix_curated = log2_matrix.drop(columns=bins_to_exclude)
 
 # %% -- Save or explore
