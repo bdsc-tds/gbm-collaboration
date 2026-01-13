@@ -163,7 +163,7 @@ wes_adata.uns["cnv"] = {"chr_pos": chr_pos}
 # %% -- Start calculation and plotting (infercnvpy, on WES bins)
 cnv.tl.pca(wes_adata)
 cnv.pp.neighbors(wes_adata)
-cnv.tl.leiden(wes_adata)
+cnv.tl.leiden(wes_adata, resolution=0.4)
 
 # %% -- Dendrogram using WES CNV
 sc.tl.dendrogram(
@@ -184,26 +184,10 @@ cnv.pl.chromosome_heatmap_summary(
 
 # %% -- Count how many samples found in each cluster
 print(wes_adata.obs["cnv_leiden"].value_counts())
-# cnv_leiden before excluding X
-# 0    65
-# 1    48
-# 2    38
-# 3    36
-# 4    32
-# 5    28
-# 6    18
-
-# cnv_leiden after excluding X
-# 0    84
-# 1    74
-# 2    50
-# 3    28
-# 4    20
-# 5     9
 
 # %% -- Save the Leiden cluster
 leiden_cluster_baseline = pd.DataFrame(wes_adata.obs["cnv_leiden"])
-leiden_cluster_baseline.to_csv(RESULTS_DIR / "WES/infercnv/leiden_cluster_wes_baseline_samples_exclX.csv", sep=",", index=True)
+leiden_cluster_baseline.to_csv(RESULTS_DIR / "WES/infercnv/leiden_cluster_wes_baseline_samples.csv", sep=",", index=True)
 
 # %% -- Calculate CNV score on the WES profile
 # Generate UMAP
