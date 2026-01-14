@@ -73,6 +73,8 @@ bbknn = "^1.6.0"
 squidpy = "^1.6.5"
 colorcet = "^3.1.0"
 gseapy = "^1.1.10"
+scikit-survival = "0.24.1"
+shap = "0.47.2"
 
 [tool.poetry.group.dev]
 optional = true
