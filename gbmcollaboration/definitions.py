@@ -450,11 +450,17 @@ RELAPSE_EXCLUSION = [
     # Relapse samples to be excluded everywhere for now
     # from Spencer checks
     "ER_G_195b",
+    "ER_G_196b", # failed visium but present in other modalities
+    "ER_G_267b", # failed visium but present in other modalities
+    "ER_G_278a", # failed visium but present in other modalities
     "ER_G_274b",
     "ER_G_276b",
     "ER_G_282b",
     "ER_G_284a",
+    "ER_G_298b", # failed visium but present in other modalities
+    "ER_G_301b", # failed visium but present in other modalities
     "ER_G_303b",
+    "ER_G_308b", # failed visium but present in other modalities
     "ER_G_310b",
     # added from the tracker below:
     "ER_G_288b", # used for meta control?
@@ -467,7 +473,23 @@ RELAPSE_EXCLUSION = [
     "CH_G_186b",
     "CH_G_189b",
     "CH_G_189c",
-    "CH_G_194b"
+    "CH_G_194b",
+]
+
+SURVIVAL_EXCLUSION = [
+    "CR_G_351a",
+    "CR_G_353a",
+    "CR_G_354a",
+    "CR_G_357a",
+    "CR_G_362a",
+    "CR_G_363a",
+    "CR_G_350a",
+    "CR_G_367a",
+    "CR_G_372a",
+    "CR_G_373a",
+    "CR_G_376a",
+    "CR_G_378a",
+    "CR_G_380a"
 ]
 
 # infercnv

@@ -10,5 +10,6 @@ from gbmcollaboration.definitions import (
     PROBE_ISSUE_UKER,
     PATIENT_EXCLUSION,
     RELAPSE_EXCLUSION,
+    SURVIVAL_EXCLUSION,
     PATH_GTF
 )
