@@ -335,7 +335,94 @@ BAD_QUALITY_UKER_VISIUM = [
 
 ]
 
+
 BAD_QUALITY_CR_VISIUM = []
+
+
+# list of samples from the "bad" batch of probes
+# can be used to exclude them in the analysis to ensure
+# it has no strong effect on the results
+PROBE_ISSUE_CHUV = [
+    "CH_G_191a",
+    "CH_G_199a",
+    "CH_G_192a",
+    "CH_G_186b",
+    "CH_G_190a",
+    "CH_G_207a",
+    "CH_G_164b",
+    "CH_G_198a",
+    "CH_G_194a",
+    "CH_G_180a",
+    "CH_G_193a",
+    "CH_G_189c",
+    "CH_G_205a",
+    "CH_G_206a",
+    "CH_G_197a",
+    "CH_G_203a",
+    "CH_G_194b",
+    "CH_G_202a",
+    "CH_G_195a",
+    "CH_G_179a",
+    "CH_G_201a",
+    "CH_G_189a",
+    "CH_G_189b",
+    "CH_G_168b",
+    "CH_G_196a",
+    "CH_G_204a",
+    "CH_G_200a",
+    "CH_G_180b",
+]
+
+PROBE_ISSUE_UKER = [
+    "ER_G_276a",
+    "ER_G_288a",
+    "ER_G_308b",
+    "ER_G_265a",
+    "ER_G_310a",
+    "ER_G_299a",
+    "ER_G_195b",
+    "ER_G_210a",
+    "ER_G_295a",
+    "ER_G_280a",
+    "ER_G_267a",
+    "ER_G_274b",
+    "ER_G_278b",
+    "ER_G_297a",
+    "ER_G_278a",
+    "ER_G_272a",
+    "ER_G_303a",
+    "ER_G_208a",
+    "ER_G_303b",
+    "ER_G_270a",
+    "ER_G_298a",
+    "ER_G_306a",
+    "ER_G_308a",
+    "ER_G_296a",
+    "ER_G_285a",
+    "ER_G_273a",
+    "ER_G_286a",
+    "ER_G_292b",
+    "ER_G_196b",
+    "ER_G_288b",
+    "ER_G_290a",
+    "ER_G_276b",
+    "ER_G_266a",
+    "ER_G_209a",
+    "ER_G_274a",
+    "ER_G_310b",
+    "ER_G_292a",
+    "ER_G_290b",
+    "ER_G_267b",
+    "ER_G_269a",
+    "ER_G_281a",
+    "ER_G_300a",
+    "ER_G_284b",
+    "ER_G_282a",
+    "ER_G_294a",
+    "ER_G_282b",
+    "ER_G_284a"
+]
+
 
 # Exclude sample completely after Clinical checking
 PATIENT_EXCLUSION = [
@@ -363,11 +450,17 @@ RELAPSE_EXCLUSION = [
     # Relapse samples to be excluded everywhere for now
     # from Spencer checks
     "ER_G_195b",
+    "ER_G_196b", # failed visium but present in other modalities
+    "ER_G_267b", # failed visium but present in other modalities
+    "ER_G_278a", # failed visium but present in other modalities
     "ER_G_274b",
     "ER_G_276b",
     "ER_G_282b",
     "ER_G_284a",
+    "ER_G_298b", # failed visium but present in other modalities
+    "ER_G_301b", # failed visium but present in other modalities
     "ER_G_303b",
+    "ER_G_308b", # failed visium but present in other modalities
     "ER_G_310b",
     # added from the tracker below:
     "ER_G_288b", # used for meta control?
@@ -380,7 +473,23 @@ RELAPSE_EXCLUSION = [
     "CH_G_186b",
     "CH_G_189b",
     "CH_G_189c",
-    "CH_G_194b"
+    "CH_G_194b",
+]
+
+SURVIVAL_EXCLUSION = [
+    "CR_G_351a",
+    "CR_G_353a",
+    "CR_G_354a",
+    "CR_G_357a",
+    "CR_G_362a",
+    "CR_G_363a",
+    "CR_G_350a",
+    "CR_G_367a",
+    "CR_G_372a",
+    "CR_G_373a",
+    "CR_G_376a",
+    "CR_G_378a",
+    "CR_G_380a"
 ]
 
 # infercnv
