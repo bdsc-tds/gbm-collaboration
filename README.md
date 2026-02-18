@@ -6,6 +6,7 @@ Data exploration and analyses of the GBM Mosaic data
 # Table of Contents
 - [Installation](#installation)
 - [Load clean data](#load-clean-data)
+- [Additional documentation](#additional-documentation)
 
 # Installation
 1. Start by initialising Conda.
@@ -34,6 +35,7 @@ For all tabular data and single-cell data, those 3 main arguments can be used:
 - exclude_idh1_mut: bool,
 - exclude_patient_ids: bool,
 - exclude_relapse: bool
+
 A particularity for clinical data, is the exclusion of additionnal CR samples for which
 OS and/or PFS are pending.
 
