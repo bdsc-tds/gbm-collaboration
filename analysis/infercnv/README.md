@@ -14,7 +14,7 @@ infercnv_obj.get_bin_positions(
 ```
 
 # Part II - Comparison with WES data
-The WES analyses is separated in two scripts:
+The WES analyses are separated in two scripts:
 - run the script 'generate_cnv_wes_matrix.py', part I, that bin CNV data and compute average log2 copy ratio per bin to create the WES CNV matrix, using the genomic window previously generated with single cell as reference for the genomic bins.
 - run infercnv_wes_analyses.py to run inferCNVpy visualisation tools
 on the WES CNV matrix previously computed.
