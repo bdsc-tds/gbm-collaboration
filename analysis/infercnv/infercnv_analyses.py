@@ -62,11 +62,13 @@ if 'log1p' in adata.uns:
     del adata.uns['log1p']
 adata.X = adata.layers['unnormalized_counts']
 
-# create simplified annotations
-ct_mapping = (
-    pd.read_csv(SIMPLIFIED_ANNOTATION_MAPPING)
-    .set_index(REFERENCE_COLUMN)['celltype_level1_curated'])
-adata.obs['celltype_level1_curated'] = adata.obs[REFERENCE_COLUMN].astype(str).replace(ct_mapping)
+# create simplified annotations from lvl1 to lvl4
+for lvl in ["level1", "level2", "level3", "level4"]:
+    print(f"Mapping {lvl}")
+    ct_mapping = (
+        pd.read_csv(SIMPLIFIED_ANNOTATION_MAPPING)
+        .set_index(REFERENCE_COLUMN)[f"celltype_{lvl}_curated"])
+    adata.obs[f"celltype_{lvl}_curated"] = adata.obs[REFERENCE_COLUMN].astype(str).replace(ct_mapping)
 
 # %% -- Initialize the InferCNVAnalyzer class
 infercnv_obj = InferCNVAnalyzer(adata=adata)
