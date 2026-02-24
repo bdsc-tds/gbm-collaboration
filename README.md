@@ -16,7 +16,7 @@ conda init bash && bash
 
 2. Create the environment.
 ```bash
-conda create -n gbmcollaboration -y python=3.10
+conda create -n gbmcollaboration -y python=3.11
 conda activate gbmcollaboration
 ```
 
