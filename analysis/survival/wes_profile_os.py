@@ -257,7 +257,7 @@ df_wes_leiden_cluster.set_index("orig.ident", inplace=True)
 
 # %% Prepare dataframe
 cluster_col = "cnv_leiden"
-covariate_cols = ["Age (years)", "Administrative gender", "MGMT promoter methylation", "Site code"]
+covariate_cols = ["Age (years)", "Administrative gender", "MGMT promoter methylation", "Site code", "p53"]
 
 # Pull OS + covariates from merged clinical df
 df_surv_cov = df_concat[["OS"] + covariate_cols].copy()
@@ -267,6 +267,7 @@ MAPPING = {
     "MGMT promoter methylation": {"Unmethylated": 0, "Methylated": 1},
     "Administrative gender": {"Male": 0, "Female": 1},
     "Site code": {"CH": 0, "ER": 1, "CR": 2},
+    "p53": {"Positive": 1, "Negative": 0}
 }
 df_surv_cov = df_surv_cov.replace(MAPPING)
 
@@ -360,14 +361,29 @@ print("\nAdjusted categorical Cox summary (top hits):")
 print(df_sum_cat.sort_values("p").head(20))
 
 # Forest plot for categorical model (clusters + covariates)
+# Increase global font sizes
+plt.rcParams.update({
+    "font.size": 14,          # base font size
+    "axes.titlesize": 18,     # title size
+    "axes.labelsize": 16,     # axis labels
+    "xtick.labelsize": 14,
+    "ytick.labelsize": 14,
+    "legend.fontsize": 14
+})
+# Forest plot
 plot_forest(
     df_all=df_sum_cat,
     distances=[0.55, 0.15, 0.40],
     figsize=(10, 6),
     outcome="OS",
-    significance="FDR"  # or "FDR"
+    significance="FDR"
 )
-plt.title(f"Adjusted categorical Cox (ref cluster = {ref_cluster})")
+plt.title(f"Adjusted categorical Cox (reference cluster : {ref_cluster})", fontsize=18)
+plt.savefig(
+    f"/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/results/WES/infercnv/forest_plot_OS_ref_{ref_cluster}.pdf",
+    dpi=300,
+    bbox_inches="tight"
+)
 plt.show()
 
 # Optional: extract only cluster terms into a clean table
