@@ -180,7 +180,9 @@ cnv.pl.chromosome_heatmap_summary(
     wes_adata,
     groupby="cnv_leiden",
     figsize=(15,5),
-    dendrogram=True)
+    dendrogram=True,
+    save=True
+    )
 
 # %% -- Count how many samples found in each cluster
 print(wes_adata.obs["cnv_leiden"].value_counts())
