@@ -35,7 +35,6 @@ from statsmodels.stats.multitest import multipletests
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
 
-# External util in your environment (from your original script)
 from gbmcollaboration.utils import concat_pathology_annotations_from_s3
 
 
@@ -103,19 +102,41 @@ def standardize_annotations(df: pd.DataFrame, annot_col: str) -> pd.DataFrame:
 
     mapping = {
         "necrose": "necrosis",
-        "white matter with tumor": "white matter with tumor infiltration",
-        "white matter with tumor ": "white matter with tumor infiltration",
-        "blood vessel": "blood vessels",
-        "cortex without visible tumor cell infiltration": "cortex without visible tumor infiltration",
-        "cortex": "cortex without visible tumor infiltration",
-        "gray matter (cortex) with tumor infiltration": "cortex with tumor infiltration",
-        "non-tumoral (gray matter)": "cortex without visible tumor infiltration",
-        "tumour (microvascular proliferation)": "tumor (microvascular proliferation)",
-        "tumor (microvascular prolifeation)": "tumor (microvascular proliferation)",
-        "tumor (mircovascular proliferation)": "tumor (microvascular proliferation)",
-        "tumor (microvascular proliferations)": "tumor (microvascular proliferation)",
-        "tumor (microvacular proliferation)": "tumor (microvascular proliferation)",
-        "tumor (with microvascular proliferation)": "tumor (microvascular proliferation)",
+        "white matter with tumor" : "infiltration zone",
+        "white matter with tumor " : "infiltration zone",
+        "infiltration zone with tumor" : "infiltration zone",
+        "blood vessel" : "blood vessels",
+        "cortex without visible tumor cell infiltration" : "cortex without visible tumor infiltration",
+        "cortex" : "cortex without visible tumor infiltration",
+        "gray matter (cortex) with tumor infiltration" : "cortex with tumor infiltration",
+        "non-tumoral (gray matter)" : "cortex without visible tumor infiltration",
+        "tumour (microvascular proliferation)" : "microvascular proliferation",
+        "tumor (microvascular prolifeation)" : "microvascular proliferation",
+        "tumor (mircovascular proliferation)" : "microvascular proliferation",
+        "tumor (microvascular proliferations)" : "microvascular proliferation",
+        "tumor (microvacular proliferation)" : "microvascular proliferation",
+        "tumor (microvascular proliferation)" : "microvascular proliferation",
+        "tumor (with microvascular proliferation)" : "microvascular proliferation",
+        "tumor - divergent morphology - partially necrotic?" : "necrosis",
+        "tumor (necrotic)" : "necrosis",
+        "blood with necrosis" : "necrosis",
+        "tumor (gliosarcoma phenotype)" : "tumor",
+        "tumor (high cellularity)" : "tumor",
+        "tumor - component with divergent morphology" : "tumor",
+        "tumor (inflammatory)" : "tumor",
+        "tumor (gliosarcoma phenotype)" : "tumor",
+        "tumor (lymphocyte-rich)" : "tumor",
+        "tumor (morphologically distinct component)" : "tumor",
+        "tumor (with cautery artifacts)" : "tumor",
+        "blood only" : "hemorrhage",
+        "tumor (hemorrhage)" : "hemorrhage",
+        "tumor with fibrosis" : "fibrosis",
+        "tumor with fibrotic changes" : "fibrosis",
+        "fibrous tissue" : "fibrosis",
+        "infiltration zone with fibrosis" : "fibrosis",
+        "connective tissue" : "other",
+        "white matter" : "other",
+        "intratumoral lymphocytic infiltrate" : "other"
     }
     out[annot_col] = out[annot_col].replace(mapping)
     return out
@@ -375,7 +396,7 @@ def fig_three_panel_centers(
     out_pdf: str,
     out_png: str,
     min_spots: int = 0,
-    figsize: Tuple[float, float] = (10, 4.5), #(11.0, 3.6),
+    figsize: Tuple[float, float] = (11, 4.5), #(11.0, 3.6),
 ):
     _mpl_pub_defaults()
 
@@ -683,6 +704,8 @@ def load_and_prepare(cfg: DataConfig, acfg: AnalysisConfig) -> pd.DataFrame:
     df_annot = exclude_bad_spots(df_annot, cfg.annot_col)
 
     merged = merge_annotation_ecm(df_annot, ecm)
+    # filter nan and arachnoid values in annotation
+    merged = merged[~merged["pathology_annotations"].isin(["nan", "arachnoid"])]
     merged = add_center_from_sample(merged, cfg.sample_col)
 
     if acfg.keep_only_shared_annotations:
@@ -704,7 +727,7 @@ def main():
 
     acfg = AnalysisConfig(
         min_spots_per_annotation=0,
-        keep_only_shared_annotations=True,
+        keep_only_shared_annotations=False,
         clip_residuals=3.0,
         q_threshold=0.05,
     )
