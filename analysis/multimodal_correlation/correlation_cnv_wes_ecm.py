@@ -230,14 +230,18 @@ for col in cell_cols:
 
 res_df = pd.DataFrame(results, columns=["cell_type","H","p"])
 res_df["p_adj"] = smm.multipletests(res_df["p"], method="fdr_bh")[1]
-res_df.sort_values("p_adj", inplace=True)
+res_df = res_df.sort_values(
+    ["p_adj", "p", "H"],
+    ascending=[True, True, False],
+    kind="mergesort"
+)
 
 print(res_df)
 
 # %% -- Stacked barplot
 # top cell types (by FDR)
 top_n = 15
-top_types = res_df.sort_values("p_adj").head(top_n)["cell_type"].tolist()
+top_types = res_df.head(top_n)["cell_type"].tolist()
 
 # mean proportions per CNA cluster
 mean_props = data_cells.groupby("cnv_leiden")[top_types].mean()
@@ -379,7 +383,7 @@ for i, (ct, row) in enumerate(plot_df.iterrows()):
 ax.set_yticks(y)
 ax.set_yticklabels(plot_df.index)
 ax.set_xlabel("Mean proportion")
-ax.set_title(f"Cell-type composition across CNA clusters (top {len(top_types)} by FDR)", pad=8)
+ax.set_title(f"Cell-type composition across CNA clusters (top {len(top_types)} by FDR and effect size)", pad=8)
 
 ax.spines["top"].set_visible(False)
 ax.spines["right"].set_visible(False)
@@ -397,7 +401,7 @@ ax.legend(
 )
 
 plt.tight_layout()
-save_path = RESULTS_DIR / "fig3d.pdf"
+save_path = RESULTS_DIR / "fig3e.pdf"
 plt.savefig(save_path, format="pdf", bbox_inches="tight")
 plt.show()
 
