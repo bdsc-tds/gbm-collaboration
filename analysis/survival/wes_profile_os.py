@@ -200,7 +200,7 @@ df_uni = df_uni.reset_index()
 
 plot_forest(df_all=df_uni,
             distances=[0.4, 0.1, 0.3],
-            figsize=(10, 7),
+            figsize=(10, 10),
             outcome='OS',
             significance='FDR')
 
@@ -359,15 +359,39 @@ _, df_sum_cat["fdr"] = fdrcorrection(df_sum_cat["p"].values)
 print("\nAdjusted categorical Cox summary (top hits):")
 print(df_sum_cat.sort_values("p").head(20))
 
+# typography (panel friendly)
+plt.rcParams.update({
+    "font.size": 20,
+    "axes.titlesize": 20,
+    "axes.labelsize": 20,
+    "xtick.labelsize": 20,
+    "ytick.labelsize": 20,
+})
+df_sum_cat["covariate"] = df_sum_cat["covariate"].map(
+    {
+        "Age (years)" : "Age (years)",
+        "Administrative gender" : "Administrative gender",
+        "MGMT promoter methylation" : "MGMT promoter methylation",
+        "Site code" : "Site code",
+        "cnv_leiden_1" : "CNA cluster 1",
+        "cnv_leiden_2" : "CNA cluster 2",
+        "cnv_leiden_3" : "CNA cluster 3",
+        }
+    )
 # Forest plot for categorical model (clusters + covariates)
-plot_forest(
+plt = plot_forest(
     df_all=df_sum_cat,
-    distances=[0.55, 0.15, 0.40],
-    figsize=(10, 6),
+    distances=[0.60, 0.10, 0.50],
+    figsize=(10, 8),
     outcome="OS",
     significance="FDR"  # or "FDR"
 )
-plt.title(f"Adjusted categorical Cox (ref cluster = {ref_cluster})")
+plt.title(f"Adjusted categorical Cox (ref: CNA cluster 0")
+plt.savefig(
+    "/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/figures/figure3/forest_plot_OS_ref_0.pdf",
+    dpi=800,
+    bbox_inches="tight"
+)
 plt.show()
 
 # Optional: extract only cluster terms into a clean table
