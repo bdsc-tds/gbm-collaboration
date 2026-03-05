@@ -18,28 +18,25 @@ from gbmcollaboration import AllDataCenters
 from gbmcollaboration import (
     PATIENTS_IDH1_MUT,
 )
+from gbmcollaboration.viz.figure_helpers_py import set_mpl_rcparams, savefig
 
 SEED = 123
 FILTERING_SAMPLES = ["ER_G_743a"]
+RESULTS_DIR = Path("/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/figures/figure2")
+SIMPLIFIED_ANNOTATION_MAPPING = Path("/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/resources/SingleCell_Annotation_Key_v3.csv")
+REFERENCE_COLUMN = "celltype_level4_scanvi"
+BATCH_KEY = "orig.ident"
+
+set_mpl_rcparams()
+
+# -- Create results dir
+RESULTS_DIR.mkdir(parents=True,exist_ok=True)
 
 # -- Global figure parameters (publication-ready)
 BLUE_ORANGE_SOFT = LinearSegmentedColormap.from_list(
     "blue_orange_soft",
     ["#4575b4", "#e0f3f8", "#fee090", "#d73027"],
 )
-
-sc.set_figure_params(
-    dpi=300,              # notebook
-    dpi_save=700,        # export high resolution
-    fontsize=12,
-    frameon=False,
-    vector_friendly=True # avoid artefacts
-)
-
-plt.rcParams.update({
-    "pdf.fonttype": 42,   # TrueType fonts (Illustrator-friendly)
-    "ps.fonttype": 42,
-})
 
 # -- helper functions
 def compute_pca_umap(
@@ -63,7 +60,6 @@ def compute_pca_umap(
 
     sc.tl.umap(adata, min_dist=min_dist, random_state=seed)
     return adata
-
 
 def save_umap(
     adata,
@@ -134,18 +130,6 @@ def downsample_stratified(
 
     return adata[keep_mask].copy()
 
-############################################################
-############### UMAPs ##############################
-############################################################
-# %% Params
-RESULTS_DIR = Path("/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/figures/figure2")
-SIMPLIFIED_ANNOTATION_MAPPING = Path("/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/resources/SingleCell_Annotation_Key_v3.csv")
-REFERENCE_COLUMN = "celltype_level4_scanvi"
-BATCH_KEY = "orig.ident"
-
-# -- Create results dir
-RESULTS_DIR.mkdir(parents=True,exist_ok=True)
-
 # %% -- Load data
 adata = AllDataCenters.load_singlecell(
     exclude_idh1_mut=True,
@@ -170,21 +154,23 @@ for key in ["pca", "neighbors", "umap"]:
     if key in adata.uns:
         del adata.uns[key]
 
-# %% -- Drop samples with too few cells
+# -- Drop samples with too few cells
 adata = adata[
     ~adata.obs[BATCH_KEY].isin(FILTERING_SAMPLES)
 ]
-
-# %% Drop "Other" and "Doublet"
+# -- Drop "Other" and "Doublet"
 adata_filt = adata[
     ~adata.obs["celltype_level1_curated"].isin(["Other", "Doublet", "Doublet_TNK_nos"])
 ].copy()
 
-# drop the malignant_other_1
+# -- Drop the malignant_other_1
 adata_filt = adata_filt[
     ~adata_filt.obs["celltype_level4_curated"].isin(["malignant_other_1"])
 ]
 
+############################################################
+############### ALL CELLS ##################################
+############################################################
 # %% Fig 2a — Single cell UMAP detailed
 adata_filt = compute_pca_umap(adata_filt)
 
@@ -196,6 +182,9 @@ for lvl in ["level1", "level2", "level3", "level4"]:
         title="Single-cell MOSAIC GBM UMAP",
     )
 
+############################################################
+############### MALIGNANT ##################################
+############################################################
 # %% Subset tumor cells
 # Subset tumor cells (keep samples only if more than 30 cells)
 tumor_cells = adata[adata.obs["celltype_level1_curated"] == "Malignant"].copy()
@@ -224,8 +213,6 @@ tumor_cells_ds = compute_pca_umap(
 )
 
 # %% -- plot
-# be careful to add or remove the bbknn suffix in the file name
-# when bbknn was used or not
 for lvl in ["level1", "level2", "level3", "level4"]:
     print(f"tumor-umap {lvl}")
     save_umap(
@@ -293,6 +280,9 @@ for lvl in ["level1", "level2", "level3", "level4"]:
     )
     plt.close()
 
+############################################################
+############### IMMUNE #####################################
+############################################################
 
 # %% -- Fig2e immune umap
 immune_cells = adata[
@@ -362,6 +352,9 @@ for lvl in ["level1", "level2", "level3", "level4"]:
     )
     plt.close()
 
+############################################################
+############### STROMAL / NEURONAL #########################
+############################################################
 # %% -- Fig2g stromal neuronal umap
 sn_cells = adata[
     adata.obs["celltype_level1_curated"].isin(["Glia", "Neuron", "Vascular"])
