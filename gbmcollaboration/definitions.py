@@ -335,8 +335,9 @@ BAD_QUALITY_UKER_VISIUM = [
 
 ]
 
-
-BAD_QUALITY_CR_VISIUM = []
+BAD_QUALITY_CR_VISIUM = [
+    #"CR_G_307a_vis" and "CR_G_317a_vis" might be swapped
+]
 
 
 # list of samples from the "bad" batch of probes
