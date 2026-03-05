@@ -14,6 +14,8 @@ from gbmcollaboration import CHUVDataCenter, UKERDataCenter, CRDataCenter, AllDa
 # %% Available constants that can be used to filter the data
 from gbmcollaboration import (
     PATIENTS_IDH1_MUT,
+    RELAPSE_EXCLUSION,
+    PATIENT_EXCLUSION,
     BAD_QUALITY_UKER_VISIUM,
     BAD_QUALITY_CHUV_VISIUM,
     BAD_QUALITY_CR_VISIUM
@@ -57,7 +59,10 @@ cr_center.sources.keys()
 
 # Load the tabular data and clinical data
 # Note that you can exclude patients with IDH1 mutation by setting exclude_idh1_mut=True
-source_dict = cr_center.load_tabular(exclude_idh1_mut=True)
+source_dict = cr_center.load_tabular(
+    exclude_idh1_mut=True,
+    exclude_patient_ids=True,
+    exclude_relapse=True)
 
 # %%
 # Clinical data
@@ -81,7 +86,9 @@ cr_spatial_object = cr_center.load_spatial(
     normalization="raw_count",
     deconvolution_slot_name="deconv_cohort_level_4",
     exclude_low_quality_visium=True,
-    exclude_idh1_mut=True)
+    exclude_idh1_mut=True,
+    exclude_patient_ids=True,
+    exclude_relapse=True)
 # cr_spatial_object is a dictionary with the samples ID as keys and the counts in each spot as values
 
 # Obtain the counts
@@ -96,6 +103,12 @@ cr_celltype_abund = cr_spatial_object.load_deconvolution_cohort()
 common_celltypes = cr_spatial_object.common_celltypes
 
 # %% Load the single-cell data
-single_cell_obj = cr_center.load_singlecell()
+single_cell_obj = cr_center.load_singlecell(
+    exclude_idh1_mut = True,
+    exclude_patient_ids = True,
+    exclude_relapse = True
+)
 
 # look at the single_cell_xplorer.py script to explore more!
+
+# %%
