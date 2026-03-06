@@ -187,13 +187,13 @@ for lvl in ["level1", "level2", "level3", "level4"]:
 ############################################################
 # %% Subset tumor cells
 # Subset tumor cells (keep samples only if more than 30 cells)
-tumor_cells = adata[adata.obs["celltype_level1_curated"] == "Malignant"].copy()
+tumor_cells = adata_filt[adata_filt.obs["celltype_level1_curated"] == "Malignant"].copy()
 min_cells = 30
 counts = tumor_cells.obs[BATCH_KEY].value_counts()
 keep = counts[counts >= min_cells].index
 tumor_cells_f = tumor_cells[tumor_cells.obs[BATCH_KEY].isin(keep)].copy()
 
-# Downsample: keep 50% per patient x level4 because the adata is too big to use bbknn
+# Downsample: keep 50% per patient x level4 because the adata_filt is too big to use bbknn
 tumor_cells_ds = downsample_stratified(
     tumor_cells_f,
     group_keys=[BATCH_KEY, "celltype_level4_curated"],  # patient x level4
@@ -216,7 +216,7 @@ tumor_cells_ds = compute_pca_umap(
 for lvl in ["level1", "level2", "level3", "level4"]:
     print(f"tumor-umap {lvl}")
     save_umap(
-        tumor_cells_f,
+        tumor_cells_ds,
         color=f"celltype_{lvl}_curated",
         path=RESULTS_DIR / f"fig2c_tumor_umap_{lvl}_bbknn.pdf",
         title="Tumor cells UMAP (BBKNN)",
@@ -228,7 +228,7 @@ for lvl in ["level1", "level2", "level3", "level4"]:
     REFERENCE_COLUMN = f"celltype_{lvl}_curated"
 
     tumor_prop = (
-        tumor_cells_f.obs
+        tumor_cells_ds.obs
         .groupby([BATCH_KEY, REFERENCE_COLUMN])
         .size()
         .unstack(fill_value=0)
@@ -273,8 +273,9 @@ for lvl in ["level1", "level2", "level3", "level4"]:
     )
 
     plt.tight_layout()
-    plt.savefig(
-        RESULTS_DIR / f"fig2d_tumor_stacked_bar_{lvl}.pdf",
+    savefig(
+        df=tumor_prop_ord,
+        out_file=RESULTS_DIR / f"fig2d_tumor_stacked_bar_{lvl}.pdf",
         dpi=1000,
         bbox_inches="tight",
     )
@@ -285,8 +286,8 @@ for lvl in ["level1", "level2", "level3", "level4"]:
 ############################################################
 
 # %% -- Fig2e immune umap
-immune_cells = adata[
-    adata.obs["celltype_level1_curated"].isin(["Myeloid", "Lymphoid"])
+immune_cells = adata_filt[
+    adata_filt.obs["celltype_level1_curated"].isin(["Myeloid", "Lymphoid"])
 ].copy()
 
 immune_cells = compute_pca_umap(immune_cells)
@@ -345,8 +346,9 @@ for lvl in ["level1", "level2", "level3", "level4"]:
     )
 
     plt.tight_layout()
-    plt.savefig(
-        RESULTS_DIR / f"fig2f_immune_stacked_bar_{lvl}.pdf",
+    savefig(
+        df=immune_prop_ord,
+        out_file=RESULTS_DIR / f"fig2f_immune_stacked_bar_{lvl}.pdf",
         dpi=1000,
         bbox_inches="tight",
     )
@@ -356,8 +358,8 @@ for lvl in ["level1", "level2", "level3", "level4"]:
 ############### STROMAL / NEURONAL #########################
 ############################################################
 # %% -- Fig2g stromal neuronal umap
-sn_cells = adata[
-    adata.obs["celltype_level1_curated"].isin(["Glia", "Neuron", "Vascular"])
+sn_cells = adata_filt[
+    adata_filt.obs["celltype_level1_curated"].isin(["Glia", "Neuron", "Vascular"])
 ].copy()
 
 sn_cells = compute_pca_umap(sn_cells)
@@ -418,9 +420,12 @@ for lvl in ["level1", "level2", "level3", "level4"]:
     )
 
     plt.tight_layout()
-    plt.savefig(
-        RESULTS_DIR / f"fig2h_stromal_neuronal_stacked_bar_{lvl}.pdf",
+    savefig(
+        df=sn_prop_ord,
+        out_file=RESULTS_DIR / f"fig2h_stromal_neuronal_stacked_bar_{lvl}.pdf",
         dpi=1000,
         bbox_inches="tight",
     )
     plt.close()
+
+# %%
