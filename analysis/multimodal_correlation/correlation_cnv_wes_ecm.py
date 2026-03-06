@@ -4,13 +4,16 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-#from skbio.stats.distance import permanova
-#from skbio.diversity import beta_diversity
+from skbio.stats.distance import permanova
+from skbio.diversity import beta_diversity
 from scipy.stats import kruskal
 import statsmodels.stats.multitest as smm
 import anndata as ad
 from pathlib import Path
 from gbmcollaboration import AllDataCenters
+from gbmcollaboration.viz.figure_helpers_py import savefig, set_mpl_rcparams
+
+set_mpl_rcparams()
 
 RESULTS_DIR = Path("/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/figures/figure3")
 
@@ -242,6 +245,8 @@ res_df.to_csv("/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd
 
 # %% -- Stacked barplot
 # top cell types (by FDR)
+#res_df = pd.read_csv("/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/results/RNAseq/wes_cluster_rna/kruskal_wallis_test_cellular_landscape_cluster.csv")
+#res_df.drop(columns=["Unnamed: 0"], inplace=True)
 top_n = 15
 top_types = res_df.head(top_n)["cell_type"].tolist()
 
@@ -310,7 +315,6 @@ print(kruskal(*groups))
 # yes, significant
 
 # %% -- dot plot with significance
-
 # -- colors matching fig2b
 cluster_colors = {
     0: "tab:blue",
@@ -403,13 +407,15 @@ ax.legend(
 
 plt.tight_layout()
 save_path = RESULTS_DIR / "fig3e.pdf"
-plt.savefig(save_path, format="pdf", bbox_inches="tight")
+savefig(
+    df=res_df,
+    out_file=save_path
+    )
 plt.show()
 
 ####################################################################
 ## Part 3 : pseudobulk single-cell analyses across WES cluster #####
 ####################################################################
-
 # %% --- Utils
 import scipy.sparse as sp
 
@@ -563,8 +569,7 @@ def run_deseq2_cluster2_vs_others(
     # pydeseq2 gives: baseMean, log2FoldChange, lfcSE, stat, pvalue, padj
     return res
 
-# %% --- (D) Pseudobulk par celltype (top) puis DESeq2 cluster2 vs others
-# PyDESeq2
+# %% -- Pseudobulk per celltype (top) then DESeq2 cluster 2 vs others
 from pydeseq2.dds import DeseqDataSet
 from pydeseq2.ds import DeseqStats
 
@@ -622,15 +627,11 @@ for ct in top_types:
 
     print(f"[OK] {ct}: sig={sig.shape[0]} (up={len(up)}, down={len(down)})")
 
-# %%
-# --- Charger le DEA bulkRNA
+# %% -- load DEA done on bRNA
 bulk = pd.read_csv("/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/results/RNAseq/wes_cluster_rna/DEG_cluster2_vs_cluster0_1_3.csv")
-
-# nom du gène
 bulk = bulk.rename(columns={"Unnamed: 0": "gene"})
 bulk["gene"] = bulk["gene"].astype(str)
 
-# filtrage significance
 padj_thr = 0.05
 lfc_thr = 0.25
 
@@ -642,286 +643,23 @@ bulk_down = set(bulk_sig[bulk_sig["log2FoldChange"] < -lfc_thr]["gene"])
 print("Bulk up:", len(bulk_up))
 print("Bulk down:", len(bulk_down))
 
-# %%
-import numpy as np
-import pandas as pd
-
-bulk_up_genes = sorted(set(bulk_sig.loc[bulk_sig["log2FoldChange"] > lfc_thr, "gene"]))
-bulk_down_genes = sorted(set(bulk_sig.loc[bulk_sig["log2FoldChange"] < -lfc_thr, "gene"]))
-bulk_genes = sorted(set(bulk_up_genes + bulk_down_genes))
-
-print(f"Bulk sig genes: {len(bulk_genes)} (up={len(bulk_up_genes)}, down={len(bulk_down_genes)})")
-
-
-# --- 2) Construire une table longue: (celltype, gene, sc_log2FC, sc_padj, sc_pvalue)
-rows = []
-for ct, res in all_deseq.items():
-    # res: index = genes, colonnes: log2FoldChange, padj, pvalue, ...
-    # on ne garde que les gènes bulk
-    sub = res.loc[res.index.intersection(bulk_genes), ["log2FoldChange", "padj", "pvalue"]].copy()
-    sub = sub.reset_index().rename(columns={"index": "gene", "log2FoldChange": "sc_log2FC", "padj": "sc_padj", "pvalue": "sc_pvalue"})
-    sub["celltype"] = ct
-    rows.append(sub)
-
-sc_on_bulk_long = pd.concat(rows, ignore_index=True) if rows else pd.DataFrame()
-print("Rows in sc_on_bulk_long:", sc_on_bulk_long.shape)
-
-# Sauvegarde table longue
-sc_on_bulk_long.to_csv("sc_pseudobulk_stats_on_bulkgenes_long.csv", index=False)
-
-
-# --- 3) Matrices celltype x gene (log2FC, padj, -log10(padj))
-lfc_mat = sc_on_bulk_long.pivot(index="celltype", columns="gene", values="sc_log2FC")
-
-padj_mat = sc_on_bulk_long.pivot(index="celltype", columns="gene", values="sc_padj")
-neglog10padj_mat = -np.log10(padj_mat)
-
-# option: clip inf si padj=0 (rare)
-neglog10padj_mat = neglog10padj_mat.replace([np.inf, -np.inf], np.nan)
-
-# Sauvegarde matrices
-lfc_mat.to_csv("sc_pseudobulk_log2FC_celltype_x_bulkgenes.csv")
-padj_mat.to_csv("sc_pseudobulk_padj_celltype_x_bulkgenes.csv")
-neglog10padj_mat.to_csv("sc_pseudobulk_neglog10padj_celltype_x_bulkgenes.csv")
-
-
-# --- 4) Bonus: score simple de "concordance bulk" par celltype
-# (combien de gènes bulk up qui sont aussi up en sc et significatifs, idem down)
-bulk_up = set(bulk_up_genes)
-bulk_down = set(bulk_down_genes)
-
-summary = []
-for ct, res in all_deseq.items():
-    # res index = genes
-    sub = res.loc[res.index.intersection(bulk_genes)].copy()
-    sub = sub[(sub["padj"] < padj_thr) & sub["log2FoldChange"].notna()]
-    sc_up = set(sub.index[sub["log2FoldChange"] > 0])
-    sc_down = set(sub.index[sub["log2FoldChange"] < 0])
-
-    summary.append({
-        "celltype": ct,
-        "bulkUP_scUP_sig": len(bulk_up & sc_up),
-        "bulkDOWN_scDOWN_sig": len(bulk_down & sc_down),
-        "bulkUP_scDOWN_sig": len(bulk_up & sc_down),
-        "bulkDOWN_scUP_sig": len(bulk_down & sc_up),
-        "n_sc_sig_on_bulkgenes": sub.shape[0],
-    })
-
-summary_df = pd.DataFrame(summary).sort_values(["bulkUP_scUP_sig", "bulkDOWN_scDOWN_sig"], ascending=False)
-#summary_df.to_csv("sc_on_bulkgenes_concordance_summary.csv", index=False)
-print(summary_df)
-
-# %%
-sig_plot = neglog10padj_mat.copy()
-
-# limiter pour lisibilité
-sig_plot = sig_plot.loc[:, sig_plot.max(axis=0) > 2]
-
-plt.figure(figsize=(16,6))
-
-sns.heatmap(
-    sig_plot,
-    cmap="viridis",
-    cbar_kws={"label": "-log10(padj)"}
-)
-
-plt.ylabel("Cell type")
-plt.xlabel("Bulk significant genes")
-plt.title("Significance of bulk genes in single-cell pseudobulk")
-
-plt.xticks(rotation=90)
-plt.tight_layout()
-
-plt.savefig("heatmap_sc_pseudobulk_significance.png", dpi=300)
-plt.show()
-
-
-# %%
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-
-# =========================
-# PARAMETRES
-# =========================
-TOP_N_BULK = 100          # 30-60 en général
-MAX_SIG = 10             # cap -log10(padj) pour la taille des points
-LFC_CAP = 2              # cap log2FC pour la couleur
-
-# =========================
-# 1) Choisir les gènes bulk à afficher
-# =========================
-bulk2 = bulk.copy()
-if "gene" not in bulk2.columns:
-    bulk2 = bulk2.rename(columns={"Unnamed: 0": "gene"})
-bulk2["gene"] = bulk2["gene"].astype(str)
-
-bulk2 = bulk2[bulk2["padj"].notna()].sort_values("padj")
-top_genes = bulk2.head(TOP_N_BULK)["gene"].tolist()
-
-# garder seulement les gènes présents dans scRNA
-genes_sc = set(sc_on_bulk_long["gene"])
-
-top_genes = [g for g in top_genes if g in genes_sc]
-
-# =========================
-# 2) Préparer table sc pour plot
-# =========================
-df = sc_on_bulk_long[sc_on_bulk_long["gene"].isin(top_genes)].copy()
-
-# enlever gènes sans aucun signal
-gene_signal = (
-    df.groupby("gene")["sc_log2FC"]
-    .apply(lambda x: x.abs().max())
-)
-
-genes_keep = gene_signal[gene_signal > 0.1].index
-
-df = df[df["gene"].isin(genes_keep)]
-
-df["sig"] = -np.log10(df["sc_padj"])
-df["sig"] = df["sig"].replace([np.inf, -np.inf], np.nan).fillna(0).clip(0, MAX_SIG)
-
-df["lfc"] = df["sc_log2FC"].clip(-LFC_CAP, LFC_CAP)
-
-# ordre celltypes (mettre tumoraux en bas -> lisible)
-celltype_order = sorted(df["celltype"].unique())
-# ordre gènes: dans l'ordre bulk (padj croissant)
-gene_order = top_genes
-
-# encoder positions
-x_map = {g: i for i, g in enumerate(gene_order)}
-y_map = {c: i for i, c in enumerate(celltype_order)}
-
-df["x"] = df["gene"].map(x_map)
-df["y"] = df["celltype"].map(y_map)
-
-# =========================
-# 3) Plot
-# =========================
-plt.figure(figsize=(max(10, 0.35*len(gene_order)), max(5, 0.35*len(celltype_order))))
-
-sc = plt.scatter(
-    df["x"],
-    df["y"],
-    s=10 + df["sig"] * 25,          # taille ~ significativité
-    c=df["lfc"],                    # couleur ~ log2FC
-    cmap="RdBu_r",
-    vmin=-LFC_CAP,
-    vmax=LFC_CAP,
-    linewidths=0.2,
-    edgecolors="black",
-)
-
-cb = plt.colorbar(sc)
-cb.set_label("sc pseudobulk log2FC (cluster2 vs others)")
-
-plt.yticks(range(len(celltype_order)), celltype_order)
-plt.xticks(range(len(gene_order)), gene_order, rotation=90)
-
-plt.xlabel("Top bulk DE genes (ranked by bulk padj)")
-plt.ylabel("Cell types")
-plt.title("Which cell types express bulk DE genes (sc pseudobulk dotplot)")
-
-plt.tight_layout()
-plt.savefig("dotplot_top_bulk_genes.png", dpi=300)
-plt.show()
-
-# %% -- specific cell type dotplot
-import numpy as np
-import matplotlib.pyplot as plt
-
-TARGET_CT = "T_reg"
-TOP_N_CT = 30
-
-df_ct = sc_on_bulk_long[sc_on_bulk_long["celltype"] == TARGET_CT].copy()
-df_ct["sig"] = -np.log10(df_ct["sc_padj"])
-df_ct["sig"] = df_ct["sig"].replace([np.inf, -np.inf], np.nan).fillna(0)
-
-# garder seulement les gènes qui sont bulk-significatifs (si tu veux)
-bulk_sig_genes = set(bulk2[bulk2["padj"] < 0.05]["gene"])
-df_ct = df_ct[df_ct["gene"].isin(bulk_sig_genes)].copy()
-
-# top gènes dans ce celltype (par padj sc)
-df_ct = df_ct.sort_values("sc_padj").head(TOP_N_CT)
-
-genes_ct = df_ct["gene"].tolist()
-
-# préparer df multi-celltypes sur ces gènes
-df = sc_on_bulk_long[sc_on_bulk_long["gene"].isin(genes_ct)].copy()
-df["sig"] = -np.log10(df["sc_padj"])
-df["sig"] = df["sig"].replace([np.inf, -np.inf], np.nan).fillna(0).clip(0, 10)
-df["lfc"] = df["sc_log2FC"].clip(-2, 2)
-
-celltype_order = sorted(df["celltype"].unique())
-gene_order = genes_ct
-
-x_map = {g: i for i, g in enumerate(gene_order)}
-y_map = {c: i for i, c in enumerate(celltype_order)}
-df["x"] = df["gene"].map(x_map)
-df["y"] = df["celltype"].map(y_map)
-
-plt.figure(figsize=(max(10, 0.4*len(gene_order)), max(5, 0.35*len(celltype_order))))
-
-sc = plt.scatter(
-    df["x"], df["y"],
-    s=10 + df["sig"] * 35,
-    c=df["lfc"],
-    cmap="RdBu_r",
-    vmin=-2, vmax=2,
-    linewidths=0.2,
-    edgecolors="black",
-)
-
-cb = plt.colorbar(sc)
-cb.set_label("sc pseudobulk log2FC (cluster2 vs others)")
-
-plt.yticks(range(len(celltype_order)), celltype_order)
-plt.xticks(range(len(gene_order)), gene_order, rotation=90)
-
-plt.xlabel(f"Bulk DE genes most significant in {TARGET_CT} (by sc padj)")
-plt.ylabel("Cell types")
-plt.title(f"Bulk signature genes highlighted by {TARGET_CT}")
-
-plt.tight_layout()
-plt.savefig(f"dotplot_bulk_genes_focus_{TARGET_CT}.png", dpi=300)
-plt.show()
-
-
-
-# %%
-
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-
-
-# ============================================================
-# PARAMETRES (à ajuster)
-# ============================================================
-TOP_BULK = 30                 # nb de gènes bulk dans le bloc "global"
-TOP_PER_CELLTYPE = 15         # nb de gènes spécifiques par celltype
-SC_PADJ_THR = 0.05            # seuil sc pour sélectionner gènes spécifiques
-MIN_ABS_LFC_SC = 0.25         # optionnel: effet minimal sc pour spécificité
-
-MAX_SIG = 10                  # cap -log10(padj) pour la taille des points
-LFC_CAP = 2                   # cap log2FC pour la couleur
-
-# Cell types à utiliser pour le module "spécifique"
+########################################################################
+################ FIGURE SUPPLEMENTARY 6 ################################
+########################################################################
+# %% -- Params before plotting
+TOP_BULK = 30
+TOP_PER_CELLTYPE = 15
+SC_PADJ_THR = 0.05            # sc htreshold to select specific genes
+MIN_ABS_LFC_SC = 0.25         # optional: mim effect in sc for specificity
+
+MAX_SIG = 10                  # cap -log10(padj) for dot size
+LFC_CAP = 2                   # cap log2FC for color
+
+# -- cell type of interest for the "cell-type specific" subtable
 CELLTYPES_OF_INTEREST = ["T_cell_CD8", "T_cell_CD4", "Microglia_homeostatic"]
 
-
-# ============================================================
-# 1) Préparer bulk + sc tables (noms colonnes)
-# ============================================================
+# -- prepare bulk + sc tables
 bulk2 = bulk.copy()
-if "gene" not in bulk2.columns:
-    if "Unnamed: 0" in bulk2.columns:
-        bulk2 = bulk2.rename(columns={"Unnamed: 0": "gene"})
-    else:
-        raise ValueError("bulk doit contenir une colonne 'gene' ou 'Unnamed: 0'.")
-
-bulk2["gene"] = bulk2["gene"].astype(str)
 bulk2 = bulk2[bulk2["padj"].notna()].sort_values("padj")
 
 sc = sc_on_bulk_long.copy()
@@ -929,19 +667,14 @@ sc["gene"] = sc["gene"].astype(str)
 
 genes_sc = set(sc["gene"])
 
-
-# ============================================================
-# 2) Bloc global : top gènes bulk (présents en sc)
-# ============================================================
-bulk_top = bulk2.head(200)["gene"].tolist()  # on prend large puis on filtre
+# -- top genes globally
+# top genes in bulk present in pseudobulk
+bulk_top = bulk2.head(200)["gene"].tolist()
 bulk_top = [g for g in bulk_top if g in genes_sc]
 bulk_global_genes = bulk_top[:TOP_BULK]
 
-
-# ============================================================
-# 3) Bloc spécifique : top gènes sc par cell type (sur la liste bulk)
-#    Ici : on prend dans chaque celltype les gènes bulk les + significatifs en sc
-# ============================================================
+# -- top genes per cell type (on bulk list
+# take in each cell, the genes in bRNA that are the most significant in pseudobulk
 specific_genes = []
 for ct in CELLTYPES_OF_INTEREST:
     if ct not in sc["celltype"].unique():
@@ -950,23 +683,14 @@ for ct in CELLTYPES_OF_INTEREST:
     sub = sc[sc["celltype"] == ct].copy()
     sub = sub[sub["sc_padj"].notna()]
     sub = sub[sub["sc_padj"] < SC_PADJ_THR]
-
-    # option: exiger un minimum d'effet
     sub = sub[sub["sc_log2FC"].abs() >= MIN_ABS_LFC_SC]
 
     sub = sub.sort_values("sc_padj").head(TOP_PER_CELLTYPE)
     specific_genes += sub["gene"].tolist()
 
-# unique en gardant l'ordre
 specific_genes = list(dict.fromkeys(specific_genes))
 
-
-# ============================================================
-# 4) Construire la liste finale (global + overlap + specific)
-#    - global_only
-#    - overlap (gènes présents à la fois dans global ET spécifiques)
-#    - specific_only
-# ============================================================
+# -- construct final list of genes present globally or cell-type specific
 global_set = set(bulk_global_genes)
 spec_set = set(specific_genes)
 
@@ -976,14 +700,7 @@ specific_only = [g for g in specific_genes if g not in global_set]
 
 gene_order = global_only + overlap + specific_only
 
-# si jamais aucun spécifique trouvé (rare), on garde juste global
-if len(gene_order) == 0:
-    raise ValueError("Aucun gène sélectionné (vérifie TOP_BULK / SC_PADJ_THR / MIN_ABS_LFC_SC).")
-
-
-# ============================================================
-# 5) Sous-table sc pour plot + metrics (taille/couleur)
-# ============================================================
+# -- subtable for plotting
 df = sc[sc["gene"].isin(gene_order)].copy()
 
 df["sig"] = -np.log10(df["sc_padj"])
@@ -991,47 +708,34 @@ df["sig"] = df["sig"].replace([np.inf, -np.inf], np.nan).fillna(0).clip(0, MAX_S
 
 df["lfc"] = df["sc_log2FC"].clip(-LFC_CAP, LFC_CAP)
 
-
-# ============================================================
-# 6) Ordre celltypes (on met ceux d'intérêt en haut + le reste)
-# ============================================================
+# -- order cell types
 all_celltypes = list(df["celltype"].unique())
-
-# ordre: d'abord ceux d'intérêt (dans l'ordre donné), puis les autres alphabétiques
 celltype_order = [ct for ct in CELLTYPES_OF_INTEREST if ct in all_celltypes]
 celltype_order += sorted([ct for ct in all_celltypes if ct not in celltype_order])
 
-
-# ============================================================
-# 7) Encoder positions + enlever colonnes vides (sécurité)
-# ============================================================
+# -- Encode position and remove empty columns
 x_map = {g: i for i, g in enumerate(gene_order)}
 y_map = {c: i for i, c in enumerate(celltype_order)}
 
 df["x"] = df["gene"].map(x_map)
 df["y"] = df["celltype"].map(y_map)
 
-# enlever lignes sans mapping
+# drop rows without mapping
 df = df.dropna(subset=["x", "y"]).copy()
 df["x"] = df["x"].astype(int)
 df["y"] = df["y"].astype(int)
 
-# enlever gènes qui n'ont aucun point (au cas où)
+# drop genes without dots (in case)
 genes_with_points = df["gene"].unique().tolist()
 gene_order = [g for g in gene_order if g in genes_with_points]
 x_map = {g: i for i, g in enumerate(gene_order)}
 df["x"] = df["gene"].map(x_map).astype(int)
 
-# %%
-# ============================================================
-# 8) Plot
-# ============================================================
+# %% -- Plot
 fig_w = max(12, 0.32 * len(gene_order))
 fig_h = max(5, 0.35 * len(celltype_order))
 
 fig, ax = plt.subplots(figsize=(fig_w, fig_h))
-
-# --- scatter
 scat = ax.scatter(
     df["x"], df["y"],
     s=8 + df["sig"] * 28,
@@ -1042,11 +746,9 @@ scat = ax.scatter(
     edgecolors="black",
 )
 
-# --- colorbar (avec pad pour laisser la place à la size legend)
 cb = plt.colorbar(scat, ax=ax, fraction=0.04, pad=0.06)
 cb.set_label("sc pseudobulk log2FC (cluster2 vs others)")
 
-# --- axes ticks/labels
 ax.set_yticks(range(len(celltype_order)))
 ax.set_yticklabels(celltype_order)
 
@@ -1054,11 +756,9 @@ ax.set_xticks(range(len(gene_order)))
 ax.set_xticklabels(gene_order, rotation=90)
 
 ax.set_ylabel("")
-ax.set_xlabel("")  # on enlève le long xlabel pour éviter les conflits
+ax.set_xlabel("")
 ax.set_title("Representation of bulk DE genes in sc pseudobulk")
 
-# --- labels de blocs SOUS les ticks (sans chevauchement)
-# réserve une marge en bas
 fig.subplots_adjust(bottom=0.40)
 
 n = len(gene_order)
@@ -1069,7 +769,6 @@ def xfrac(idx):
 def center_frac(i0, i1):
     return xfrac((i0 + i1) / 2)
 
-# --- size legend (significance) placée sous la colorbar
 size_values = [1, 2, 5]
 size_labels = ["p = 0.1", "p = 0.01", "p = 1e-5"]
 
@@ -1085,16 +784,14 @@ size_legend = fig.legend(
     title="Significance\n(-log10 padj)",
     frameon=False,
     loc="center left",
-    bbox_to_anchor=(0.92, 0.15)   # position dans la FIGURE
+    bbox_to_anchor=(0.92, 0.15)
 )
 ax.add_artist(size_legend)
 
-# --- layout final (évite de recouper les textes)
 plt.tight_layout(rect=[0, 0.08, 1, 1])
-
-# --- save/show
-plt.savefig(
-    "/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/figures/suppl_figures3/dotplot_global_plus_celltype_specific.png",
+savefig(
+    df=df,
+    out_file="/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/figures/suppl_figures6/dotplot_global_plus_celltype_specific.png",
     dpi=800
 )
 plt.show()
