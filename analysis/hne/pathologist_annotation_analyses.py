@@ -19,9 +19,7 @@ Pipeline:
       - Jaccard similarity of "enriched associations" between centers
 
 """
-# %%
-from __future__ import annotations
-
+# %% -- Load packages
 import os
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Tuple
@@ -36,11 +34,19 @@ import statsmodels.api as sm
 import statsmodels.formula.api as smf
 
 from gbmcollaboration.utils import concat_pathology_annotations_from_s3
+from gbmcollaboration.viz.figure_helpers_py import savefig, set_mpl_rcparams
 
+set_mpl_rcparams()
 
-# ----------------------------
-# Config
-# ----------------------------
+plt.rcParams.update({
+        "font.size": 11,
+        "axes.titlesize": 12,
+        "axes.labelsize": 11,
+        "xtick.labelsize": 10,
+        "ytick.labelsize": 10,
+})
+
+# -- Config
 
 @dataclass(frozen=True)
 class DataConfig:
@@ -73,9 +79,7 @@ class AnalysisConfig:
     q_threshold: float = 0.05
 
 
-# ----------------------------
-# Load + preprocessing
-# ----------------------------
+# -- Functions
 
 def load_ecm_cluster(path: str, index_col: str = "spot_id") -> pd.DataFrame:
     ecm = pd.read_csv(path)
@@ -187,10 +191,6 @@ def filter_to_shared_annotations(df: pd.DataFrame, annot_col: str, shared: Itera
     return df[df[annot_col].isin(shared)].copy()
 
 
-# ----------------------------
-# Core stats
-# ----------------------------
-
 def build_contingency(df: pd.DataFrame, ecm_col: str, annot_col: str, min_spots: int = 0) -> pd.DataFrame:
     ct = pd.crosstab(df[ecm_col], df[annot_col])
     if min_spots and min_spots > 0:
@@ -281,9 +281,7 @@ def batch_adjusted_interaction_test(
     return {"lr_stat": float(lr_stat), "df": df_diff, "p": float(p), "model_null": m0, "model_full": m1}
 
 
-# ----------------------------
-# Optional metrics: Shannon + Jaccard
-# ----------------------------
+# -- Optional metrics: Shannon + Jaccard
 
 def shannon_from_counts(counts: np.ndarray) -> float:
     """Shannon entropy (natural log)."""
@@ -321,22 +319,6 @@ def jaccard(a: set, b: set) -> float:
     return len(a & b) / len(a | b)
 
 
-# ----------------------------
-# Figures
-# ----------------------------
-
-def _mpl_pub_defaults():
-    plt.rcParams.update({
-        "pdf.fonttype": 42,
-        "ps.fonttype": 42,
-        "font.size": 11,
-        "axes.titlesize": 12,
-        "axes.labelsize": 11,
-        "xtick.labelsize": 10,
-        "ytick.labelsize": 10,
-    })
-
-
 def fig_residual_heatmap(
     resid: pd.DataFrame,
     qvals: pd.DataFrame,
@@ -344,11 +326,9 @@ def fig_residual_heatmap(
     clip: float,
     q_thr: float,
     out_pdf: str,
-    out_png: str,
     order_by: Optional[str] = "tumor",
-    figsize: Tuple[float, float] = (6.5, 5.5), #(10.8, 3.8),
+    figsize: Tuple[float, float] = (6.5, 5.5),
 ):
-    _mpl_pub_defaults()
 
     Z = resid.copy()
     if order_by is not None and order_by in Z.columns:
@@ -382,8 +362,10 @@ def fig_residual_heatmap(
     cbar = fig.colorbar(im, ax=ax, fraction=0.02, pad=0.02)
     cbar.set_label("Standardized residual (enrichment ↔ depletion)")
 
-    fig.savefig(out_pdf, bbox_inches="tight")
-    fig.savefig(out_png, dpi=600, bbox_inches="tight")
+    savefig(
+        df=Zc,
+        out_file=out_pdf, dpi=300
+    )
     plt.show()
 
 
@@ -394,12 +376,9 @@ def fig_three_panel_centers(
     clip: float,
     q_thr: float,
     out_pdf: str,
-    out_png: str,
     min_spots: int = 0,
-    figsize: Tuple[float, float] = (11, 4.5), #(11.0, 3.6),
+    figsize: Tuple[float, float] = (11, 4.5),
 ):
-    _mpl_pub_defaults()
-
     # ALL reference ordering
     ct_all = build_contingency(df, ecm_col, annot_col, min_spots=min_spots)
     chi = chi2_independence(ct_all)
@@ -451,8 +430,10 @@ def fig_three_panel_centers(
     cbar = fig.colorbar(ims[0], ax=axes, fraction=0.02, pad=0.02)
     cbar.set_label("Standardized residual")
 
-    fig.savefig(out_pdf, bbox_inches="tight")
-    fig.savefig(out_png, dpi=600, bbox_inches="tight")
+    savefig(
+        df=resid,
+        out_file=out_pdf, dpi=600
+    )
     plt.show()
 
 
@@ -462,12 +443,9 @@ def fig_dotplot(
     annot_col: str,
     clip: float,
     out_pdf: str,
-    out_png: str,
     min_spots: int = 0,
-    figsize: Tuple[float, float] = (6.5, 5.5), #(11.0, 3.6),
+    figsize: Tuple[float, float] = (6.5, 5.5),
 ):
-    _mpl_pub_defaults()
-
     ct = build_contingency(df, ecm_col, annot_col, min_spots=min_spots)
     chi = chi2_independence(ct)
     resid = standardized_residuals(ct, chi["expected"])
@@ -509,8 +487,10 @@ def fig_dotplot(
     cbar = fig.colorbar(sc, ax=ax, fraction=0.02, pad=0.02)
     cbar.set_label("Standardized residual")
 
-    fig.savefig(out_pdf, bbox_inches="tight")
-    fig.savefig(out_png, dpi=600, bbox_inches="tight")
+    savefig(
+        df=long[["x","y","resid","mlog10q"]],
+        out_file=out_pdf, dpi=600
+    )
     plt.show()
 
 
@@ -522,12 +502,9 @@ def fig_sparse_top_effects(
     q_thr: float,
     resid_thr: float,
     out_pdf: str,
-    out_png: str,
     min_spots: int = 0,
     figsize: Tuple[float, float] = (6.5, 5.5), #(11.0, 3.6),
 ):
-    _mpl_pub_defaults()
-
     ct = build_contingency(df, ecm_col, annot_col, min_spots=min_spots)
     chi = chi2_independence(ct)
     resid = standardized_residuals(ct, chi["expected"])
@@ -553,14 +530,13 @@ def fig_sparse_top_effects(
     cbar = fig.colorbar(im, ax=ax, fraction=0.02, pad=0.02)
     cbar.set_label("Standardized residual")
 
-    fig.savefig(out_pdf, bbox_inches="tight")
-    fig.savefig(out_png, dpi=600, bbox_inches="tight")
+    savefig(
+        df=Z,
+        out_file=out_pdf,
+        dpi=600
+    )
     plt.show()
 
-
-# ----------------------------
-# Orchestration
-# ----------------------------
 
 def run_analysis(df: pd.DataFrame, cfg: DataConfig, acfg: AnalysisConfig) -> Dict[str, object]:
     """
@@ -641,7 +617,7 @@ def run_analysis(df: pd.DataFrame, cfg: DataConfig, acfg: AnalysisConfig) -> Dic
 def make_all_figures(df: pd.DataFrame, cfg: DataConfig, acfg: AnalysisConfig, outdir: str = "."):
     os.makedirs(outdir, exist_ok=True)
 
-    # main heatmap (publication style)
+    # main heatmap
     ct = build_contingency(df, cfg.ecm_col, cfg.annot_col, min_spots=acfg.min_spots_per_annotation)
     chi = chi2_independence(ct)
     resid = standardized_residuals(ct, chi["expected"])
@@ -654,7 +630,6 @@ def make_all_figures(df: pd.DataFrame, cfg: DataConfig, acfg: AnalysisConfig, ou
         clip=acfg.clip_residuals,
         q_thr=acfg.q_threshold,
         out_pdf=os.path.join(outdir, "Fig_residual_heatmap.pdf"),
-        out_png=os.path.join(outdir, "Fig_residual_heatmap.png"),
         order_by="tumor",
     )
 
@@ -666,8 +641,7 @@ def make_all_figures(df: pd.DataFrame, cfg: DataConfig, acfg: AnalysisConfig, ou
         clip=acfg.clip_residuals,
         q_thr=acfg.q_threshold,
         min_spots=acfg.min_spots_per_annotation,
-        out_pdf=os.path.join(outdir, "Fig_three_panel_centers.pdf"),
-        out_png=os.path.join(outdir, "Fig_three_panel_centers.png"),
+        out_pdf=os.path.join(outdir, "Fig_three_panel_centers.pdf")
     )
 
     # dot plot
@@ -677,8 +651,7 @@ def make_all_figures(df: pd.DataFrame, cfg: DataConfig, acfg: AnalysisConfig, ou
         annot_col=cfg.annot_col,
         clip=acfg.clip_residuals,
         min_spots=acfg.min_spots_per_annotation,
-        out_pdf=os.path.join(outdir, "Fig_dotplot.pdf"),
-        out_png=os.path.join(outdir, "Fig_dotplot.png"),
+        out_pdf=os.path.join(outdir, "Fig_dotplot.pdf")
     )
 
     # sparse top effects
@@ -690,8 +663,7 @@ def make_all_figures(df: pd.DataFrame, cfg: DataConfig, acfg: AnalysisConfig, ou
         q_thr=acfg.q_threshold,
         resid_thr=2.0,
         min_spots=acfg.min_spots_per_annotation,
-        out_pdf=os.path.join(outdir, "Fig_sparse_top_effects.pdf"),
-        out_png=os.path.join(outdir, "Fig_sparse_top_effects.png"),
+        out_pdf=os.path.join(outdir, "Fig_sparse_top_effects.pdf")
     )
 
 
@@ -713,30 +685,25 @@ def load_and_prepare(cfg: DataConfig, acfg: AnalysisConfig) -> pd.DataFrame:
 
     return merged
 
+# %% -- Run code to derive the plots
+cfg = DataConfig(
+    ecm_cluster_path="/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/Analysis_Repo/Notebooks/ecm_neighborhood_annotations_v4.csv",
+    s3_bucket="pa-bi4jtrdsa151p4d3m-jepjxh9qrwgxphe8hd3r6exicahnoeuw1b-s3alias",
+    s3_prefixes=(
+        "fd319842-9157-4f04-bd4f-7a36ce6a0ba7/Non_mosaic_upload/Mosaic Annotations/",  # CHUV
+        "2ca49430-8b5c-4504-ad96-344019c90e84/",  # UKER
+    ),
+)
 
-def main():
-    # ---- edit these paths/prefixes for your environment ----
-    cfg = DataConfig(
-        ecm_cluster_path="/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/Analysis_Repo/Notebooks/ecm_neighborhood_annotations_v4.csv",
-        s3_bucket="pa-bi4jtrdsa151p4d3m-jepjxh9qrwgxphe8hd3r6exicahnoeuw1b-s3alias",
-        s3_prefixes=(
-            "fd319842-9157-4f04-bd4f-7a36ce6a0ba7/Non_mosaic_upload/Mosaic Annotations/",  # CHUV
-            "2ca49430-8b5c-4504-ad96-344019c90e84/",  # UKER
-        ),
-    )
+acfg = AnalysisConfig(
+    min_spots_per_annotation=0,
+    keep_only_shared_annotations=False,
+    clip_residuals=3.0,
+    q_threshold=0.05,
+)
 
-    acfg = AnalysisConfig(
-        min_spots_per_annotation=0,
-        keep_only_shared_annotations=False,
-        clip_residuals=3.0,
-        q_threshold=0.05,
-    )
+df = load_and_prepare(cfg, acfg)
+results = run_analysis(df, cfg, acfg)
+make_all_figures(df, cfg, acfg, outdir="/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/results/hne/ecm_pathology_figures")
 
-    df = load_and_prepare(cfg, acfg)
-    results = run_analysis(df, cfg, acfg)
-    make_all_figures(df, cfg, acfg, outdir="/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/results/hne/ecm_pathology_figures")
-
-
-if __name__ == "__main__":
-    main()
 # %%
