@@ -71,7 +71,7 @@ df_wes_leiden_cluster = pd.read_csv(
 )
 df_wes_leiden_cluster.set_index("orig.ident", inplace=True)
 
-# %% Prepare dataframe
+# -- Prepare dataframe
 cluster_col = "cnv_leiden"
 covariate_cols = ["Age (years)", "Administrative gender", "MGMT promoter methylation", "Site code"]
 
@@ -178,31 +178,12 @@ _, df_sum_cat["fdr"] = fdrcorrection(df_sum_cat["p"].values)
 print("\nAdjusted categorical Cox summary (top hits):")
 print(df_sum_cat.sort_values("p").head(20))
 
-# typography (panel friendly)
-plt.rcParams.update({
-    "font.size": 20,
-    "axes.titlesize": 20,
-    "axes.labelsize": 20,
-    "xtick.labelsize": 20,
-    "ytick.labelsize": 20,
-})
-df_sum_cat["covariate"] = df_sum_cat["covariate"].map(
-    {
-        "Age (years)" : "Age (years)",
-        "Administrative gender" : "Administrative gender",
-        "MGMT promoter methylation" : "MGMT promoter methylation",
-        "Site code" : "Site code",
-        "cnv_leiden_1" : "CNA cluster 1",
-        "cnv_leiden_2" : "CNA cluster 2",
-        "cnv_leiden_3" : "CNA cluster 3",
-        }
-    )
 # Forest plot for categorical model (clusters + covariates)
 # Increase global font sizes
 mpl.rcParams.update({
-    "font.size": 20,          # base font size
-    "axes.titlesize": 20,     # title size
-    "axes.labelsize": 20,     # axis labels
+    "font.size": 20,
+    "axes.titlesize": 20,
+    "axes.labelsize": 20,
     "xtick.labelsize": 20,
     "ytick.labelsize": 20,
     "legend.fontsize": 20
@@ -229,7 +210,7 @@ plt = plot_forest(
 plt.title(f"Adjusted categorical Cox (reference cluster : {ref_cluster})")
 savefig(
     df = df_sum_cat,
-    out_file=f"/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/results/WES/infercnv/forest_plot_OS_ref_{ref_cluster}.pdf",
+    out_file=f"/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/figures/figure3/fig3d.pdf",
     dpi=300,
     bbox_inches="tight"
 )
