@@ -17,6 +17,13 @@ import re
 import infercnvpy as cnv
 import pyranges as pr
 
+from statsmodels.stats.multicomp import pairwise_tukeyhsd
+from statsmodels.stats.multitest import multipletests
+
+from gbmcollaboration.viz.figure_helpers_py import savefig, set_mpl_rcparams
+
+set_mpl_rcparams()
+
 # %% -- Paths
 RESULTS_DIR = Path("/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/results/")
 
@@ -212,7 +219,7 @@ cnv.pl.umap(
 )
 cnv.pl.umap(wes_adata, color="cnv_score", ax=ax2, show=True)
 
-# %%
+# %% -- Calculate CNV scores per WES CNA cluster to report in manuscript
 wes_adata.obs.groupby("cnv_leiden").agg({"cnv_score": "mean"})
 
 # %% -- Pursue exploration to highlight the difference between cluster 2 and the other clusters
@@ -228,16 +235,7 @@ wes_adata.obs.groupby("cnv_leiden").agg({"cnv_score": "mean"})
 # - Exports tables for downstream gene annotation
 # ============================================================
 
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-
-from statsmodels.stats.multicomp import pairwise_tukeyhsd
-from statsmodels.stats.multitest import multipletests
-
-# ----------------------------
-# SETTINGS (edit here)
-# ----------------------------
+# -- parms
 CL2 = "2"
 COMPARISONS = ["0", "1", "3"]
 COMP_ORDER = [f"2 vs {k}" for k in COMPARISONS]
@@ -250,15 +248,15 @@ GROUP_TO_SEGMENTS = True              # True = merge consecutive bins into segme
 GAP_BP = 2_000_000                    # max gap between consecutive bins to be in same segment
 
 # Plot typography
-FONT_BASE = 12
-TITLE_SIZE = 14
-LABEL_SIZE = 12
-TICK_SIZE = 12
+plt.rcParams.update({
+    "font.size": 12,
+    "axes.titlesize": 14,
+    "axes.labelsize": 12,
+    "xtick.labelsize": 12,
+    "ytick.labelsize": 12,
+})
 
-# %%
-# ----------------------------
-# INPUTS
-# ----------------------------
+# %% -- inputs
 if "cluster_labels" not in globals():
     cluster_labels = wes_adata.obs["cnv_leiden"].astype(str)
 cluster_labels = cluster_labels.astype(str)
@@ -283,9 +281,7 @@ for c in [CL2] + COMPARISONS:
 print("Cluster sizes:")
 print(cluster_labels.value_counts().sort_index())
 
-# ----------------------------
-# ORDER BINS BY GENOME
-# ----------------------------
+# orders genes by genomic position
 def chr_rank(c):
     c = str(c).replace("chr", "")
     if c.isdigit(): return int(c)
@@ -297,10 +293,8 @@ var2 = var.loc[cnv_df.columns, ["chromosome","start","end"]].copy()
 var2["chr_rank"] = var2["chromosome"].map(chr_rank)
 bin_order = var2.sort_values(["chr_rank","start","end"]).index.astype(str)
 
-# ----------------------------
-# TUKEY PER BIN -> long table (bin × comparison)
+# -- long table (bin × comparison)
 # delta = mean(C2) - mean(k)
-# ----------------------------
 rows = []
 g = cluster_labels.values
 
@@ -340,9 +334,7 @@ tukey_long = tukey_long.join(var2[["chromosome","start","end","chr_rank"]], on="
 _, qvals, _, _ = multipletests(tukey_long["p_tukey_adj"].values, method="fdr_bh")
 tukey_long["q_fdr"] = qvals
 
-# ----------------------------
-# FILTER: keep only bins significant in ALL 3 comparisons
-# ----------------------------
+# -- keep only bins significant in ALL 3 comparisons
 pivot_q = tukey_long.pivot_table(index="bin", columns="comp", values="q_fdr", aggfunc="min").reindex(columns=COMP_ORDER)
 mask_all = pivot_q.notna().all(axis=1) & (pivot_q < Q_FDR).all(axis=1)
 bins_strict = pivot_q.index[mask_all].astype(str)
@@ -351,7 +343,7 @@ print(f"\nBins significant in ALL 3 comparisons (FDR<{Q_FDR}): {len(bins_strict)
 if len(bins_strict) == 0:
     raise ValueError("No bins pass the 'significant in all 3 comparisons' filter. Try Q_FDR=0.1.")
 
-# Optional: consistent direction across all three comparisons
+# consistent direction across all three comparisons
 if REQUIRE_CONSISTENT_DIRECTION:
     pivot_delta = tukey_long.pivot_table(index="bin", columns="comp", values="delta", aggfunc="mean").reindex(columns=COMP_ORDER)
     dir_ok = ((pivot_delta > 0).all(axis=1)) | ((pivot_delta < 0).all(axis=1))
@@ -371,9 +363,7 @@ sig_bins = (
     .reset_index(drop=True)
 )
 
-# ----------------------------
-# OPTIONAL: group consecutive bins into segments (after strict filtering)
-# ----------------------------
+# optional: group consecutive bins into segments (after strict filtering)
 if GROUP_TO_SEGMENTS:
     bdf = sig_bins.copy()
 
@@ -438,9 +428,7 @@ else:
 y_map = {c:i for i,c in enumerate(COMP_ORDER)}
 P["y"] = P["comp"].map(y_map)
 
-# ----------------------------
 # AESTHETICS: sizes & color scale
-# ----------------------------
 absd = P["abs_delta"].values
 absd95 = max(np.quantile(absd, 0.95), 1e-6)
 sizes = 18 + 290 * np.clip(absd / absd95, 0, 1)
@@ -456,18 +444,7 @@ for chr_ in pd.unique(chroms_x):
     idx = np.where(chroms_x == chr_)[0]
     chr_centers[chr_] = idx.mean()
 
-# %%
-# ----------------------------
-# PLOT (chromosome ticks only)
-# ----------------------------
-plt.rcParams.update({
-    "font.size": FONT_BASE,
-    "axes.titlesize": TITLE_SIZE,
-    "axes.labelsize": LABEL_SIZE,
-    "xtick.labelsize": TICK_SIZE,
-    "ytick.labelsize": TICK_SIZE,
-})
-
+# %% -- Plotting
 fig_w = max(6, 0.18 * n_x)
 fig_h = 2.8
 fig, ax = plt.subplots(figsize=(fig_w, fig_h))
@@ -507,12 +484,13 @@ cbar = fig.colorbar(sc, ax=ax, fraction=0.02, pad=0.02)
 cbar.set_label("Δ mean log2ratio")
 
 plt.tight_layout(pad=1)
+savefig(
+    df=P,
+    out_file="/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/figures/figure3/fig3c.pdf"
+)
 plt.show()
 
-# %%
-# ----------------------------
-# EXPORT TABLES (for gene overlap)
-# ----------------------------
+# %% -- EXPORT TABLES (for gene overlap)
 # Long-form table (one row per locus × comparison)
 strict_long = P.copy()
 
@@ -546,10 +524,8 @@ else:
 print("\nStrict loci kept:", strict_summary.shape[0])
 print(strict_summary.head(10))
 
-# %% Saving
 strict_long.to_csv(RESULTS_DIR / "WES/cluster2_strict_loci_tukey_long.csv", index=False)
 strict_summary.to_csv(RESULTS_DIR / "WES/cluster2_strict_loci_summary.csv", index=False)
-fig.savefig(RESULTS_DIR / "WES/cluster2_strict_loci_dotplot.pdf", bbox_inches="tight")
 
 # %% -- Identify the genes on those segments and append them to the table
 segments = strict_summary.copy()
@@ -600,4 +576,3 @@ merged_df = pd.merge(strict_summary, genes_by_segment, on="segment")
 
 # %% -- Save the table for the supplementary results
 merged_df.to_csv(RESULTS_DIR / "WES/segment_cluster_genes.csv", index=False)
-# %%
