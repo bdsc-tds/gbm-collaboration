@@ -32,3 +32,5 @@ from .gsea_utils import (
     load_gene_sets,
     score_gene_sets,
 )
+
+from .pathology_annotation_loader import concat_pathology_annotations_from_s3
