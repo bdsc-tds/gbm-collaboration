@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 import seaborn as sns
 from lifelines.utils import concordance_index
-import shap
+# import shap
 from lifelines import CoxPHFitter, KaplanMeierFitter
 from lifelines.statistics import multivariate_logrank_test
 
@@ -31,7 +31,7 @@ from gbmcollaboration.utils.clinical_functions import (
     plot_correlations
 )
 from gbmcollaboration.utils.viz_survival import kmplot
-from gbmcollaboration.viz.figure_helpers_py import set_mpl_rcparams, savefig
+from gbmcollaboration.viz.figure_helpers import set_mpl_rcparams, savefig
 
 set_mpl_rcparams()
 
@@ -73,7 +73,7 @@ df_wes_leiden_cluster.set_index("orig.ident", inplace=True)
 
 # -- Prepare dataframe
 cluster_col = "cnv_leiden"
-covariate_cols = ["Age (years)", "Administrative gender", "MGMT promoter methylation", "Site code"]
+covariate_cols = ["Age (years)", "MGMT promoter methylation"]#, "Administrative gender", "Site code"]
 
 # Pull OS + covariates from merged clinical df
 df_surv_cov = df_concat[["OS"] + covariate_cols].copy()
@@ -249,6 +249,12 @@ kmplot(
     title="Overall survival by WES CNV Leiden cluster (autosomes only)"
 )
 plt.tight_layout()
+savefig(
+    df = df_km,
+    out_file=f"/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/figures/figure3/fig3c_km.pdf",
+    dpi=300,
+    bbox_inches="tight"
+)
 plt.show()
 
 # %% KM curves with multivariate_logrank_test
@@ -281,4 +287,10 @@ p_txt = "Global log-rank: p<0.001" if p < 0.001 else f"Global log-rank: p={p:.3g
 
 ax.text(0.02, 0.02, p_txt, transform=ax.transAxes, fontsize=10, va="bottom")
 plt.tight_layout()
+savefig(
+    df = df_km,
+    out_file=f"/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/figures/figure3/fig3c_km_mulvariate_test.pdf",
+    dpi=300,
+    bbox_inches="tight"
+)
 plt.show()

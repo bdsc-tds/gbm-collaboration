@@ -20,7 +20,7 @@ import pyranges as pr
 from statsmodels.stats.multicomp import pairwise_tukeyhsd
 from statsmodels.stats.multitest import multipletests
 
-from gbmcollaboration.viz.figure_helpers_py import savefig, set_mpl_rcparams
+from gbmcollaboration.viz.figure_helpers import savefig, set_mpl_rcparams
 
 set_mpl_rcparams()
 

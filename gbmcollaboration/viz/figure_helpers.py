@@ -17,7 +17,11 @@ def set_mpl_rcparams(
 
 
 def savefig(df, out_file, dpi=300, bbox_inches="tight"):
-    df.to_csv(Path(out_file).with_suffix(".csv"))
+    out_file = Path(out_file)
+    out_file.parent.mkdir(exist_ok=True,parents=True)
+    # to ensure df is not forgotten by mistake
+    if df is not None:
+        df.to_csv(Path(out_file).with_suffix(".csv"))
     plt.savefig(Path(out_file).with_suffix(".pdf"), dpi=dpi, bbox_inches=bbox_inches)
     plt.savefig(Path(out_file).with_suffix(".png"), dpi=dpi, bbox_inches=bbox_inches)
     plt.close()

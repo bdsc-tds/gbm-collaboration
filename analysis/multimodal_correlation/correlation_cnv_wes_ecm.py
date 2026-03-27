@@ -11,7 +11,7 @@ import statsmodels.stats.multitest as smm
 import anndata as ad
 from pathlib import Path
 from gbmcollaboration import AllDataCenters
-from gbmcollaboration.viz.figure_helpers_py import savefig, set_mpl_rcparams
+from gbmcollaboration.viz.figure_helpers import savefig, set_mpl_rcparams
 
 set_mpl_rcparams()
 

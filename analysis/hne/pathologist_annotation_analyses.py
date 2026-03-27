@@ -34,7 +34,7 @@ import statsmodels.api as sm
 import statsmodels.formula.api as smf
 
 from gbmcollaboration.utils import concat_pathology_annotations_from_s3
-from gbmcollaboration.viz.figure_helpers_py import savefig, set_mpl_rcparams
+from gbmcollaboration.viz.figure_helpers import savefig, set_mpl_rcparams
 
 set_mpl_rcparams()
 

@@ -18,7 +18,7 @@ from gbmcollaboration import AllDataCenters
 from gbmcollaboration import (
     PATIENTS_IDH1_MUT,
 )
-from gbmcollaboration.viz.figure_helpers_py import set_mpl_rcparams, savefig
+from gbmcollaboration.viz.figure_helpers import set_mpl_rcparams, savefig
 
 SEED = 123
 FILTERING_SAMPLES = ["ER_G_743a"]
