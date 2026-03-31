@@ -1,0 +1,102 @@
+celltype_level4_scanvi,celltype_level4_curated,celltype_level3_curated,celltype_level3_figure,celltype_level2_curated,celltype_level2_figure,celltype_level1_curated
+Astrocyte_A1-like,Astrocyte_inflammatory,Astrocyte,Astrocyte,Astrocyte,Astrocyte,Glia
+Astrocyte_early_activation,Astrocyte_intermediate_reactive,Astrocyte,Astrocyte,Astrocyte,Astrocyte,Glia
+Astrocyte_homeostatic,Astrocyte_homeostatic,Astrocyte,Astrocyte,Astrocyte,Astrocyte,Glia
+Astrocyte_IFN_response,Astrocyte_IFN_response,Astrocyte,Astrocyte,Astrocyte,Astrocyte,Glia
+Astrocyte_reactive,Astrocyte_reactive,Astrocyte,Astrocyte,Astrocyte,Astrocyte,Glia
+B_nos,B_cell,B_cell,B cell,B_cell,B cell,Lymphoid
+Plasma_nos,Plasma_cell,B_cell,B cell,B_cell,B cell,Lymphoid
+Plasmablast,Plasmablast,B_cell,B cell,B_cell,B cell,Lymphoid
+cDC1_nos,cDC1,cDC1,cDC1,DC,Dendritic cell,Myeloid
+cDC_CD207,cDC_CD207_pos,cDC2,cDC2,DC,Dendritic cell,Myeloid
+cDC2_cycling,cDC2_cycling,cDC2,cDC2,DC,Dendritic cell,Myeloid
+cDC2_nos,cDC2,cDC2,cDC2,DC,Dendritic cell,Myeloid
+Doublet_Astro_Oligodendro,Doublet_Astro_Oligodendro,Doublet,Doublet,Doublet,Doublet,Doublet
+Doublet_B_TNK,Doublet_B_TNK,Doublet,Doublet,Doublet,Doublet,Doublet
+Doublet_Endothelial_Malignant,Doublet_Endothelial_Malignant,Doublet,Doublet,Doublet,Doublet,Doublet
+Doublet_Endothelial_Myeloid,Doublet_Endothelial_Myeloid,Doublet,Doublet,Doublet,Doublet,Doublet
+Doublet_Endothelial_Stromal,Doublet_Endothelial_Stromal,Doublet,Doublet,Doublet,Doublet,Doublet
+Doublet_MalignantGBM_nos,Doublet_MalignantGBM_nos,Doublet,Doublet,Doublet,Doublet,Doublet
+Doublet_momac_malignant,Doublet_momac_malignant,Doublet,Doublet,Doublet,Doublet,Doublet
+Doublet_momac_Neutro,Doublet_momac_Neutro,Doublet,Doublet,Doublet,Doublet,Doublet
+Doublet_momac_Stroma,Doublet_momac_Stroma,Doublet,Doublet,Doublet,Doublet,Doublet
+Doublet_Mural_Endo,Doublet_Mural_Endo,Doublet,Doublet,Doublet,Doublet,Doublet
+Doublet_Mural_Immune,Doublet_Mural_Immune,Doublet,Doublet,Doublet,Doublet,Doublet
+Doublet_Mural_Malignant,Doublet_Mural_Malignant,Doublet,Doublet,Doublet,Doublet,Doublet
+Doublet_Mural_Myeloid,Doublet_Mural_Myeloid,Doublet,Doublet,Doublet,Doublet,Doublet
+Doublet_Neuron_Astro,Doublet_Neuron_Astro,Doublet,Doublet,Doublet,Doublet,Doublet
+Doublet_Neuron_Malignant,Doublet_Neuron_Malignant,Doublet,Doublet,Doublet,Doublet,Doublet
+Doublet_Neuron_Microgl,Doublet_Neuron_Microgl,Doublet,Doublet,Doublet,Doublet,Doublet
+Doublet_Neuron_OligoD,Doublet_Neuron_OligoD,Doublet,Doublet,Doublet,Doublet,Doublet
+Doublet_Neutro_Endothelial,Doublet_Neutro_Endothelial,Doublet,Doublet,Doublet,Doublet,Doublet
+Doublet_Neutro_Mural,Doublet_Neutro_Mural,Doublet,Doublet,Doublet,Doublet,Doublet
+Doublet_Neutro_TNK,Doublet_Neutro_TNK,Doublet,Doublet,Doublet,Doublet,Doublet
+Doublet_Neutrophils_Momac,Doublet_Neutrophils_Momac,Doublet,Doublet,Doublet,Doublet,Doublet
+Doublet_Oligo_malignant,Doublet_Oligo_malignant,Doublet,Doublet,Doublet,Doublet,Doublet
+Doublet_Oligo_neuron,Doublet_Oligo_neuron,Doublet,Doublet,Doublet,Doublet,Doublet
+Doublet_T_Oligodendro,Doublet_T_Oligodendro,Doublet,Doublet,Doublet,Doublet,Doublet
+Doublet_TNK_Malignant,Doublet_TNK_Malignant,Doublet,Doublet,Doublet,Doublet,Doublet
+Doublet_TNK_Mural,Doublet_TNK_Mural,Doublet,Doublet,Doublet,Doublet,Doublet
+Doublet_TNK_Myeloid,Doublet_TNK_Myeloid,Doublet,Doublet,Doublet,Doublet,Doublet
+Doublet_TNK_nos,Doublet_TNK_nos,Doublet,Doublet,Doublet,Doublet,Doublet
+Endothelial_art,Endothelial_arterial,Endothelial,Endothelial cell,Endothelial,Endothelial cell,Vascular
+Endothelial_cap,Endothelial_capillary,Endothelial,Endothelial cell,Endothelial,Endothelial cell,Vascular
+Endothelial_nos,Endothelial,Endothelial,Endothelial cell,Endothelial,Endothelial cell,Vascular
+Endothelial_tip,Endothelial_tip,Endothelial,Endothelial cell,Endothelial,Endothelial cell,Vascular
+Endothelial_vasc_cycling,Endothelial_cycling,Endothelial,Endothelial cell,Endothelial,Endothelial cell,Vascular
+Endothelial_vei,Endothelial_veinous,Endothelial,Endothelial cell,Endothelial,Endothelial cell,Vascular
+Macro_C1Q_MARCOneg,Macrophage_C1Q_pos,Macrophage,Macrophage,Mono_Mac,Mononuclear phagocyte,Myeloid
+Macro_cycling,Macrophage_cycling,Macrophage,Macrophage,Mono_Mac,Mononuclear phagocyte,Myeloid
+Macro_IFN,Macrophage_IFN_response,Macrophage,Macrophage,Mono_Mac,Mononuclear phagocyte,Myeloid
+Macro_LYVE1,Macrophage_PVM,Macrophage,Macrophage,Mono_Mac,Mononuclear phagocyte,Myeloid
+Macro_PLIN2,Macrophage_LAM,Macrophage,Macrophage,Mono_Mac,Mononuclear phagocyte,Myeloid
+Malignant_other_2,Malignant_other_2,Malignant,Malignant,Malignant,Malignant,Malignant
+Malignant_other_stressed,Malignant_other_stressed,Malignant,Malignant,Malignant,Malignant,Malignant
+AC-like_IFN_response,Malignant_AC-like_IFN_response,Malignant_AC-like,AC-like,Malignant,Malignant,Malignant
+AC1-like,Malignant_AC1,Malignant_AC-like,AC-like,Malignant,Malignant,Malignant
+AC2-like,Malignant_AC2,Malignant_AC-like,AC-like,Malignant,Malignant,Malignant
+Malignant_cycling,Malignant_cycling,Malignant_cycling,Malignant cycling,Malignant,Malignant,Malignant
+Malignant_MES2-like,Malignant_MES-hypoxia,Malignant_MES-like,MES-like,Malignant,Malignant,Malignant
+MES-like,Malignant_MES1,Malignant_MES-like,MES-like,Malignant,Malignant,Malignant
+NPC2-like,Malignant_NPC2,Malignant_NPC-like,NPC-like,Malignant,Malignant,Malignant
+OPC1-like,Malignant_OPC1,Malignant_OPC-like,OPC-like,Malignant,Malignant,Malignant
+OPC2-like,Malignant_OPC2,Malignant_OPC-like,OPC-like,Malignant,Malignant,Malignant
+Malignant_OPC_invasive,Malignant_OPC-like_invasive,Malignant_OPC-like,OPC-like,Malignant,Malignant,Malignant
+Mast_nos,Mast_cell,Mast_cell,Mast cell,Mast_cell,Mast cell,Myeloid
+Microglia,Microglia_homeostatic,Microglia,Microglia,Microglia,Microglia,Myeloid
+Microglia_early_activation,Microglia_intermediate_reactive,Microglia,Microglia,Microglia,Microglia,Myeloid
+Microglia_IFN_response,Microglia_IFN_response,Microglia,Microglia,Microglia,Microglia,Myeloid
+Microglia_TREM2,Microglia_TREM2_pos,Microglia,Microglia,Microglia,Microglia,Myeloid
+Monocyte_nos,Monocyte_nos,Monocyte,Monocyte,Mono_Mac,Mononuclear phagocyte,Myeloid
+Neuron,Neuron_nos,Neuron,Neuron,Neuron,Neuron,Neuron
+Neuron_exc_CDH24,Neuron_excitatory_CDH24,Neuron_Excitatory,Excitatory neuron,Neuron,Neuron,Neuron
+Neuron_exc_nos,Neuron_excitatory_nos,Neuron_Excitatory,Excitatory neuron,Neuron,Neuron,Neuron
+Neuron_inh_LAMP5,Neuron_inhibitory_LAMP5,Neuron_Inhibitory,Inhibitory neuron,Neuron,Neuron,Neuron
+Neuron_inh_PVALB,Neuron_inhibitory_PVALB,Neuron_Inhibitory,Inhibitory neuron,Neuron,Neuron,Neuron
+Neuron_inh_SST,Neuron_inhibitory_SST,Neuron_Inhibitory,Inhibitory neuron,Neuron,Neuron,Neuron
+Neuron_inh_VIP,Neuron_inhibitory_VIP,Neuron_Inhibitory,Inhibitory neuron,Neuron,Neuron,Neuron
+Neuron_neurogliaform,Neuron_inhibitory_NGF,Neuron_Inhibitory,Inhibitory neuron,Neuron,Neuron,Neuron
+Neutrophils_MMP8,Neutrophil_immature,Neutrophil,Neutrophil,Granulocyte,Granulocyte,Myeloid
+Neutrophils_nos,Neutrophil,Neutrophil,Neutrophil,Granulocyte,Granulocyte,Myeloid
+NK_KLRC1,NK_KLRC1_pos,NK,NK cell,T_NK,T/NK cell,Lymphoid
+NK_nos,NK_nos,NK,NK cell,T_NK,T/NK cell,Lymphoid
+Oligodendrocyte_nos,Oligodendrocyte_nos,Oligodendrocyte,Oligodendrocyte,Oligodendrocyte,Oligodendrocyte,Glia
+Oligodendrocyte_reactive,Oligodendrocyte_reactive,Oligodendrocyte,Oligodendrocyte,Oligodendrocyte,Oligodendrocyte,Glia
+Fibro_Cycling,Perivascular_fibroblast_cycling,Other,Other,Mural,Mural cell,Vascular
+Malignant_other_1,Malignant_other_1,Other,Other,Other,Other,Other
+Other_LowCounts,Other_LowCounts,Other,Other,Other,Other,Other
+pDC,pDC,pDC,pDC,DC,Dendritic cell,Myeloid
+Pericyte,Pericyte,Pericyte,Pericyte,Mural,Mural cell,Vascular
+Pericyte_cycling,Pericyte_cycling,Pericyte,Pericyte,Mural,Mural cell,Vascular
+Pericyte_perivasc_fibro,Pericyte_fibro-like,Pericyte,Pericyte,Mural,Mural cell,Vascular
+Fibro_CAF-like,Perivascular_fibroblast_type-I,Perivascular_fibroblast,Perivascular fibroblast,Mural,Mural cell,Vascular
+Mural_LEPR,Perivascular_fibroblast_type-II,Perivascular_fibroblast,Perivascular fibroblast,Mural,Mural cell,Vascular
+Mural_perivasc_fibro,Perivascular_fibroblast_type-III,Perivascular_fibroblast,Perivascular fibroblast,Mural,Mural cell,Vascular
+T_CD4_nos,T_cell_CD4,T_cell,T cell,T_NK,T/NK cell,Lymphoid
+T_CD8_nos,T_cell_CD8,T_cell,T cell,T_NK,T/NK cell,Lymphoid
+T_IFN_activated,T_cell_IFN_response,T_cell,T cell,T_NK,T/NK cell,Lymphoid
+T_NK_cycling,T_NK_cycling,T_cell,T cell,T_NK,T/NK cell,Lymphoid
+T_nos,T_cell_nos,T_cell,T cell,T_NK,T/NK cell,Lymphoid
+T_other,T_cell_other,T_cell,T cell,T_NK,T/NK cell,Lymphoid
+T_reg,T_reg,T_cell,T cell,T_NK,T/NK cell,Lymphoid
+SM_vascular,VSMC,VSMC,VSMC,Mural,Mural cell,Vascular
