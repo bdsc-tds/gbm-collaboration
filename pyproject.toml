@@ -75,6 +75,7 @@ colorcet = "^3.1.0"
 gseapy = "^1.1.10"
 scikit-survival = "0.24.1"
 shap = "0.47.2"
+cell2location = "^0.1.5"
 
 [tool.poetry.group.dev]
 optional = true
