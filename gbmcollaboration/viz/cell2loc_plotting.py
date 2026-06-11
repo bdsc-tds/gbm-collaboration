@@ -2,6 +2,7 @@
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 from scipy.cluster import hierarchy
 from scipy.spatial import distance
 from scipy.cluster.hierarchy import linkage, leaves_list
@@ -242,7 +243,7 @@ def clustermap(
 
 
 
-def plot_neighborhood_marker_dotplot_from_agg(
+def dotplot_composite_score(
     abund_per_nh,
     included_niches=None,
     top_n_per_niche=5,
@@ -252,10 +253,15 @@ def plot_neighborhood_marker_dotplot_from_agg(
     size_floor=1.0,
     cmap="RdPu",
     marker_score_mode='prod',
-    center_zero=False,          # NEW
-    clip_percentile=None,       # NEW (e.g. 99)
+    center_zero=False,
+    clip_percentile=None,
     save_path=None,
-    dpi=300
+    dpi=300,
+    fig_w=None,
+    fig_h=None,
+    xtick_fontsize=10,
+    xtick_rotation=45,
+    xtick_top=False
 ):
     """
     Plots a cell-type marker dotplot from an aggregated table of counts per neighborhood.
@@ -369,8 +375,10 @@ def plot_neighborhood_marker_dotplot_from_agg(
     # 7. Setup plot layout
     n_niches = len(nhood_order)
     n_cts    = len(ct_order)
-    fig_w    = max(10.0, 0.30 * n_cts + 4.0)
-    fig_h    = max(3.0,  0.32 * n_niches + 2.5)
+    if fig_w is None:
+        fig_w    = max(10.0, 0.30 * n_cts + 4.0)
+    if fig_h is None:
+        fig_h    = max(3.0,  0.32 * n_niches + 2.5)
 
     fig, ax  = plt.subplots(figsize=(fig_w, fig_h))
     xx, yy = np.meshgrid(np.arange(n_cts), np.arange(n_niches))
@@ -418,8 +426,22 @@ def plot_neighborhood_marker_dotplot_from_agg(
 
     # Axes Formatting
     ax.set_xticks(range(n_cts))
-    ax.set_xticklabels(ct_order, fontsize=9, rotation=45, ha="right", rotation_mode="anchor")
-    ax.set_xlabel("Cell type", fontsize=11, labelpad=8)
+    if xtick_top:
+        ax.set_xticklabels(
+        ct_order,
+        fontsize=xtick_fontsize,
+        rotation=xtick_rotation,
+        ha="center",
+        va="bottom"
+        )
+
+        # move x-axis ticks/labels to top
+        ax.xaxis.tick_top()
+        ax.xaxis.set_label_position("top")
+        ax.tick_params(axis='x', bottom=False, top=True)
+    else:
+        ax.set_xticklabels(ct_order, fontsize=xtick_fontsize, rotation=xtick_rotation, ha="right", rotation_mode="anchor")
+        ax.set_xlabel("Cell type", fontsize=11, labelpad=8)
 
     ax.set_yticks(range(n_niches))
     yticklabels =[

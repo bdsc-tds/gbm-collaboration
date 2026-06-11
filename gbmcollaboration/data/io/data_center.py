@@ -384,7 +384,7 @@ class DataCenters:
 
         # Concatenate the dataframes
         genes = [obj.genecounts_df.columns for obj in loaded_objects.values()]
-        common_genes = list(set(genes[0]).intersection(*genes[1:]))
+        common_genes = list(set(genes[0]).intersection(*genes[1:]).difference(['imagerow','imagecol']))
         counts_df = pd.concat([obj.genecounts_df[common_genes] for obj in loaded_objects.values()])
 
         # Flatten the MultiIndex for AnnData compatibility
@@ -402,7 +402,7 @@ class DataCenters:
             obs_df = obs_df.loc[counts_df.index]
             obs_df['sample'] = obs_df.index.get_level_values(0)
         else:
-            obs_df = pd.DataFrame(index=flat_index)
+            obs_df = pd.concat([obj.genecounts_df[['imagerow','imagecol']] for obj in loaded_objects.values()])
 
         counts_df.index = flat_index
         obs_df.index = flat_index
