@@ -10,7 +10,7 @@ from gbmcollaboration.data.utils.descriptive_stats import create_demographic_tab
 
 # constants
 PROJECT = "Glimmer"
-DATE = "2025-12-10"  # e.g., "2025-08-18" if you want it in the filename
+DATE = "2026-06-10"  # e.g., "2025-08-18" if you want it in the filename
 BASE_DATA_DIR = "/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/descriptive_stats"
 ADD_OVERALL_ROW = True  # set False if you don't want an overall summary
 
@@ -59,7 +59,11 @@ def _load_center_df(center_cls):
     df = df[df["Sample collection chronology"] == "Baseline"]
     # drop the duplicated (low tumor content) samples if found
     exclude_sample = "ER_G_290a"
-    df = df[df["Tumour block ID for MOSAIC"]!= exclude_sample]
+    if "Tumour block ID for MOSAIC" == df.index.name:
+        col_ = df.index
+    else:
+        col_ = df["Tumour block ID for MOSAIC"]
+    df = df[col_ != exclude_sample]
 
     # drop outlier values for one sample:
     # need to find back this sample before excluding

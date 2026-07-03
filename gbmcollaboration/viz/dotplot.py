@@ -2,6 +2,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
+from matplotlib.colors import Normalize, TwoSlopeNorm
 
 def dotplot(
     df_plot,
@@ -20,6 +21,7 @@ def dotplot(
     cbar_title='',
     vmin=None,
     vmax=None,
+    center=None,
     sig_edgecolor="black",
     sig_edgewidth=1.5,
     nonsig_edgecolor="0.7",
@@ -89,16 +91,35 @@ def dotplot(
     x_coords = df[x_col].map(x_map)
     y_coords = df[y_col].map(y_map)
 
-    # Auto color range
-    if vmin is None or vmax is None:
-        abs_max = df[diff_col].abs().quantile(0.95)
-        vmin, vmax = -abs_max, abs_max
+    # Color clipping and centering
+
+    def _parse_limit(limit, values):
+        if limit is None:
+            return None
+        if isinstance(limit, str):
+            if limit.startswith("p"):
+                return np.nanpercentile(values, float(limit[1:]))
+            raise ValueError(f"Unknown limit specification: {limit}")
+        return float(limit)
+
+    values = df[diff_col].to_numpy()
+    vmin_ = _parse_limit(vmin, values)
+    vmax_ = _parse_limit(vmax, values)
+
+    if center is None:
+        norm = Normalize(vmin=vmin_, vmax=vmax_)
+    else:
+        norm = TwoSlopeNorm(
+            vmin=vmin_ if vmin_ is not None else np.nanmin(values),
+            vcenter=center,
+            vmax=vmax_ if vmax_ is not None else np.nanmax(values),
+        )
 
     # 3. Plotting
     sc = ax.scatter(
         x_coords, y_coords,
         s=df["size"],
-        c=df[diff_col], cmap=cmap, vmin=vmin, vmax=vmax,
+        c=df[diff_col], cmap=cmap, norm=norm,
         edgecolors=np.where(is_sig, sig_edgecolor, nonsig_edgecolor),
         linewidths=np.where(is_sig, sig_edgewidth, nonsig_edgewidth),
         zorder=3

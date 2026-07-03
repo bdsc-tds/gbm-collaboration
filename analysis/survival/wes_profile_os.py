@@ -6,6 +6,7 @@ using covariates. It outputs the figure 3d of the manuscript.
 # %% -- Import packages and load data
 import pandas as pd
 import numpy as np
+from pathlib import Path
 from sksurv.ensemble import RandomSurvivalForest
 from sklearn.ensemble import RandomForestRegressor
 from sksurv.util import Surv
@@ -17,6 +18,7 @@ from lifelines.utils import concordance_index
 # import shap
 from lifelines import CoxPHFitter, KaplanMeierFitter
 from lifelines.statistics import multivariate_logrank_test
+from statsmodels.stats.multitest import fdrcorrection
 
 from gbmcollaboration import CHUVDataCenter, UKERDataCenter, CRDataCenter
 from gbmcollaboration import (
@@ -25,15 +27,18 @@ from gbmcollaboration import (
     PATIENTS_IDH1_MUT,
     SURVIVAL_EXCLUSION
 )
+from gbmcollaboration.definitions import AVG_NUM_DAYS_PER_YEAR
 from gbmcollaboration.utils.clinical_functions import (
     univariate,
     plot_forest,
     plot_correlations
 )
 from gbmcollaboration.utils.viz_survival import kmplot
-from gbmcollaboration.viz.figure_helpers import set_mpl_rcparams, savefig
+from gbmcollaboration.viz import set_mpl_rcparams, savefig
 
 set_mpl_rcparams()
+
+FIGURES_DIR = Path('/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/figures/')
 
 # -- Loop over the three data centers and merge the clinical data
 merged_df = []
@@ -134,7 +139,6 @@ for cl in clusters:
 
     # forest plot for this adjusted model (cluster term + covariates)
     df_sum = cph.summary.reset_index().rename(columns={"index": "covariate"})
-    from statsmodels.stats.multitest import fdrcorrection
     _, df_sum["fdr"] = fdrcorrection(df_sum["p"].values)
 
     plot_forest(
@@ -172,7 +176,6 @@ cph_cat = CoxPHFitter()
 cph_cat.fit(df_cat_dum, duration_col="OS.time", event_col="OS.event", show_progress=False)
 
 df_sum_cat = cph_cat.summary.reset_index().rename(columns={"index": "covariate"})
-from statsmodels.stats.multitest import fdrcorrection
 _, df_sum_cat["fdr"] = fdrcorrection(df_sum_cat["p"].values)
 
 print("\nAdjusted categorical Cox summary (top hits):")
@@ -210,9 +213,7 @@ plt = plot_forest(
 plt.title(f"Adjusted categorical Cox (reference cluster : {ref_cluster})")
 savefig(
     df = df_sum_cat,
-    out_file=f"/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/figures/figure3/fig3d.pdf",
-    dpi=300,
-    bbox_inches="tight"
+    out_file=FIGURES_DIR/"figure3/fig3d.pdf",
 )
 plt.show()
 
@@ -232,13 +233,14 @@ print("\nAdjusted categorical Cox (cluster terms only):")
 print(df_cat_clusters)
 
 # %% -- KM curves
-df_km = df_cluster[["OS", cluster_col]].copy()
+df_cluster['OS.time.days'] = df_cluster['OS.time'] * AVG_NUM_DAYS_PER_YEAR
+df_km = df_cluster[["OS.time.days", cluster_col]].copy()
 df_km[cluster_col] = df_km[cluster_col].astype(str)
 
 fig, ax = plt.subplots(1, 1, figsize=(9, 7))
 kmplot(
     data=df_km,
-    x="OS",
+    x="OS.time.days",
     hue=cluster_col,
     hue_order=sorted(df_km[cluster_col].unique(), key=lambda x: int(x)),
     convert_days_to_months=True,
@@ -251,9 +253,7 @@ kmplot(
 plt.tight_layout()
 savefig(
     df = df_km,
-    out_file=f"/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/figures/figure3/fig3c_km.pdf",
-    dpi=300,
-    bbox_inches="tight"
+    out_file=FIGURES_DIR/"figure3/fig3c_km.pdf",
 )
 plt.show()
 
@@ -261,7 +261,7 @@ plt.show()
 fig, ax = plt.subplots(1, 1, figsize=(9, 7))
 kmplot(
     data=df_km,
-    x="OS",
+    x="OS.time.days",
     hue=cluster_col,
     hue_order=sorted(df_km[cluster_col].unique(), key=lambda x: int(x)),
     convert_days_to_months=True,
@@ -289,8 +289,8 @@ ax.text(0.02, 0.02, p_txt, transform=ax.transAxes, fontsize=10, va="bottom")
 plt.tight_layout()
 savefig(
     df = df_km,
-    out_file=f"/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/figures/figure3/fig3c_km_mulvariate_test.pdf",
-    dpi=300,
-    bbox_inches="tight"
+    out_file=FIGURES_DIR/"figure3/fig3c_km_mulvariate_test.pdf",
 )
 plt.show()
+
+# %%
