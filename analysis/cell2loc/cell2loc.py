@@ -35,11 +35,11 @@ def load_sample(center_name, sample_id, h5ad_file):
                 adata = ad.read_h5ad(f)
         else:
             adata = ad.read_h5ad(h5ad_file)
-        
+
         # Extract means_cell_abundance_w_sf from obsm
         if 'means_cell_abundance_w_sf' not in adata.obsm:
             return None
-        
+
         # Get cell type names
         celltype_names = None
         if 'mod' in adata.uns and 'factor_names' in adata.uns['mod']:
@@ -48,32 +48,32 @@ def load_sample(center_name, sample_id, h5ad_file):
             celltype_names = adata.uns['factor_names']
         elif 'cell_type_names' in adata.uns:
             celltype_names = adata.uns['cell_type_names']
-        
+
         if celltype_names is None:
             n_celltypes = adata.obsm['means_cell_abundance_w_sf'].shape[1]
             celltype_names = [f'celltype_{i}' for i in range(n_celltypes)]
-        
+
         # Add prefix to match column names
         celltype_names = [f'meanscell_abundance_w_sf_{name}' for name in celltype_names]
-        
+
         # Get cell abundance data
         cell_abundance = adata.obsm['means_cell_abundance_w_sf']
         if issparse(cell_abundance):
             cell_abundance = cell_abundance.toarray()
-        
+
         # Create DataFrame
         df = pd.DataFrame(cell_abundance, index=adata.obs_names, columns=celltype_names)
         df = df.fillna(0)
-        
+
         # Add sample ID to index
         df.index = pd.MultiIndex.from_tuples(
             [(sample_id, idx) for idx in df.index],
             names=['sample', 'barcode']
         )
-        
+
         # Compute total cells per spot
         df['total_cells'] = df.sum(axis=1)
-        
+
         return df
     except Exception as e:
         return None
@@ -105,22 +105,22 @@ for center_name, cell2loc_path in centers.items():
     print(f"\nProcessing {center_name}...")
     base_path = S3Path(str(cell2loc_path))
     sample_dirs = [d.name for d in base_path.iterdir() if d.is_dir()]
-    
+
     # Prepare sample paths
     samples_to_process = [
         (center_name, sample_id, base_path / sample_id / "cohort_level_2.h5ad")
         for sample_id in sample_dirs
     ]
-    
+
     # Process samples in parallel with tqdm for this center
     center_results = Parallel(n_jobs=-1)(
         delayed(load_sample)(center_name, sample_id, h5ad_file)
         for center_name, sample_id, h5ad_file in tqdm(samples_to_process, desc=f"  {center_name}")
     )
-    
+
     # Filter out None results and add center info
     center_results = [df for df in center_results if df is not None]
-    
+
     for df in center_results:
         # Add center to index
         new_index = pd.MultiIndex.from_tuples(
@@ -129,7 +129,7 @@ for center_name, cell2loc_path in centers.items():
         )
         df.index = new_index
         df['center'] = center_name
-    
+
     all_results.extend(center_results)
     print(f"  ✓ Loaded {len(center_results)} samples from {center_name}")
 
@@ -143,7 +143,7 @@ sns.histplot(data=df_all, x='total_cells', bins=50)
 plt.xlabel('Total Cells per Spot')
 plt.ylabel('Frequency')
 plt.title('Cell Count Distribution per Spot - All Centers')
-plt.axvline(df_all['total_cells'].median(), color='red', linestyle='--', 
+plt.axvline(df_all['total_cells'].median(), color='red', linestyle='--',
             label=f'Median: {df_all["total_cells"].median():.1f}')
 plt.legend()
 plt.show()

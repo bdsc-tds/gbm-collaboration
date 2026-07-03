@@ -182,7 +182,7 @@ def kmplot(
     add_logrank_pvalue: bool = False,
     at_risk_counts: bool = False,
     ax: Optional[matplotlib.axes.Axes] = None,
-    title: str = None
+    title: str = None,
 ) -> Optional[matplotlib.figure.Figure]:
     """Plot a Kaplan Meier curve of the data.
 
@@ -228,7 +228,7 @@ def kmplot(
     _checks(df, x, hue, hue_order)
 
     # Prepare data for plot
-    unit = "days"
+
     if convert_days_to_months:
         df[x] /= AVG_NUM_DAYS_PER_MONTH
         unit = "months"

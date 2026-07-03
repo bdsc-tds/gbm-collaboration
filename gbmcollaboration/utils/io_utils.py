@@ -6,13 +6,82 @@ from collections import Counter, namedtuple
 from operator import attrgetter
 from typing import Any
 
+import anndata
+import h5py
 import boto3
 import numpy as np
 import pandas as pd
+import fsspec
+import s3fs
 import zarr
 from anndata._io.specs import read_elem
 from scipy.sparse import issparse
 from .env_utils import Path
+
+
+def s3_open_h5(s3_path, backend="fsspec"):
+    if backend == "fsspec":
+        s3f = fsspec.open(s3_path, mode="rb").open()
+        h5f = h5py.File(s3f, mode="r")
+    elif backend == "s3fs":
+        fs = s3fs.S3FileSystem(anon=False)
+        s3f = fs.open(s3_path, "rb")
+        h5f = h5py.File(s3f, mode="r")
+    return h5f
+
+
+def _read_anndata_dict(f, field, field_name):
+    if isinstance(field, bool) and field is True:
+        field_dict = read_elem(f[field_name])
+    else:
+        field_dict = {}
+        for k in field:
+            field_dict[k] = read_elem(f[f"{field_name}/{k}"])
+    return field_dict
+
+def s3_read_h5ad_partial(
+    s3_path,
+    X=None,
+    obs=True,
+    var=True,
+    uns=[],
+    obsm=[],
+    varm=[],
+    layers=[],
+    raw=False,
+):
+
+
+    h5f = s3_open_h5(s3_path)
+    if raw:
+        h5f = h5f["raw"]
+
+    if X:
+        X = read_elem(h5f["X"])
+    if obs and "obs" in h5f:
+        obs = read_elem(h5f["obs"])
+    if var and "var" in h5f:
+        var = read_elem(h5f["var"])
+    if uns and "uns" in h5f:
+        uns = _read_anndata_dict(h5f, uns, "uns")
+    if obsm and "obsm" in h5f:
+        obsm = _read_anndata_dict(h5f, obsm, "obsm")
+    if varm and "varm" in h5f:
+        varm = _read_anndata_dict(h5f, varm, "varm")
+    if layers and "layers" in h5f:
+        layers = _read_anndata_dict(h5f, layers, "layers")
+
+    adata = anndata.AnnData(
+        X=X,
+        obs=obs,
+        var=var,
+        uns=uns,
+        obsm=obsm,
+        varm=varm,
+        layers=layers,
+    )
+    return adata
+
 
 def s3_ls(
     bucket,
