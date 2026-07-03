@@ -36,10 +36,10 @@ For all tabular data and single-cell data, those 3 main arguments can be used:
 - exclude_patient_ids: bool,
 - exclude_relapse: bool
 
-A particularity for clinical data, is the exclusion of additionnal CR samples for which
+A particularity for clinical data, is the exclusion of additional CR samples for which
 OS and/or PFS are pending.
 
-As of February 2026, If you want to load the clinical data, you can run the following code,
+If you want to load the clinical data, you can run the following code,
 that allows flexibility in excluding particular samples at Charite.
 ```python
 from gbmcollaboration import CHUVDataCenter, UKERDataCenter, CRDataCenter, SURVIVAL_EXCLUSION
