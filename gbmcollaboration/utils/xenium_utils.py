@@ -6,7 +6,7 @@ import scipy.stats as st
 from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import connected_components
 from scipy.spatial import cKDTree
-from pygam import LinearGAM, s, l, te
+# from pygam import LinearGAM, s, l, te
 from joblib import Parallel, delayed
 from tqdm.auto import tqdm
 
