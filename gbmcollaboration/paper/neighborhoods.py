@@ -1,20 +1,18 @@
-"""ECM and cell-type neighborhoods: code shared by 11_ECM_niches_v4, 12_Cell_Neighborhoods and
-13_colocalization_plots.
+"""ECM and cell-type neighborhoods: code shared by fig4cdg_suppfig4f_ECM_niches_v4,
+fig4ab_suppfig4abg_Cell_Neighborhoods and fig4e_suppfig4e_colocalization_plots.
 
 - ``load_spots``: spots, coordinates and cell2location q05 abundances (``deconv_cohort_level_4``)
   of the Visium cohort, as the ``adata.obs`` of ``AllDataCenters.load_spatial_adata`` without
-  the expression matrix.
+  the expression matrix (``AllDataCenters.load_spatial(load_gex=False)``). The gene-subset
+  path of ``load_spatial_adata`` (``genes=``) returns neither coordinates nor deconvolution
+  (its spots and spot order are the same: checked in fig4cdg).
 - ``pseudobulk_sums``: per section and label (e.g. ECM neighborhood) sums of every gene of the
-  log-normalised matrix, read a few sections at a time. Replaces holding the full dense
-  matrix (870,077 spots x 18,082 genes) for the full-transcriptome pseudobulk of ECM_niches_v4
-  cell 46 and the gene means per neighborhood of colocalization_plots cell 9 (Supp Table 3b).
-- ``c2l_curated_counts``: the block repeated in the neighborhood notebooks that maps the
-  cell2location mean abundances (``meanscell_abundance_w_sf_<level 4>`` columns) to a curated
-  level of the annotation key, drops doublet / other types and sums per curated type.
-- ``marker_scores``: composition, specificity, log2 FC and marker score of an abundance table
-  per neighborhood (the "core matrices" of the marker dotplots; same formulas as
-  ``gbmcollaboration.viz.cell2loc_plotting.dotplot_composite_score``).
-- ``contact_counts``: edges of the one-ring Visium grid between neighborhood labels.
+  log-normalised matrix, read a few sections at a time with each centre's ``load_spatial``.
+  The full dense matrix (870,077 spots x 18,082 genes) does not fit in memory, and
+  ``load_spatial_adata(genes=...)`` would hold all genes of all spots at once.
+- ``c2l_curated_counts``: maps the cell2location mean abundances
+  (``meanscell_abundance_w_sf_<level 4>`` columns) to a curated level of the annotation key,
+  drops doublet / other types and sums per curated type.
 """
 
 import gc
@@ -26,7 +24,9 @@ from joblib import Parallel, delayed
 from gbmcollaboration import AllDataCenters
 
 from . import config as C
-from .visium import _CENTERS, C2L_PREFIX
+from .visium import C2L_PREFIX
+
+_PREFIXES = {"mosaic_chuv": "CH", "mosaic_uker": "ER", "mosaic_cr": "CR"}
 
 
 def load_spots(deconvolution_slot_name: str = "deconv_cohort_level_4") -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -85,7 +85,8 @@ def pseudobulk_sums(labels: pd.Series, normalization: str = "log_norm_count", se
     if section_ids is None:
         section_ids = sorted(labels.index.str.rsplit("_", n=1).str[0].unique())
     jobs = []
-    for prefix, dc in _CENTERS.items():
+    for name, dc in AllDataCenters.data_centers.items():
+        prefix = _PREFIXES[name]
         secs = sorted(s for s in section_ids if s.startswith(prefix))
         jobs += [(prefix, dc, secs[i:i + batch]) for i in range(0, len(secs), batch)]
     res = Parallel(n_jobs=n_jobs, backend="loky")(
@@ -126,30 +127,3 @@ def c2l_curated_counts(obs: pd.DataFrame, celltype_key: pd.DataFrame, curation_c
         print(f"Excluded cell types: {(~keep_mask).sum()}")
         print(f"Retained cell types: {keep_mask.sum()}")
     return counts.T.groupby(curated_map).sum().T
-
-
-def marker_scores(abund_per_nh: pd.DataFrame, eps: float = 1e-6) -> dict:
-    """Core matrices of the marker dotplots (rows neighborhoods, columns cell types).
-
-    composition = fraction of the neighborhood's abundance; specificity = fraction of the cell
-    type's abundance; log2fc = log2 of composition over the cell type's cohort frequency;
-    marker_score = composition x log2fc clipped at 0.
-    """
-    composition = abund_per_nh.div(abund_per_nh.sum(axis=1), axis=0).fillna(0)
-    specificity = abund_per_nh.div(abund_per_nh.sum(axis=0), axis=1).fillna(0)
-    ct_global = abund_per_nh.sum(axis=0) / abund_per_nh.values.sum()
-    log2fc = np.log2((composition + eps).div(ct_global + eps, axis=1))
-    marker_score = composition * log2fc.clip(lower=0)
-    return {"composition": composition, "specificity": specificity, "log2fc": log2fc, "marker_score": marker_score}
-
-
-def contact_counts(labels: np.ndarray, edges: np.ndarray, nh_to_idx: dict, n_nh: int, out=None) -> np.ndarray:
-    """Add the edges (pairs of spot indices, each edge once) between labelled spots to a
-    symmetric n_nh x n_nh count matrix (same counts as a Python loop over the edges)."""
-    counts = np.zeros((n_nh, n_nh), dtype=np.float64) if out is None else out
-    codes = np.array([nh_to_idx.get(lab, -1) for lab in labels])
-    ir, ic = codes[edges[:, 0]], codes[edges[:, 1]]
-    keep = (ir >= 0) & (ic >= 0)
-    np.add.at(counts, (ir[keep], ic[keep]), 1)
-    np.add.at(counts, (ic[keep], ir[keep]), 1)
-    return counts
