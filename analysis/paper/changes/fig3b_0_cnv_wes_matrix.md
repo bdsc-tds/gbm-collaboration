@@ -1,4 +1,4 @@
-# pipelines/generate_cnv_wes_matrix.py
+# fig3b_0_cnv_wes_matrix.py
 
 Origin: `analysis/infercnv/generate_cnv_wes_matrix.py` (WES CNV matrix, frozen as
 results/WES/cnv_matrix/cnv_wes_matrix_full_cohorts.csv).

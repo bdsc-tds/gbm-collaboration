@@ -1,4 +1,4 @@
-# pipelines/infercnv_sc_analyses.py
+# fig3b_0_infercnv_sc.py
 
 Origin: `analysis/infercnv/infercnv_sc_analyses.py` (single-cell inferCNV; frozen outputs in
 results/scRNAseq/infercnv/).

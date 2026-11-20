@@ -1,4 +1,4 @@
-# pipelines/mutations.py
+# fig3a_0_mutation_calling.py
 
 Origin: `analysis/mutations/mutations.py` (WES patient x alteration matrix, frozen as
 results/WES/mutations/patient_gene_matrix.csv, read by fig3a_oncoplot.py).

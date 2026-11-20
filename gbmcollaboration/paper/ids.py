@@ -28,13 +28,3 @@ def block_of(values) -> pd.Index:
 
 def patient_of(values) -> pd.Index:
     return pd.Index(parse_ids(values)["patient"])
-
-
-def center_of(values) -> pd.Index:
-    return pd.Index(pd.Series(np.asarray(values)).astype(str).str[:2])
-
-
-def first_block_per_patient(df: pd.DataFrame, id_col: str = "block") -> pd.DataFrame:
-    """One row per patient: the lowest block letter (the primary block in MOSAIC naming)."""
-    p = patient_of(df[id_col])
-    return df.assign(_p=p.to_numpy()).sort_values(["_p", id_col]).drop_duplicates("_p").drop(columns="_p")
