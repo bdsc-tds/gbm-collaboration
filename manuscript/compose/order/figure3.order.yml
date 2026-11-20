@@ -1,0 +1,5 @@
+# written by compose/figure3.py from its layout; do not edit (rerun the compose script)
+a: ["Fig3a.pdf"]
+b: ["Fig3b.pdf"]
+c: ["Fig3c.pdf"]
+d: ["Fig3d.pdf"]

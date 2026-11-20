@@ -1,0 +1,8 @@
+# written by compose/figure6.py from its layout; do not edit (rerun the compose script)
+a: ["Fig6a.pdf"]
+b: ["Fig6b_hBrain.pdf"]
+c: ["crop: page 23 of the manuscript PDF"]
+d: ["crop: page 23 of the manuscript PDF"]
+e: ["crop: page 23 of the manuscript PDF"]
+f: ["crop: page 23 of the manuscript PDF"]
+g: ["Fig6g_hBrain.pdf"]

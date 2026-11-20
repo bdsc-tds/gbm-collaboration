@@ -143,3 +143,7 @@ nf-core-hlatyping_2.1.0/
 .nextflow*
 results/
 scratch/
+
+# linked panel folders and composed pages (manuscript/symlink_figures.sh, manuscript/build_all.sh)
+manuscript/figures/
+manuscript/composed/

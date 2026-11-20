@@ -1,0 +1,8 @@
+# written by compose/suppfigure4.py from its layout; do not edit (rerun the compose script)
+a: ["SuppFig4a.pdf"]
+b: ["SuppFig4b.pdf"]
+c: ["SuppFig4c.pdf"]
+d: ["SuppFig4d.pdf"]
+e: ["SuppFig4e.pdf"]
+f: ["SuppFig4f.pdf"]
+g: ["SuppFig4g.pdf", "SuppFig4g_per_sample.pdf"]

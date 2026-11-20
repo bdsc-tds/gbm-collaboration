@@ -1,0 +1,160 @@
+__preamble__
+# Panel figures relative to BASE_DIR: every manuscript panel as <Id>.pdf/.png/.csv (analysis/paper/README.md, "Outputs");
+# BASE_DIR=<dir> ./symlink_figures.sh overrides it (e.g. figures/paper/_panels_before_rerun/)
+BASE_DIR: /home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/figures/paper/panels/
+
+figure1:
+  # b: KM per clinical covariate (fig1b_suppfig1_GBM_MS_Summary); a, c-e not produced by code (crops of the manuscript page)
+  - Fig1b_mgmt.pdf
+  - Fig1b_age.pdf
+  - Fig1b_sex.pdf
+  - Fig1b_p53.pdf
+  - Fig1b_center.pdf
+
+figure2:
+  - Fig2a.pdf --nocsv            # fig2a_suppfig2_figure2 (UMAP, no data CSV)
+  - Fig2b.pdf                    # fig2bc_suppfig2_marker_dotplots
+  - Fig2c.pdf
+  - Fig2d.pdf                    # fig2de_celltype_modules
+  - Fig2e.pdf
+  - Fig2d_modules.csv
+  - Fig2e_dagger.csv
+
+figure3:
+  - Fig3a.pdf                    # fig3a_oncoplot
+  - Fig3b.pdf                    # fig3b_suppfig3ac_infercnv_wes_analyses
+  - Fig3c.pdf                    # fig3c_suppfig3b_wes_profile_os_rmst
+  - Fig3d.pdf                    # fig3d_correlation_cnv_wes_ecm
+
+figure4:
+  - Fig4a.pdf                    # fig4ab_suppfig4abg_Cell_Neighborhoods
+  - Fig4a_published_set.pdf      # the 36 cell types of the published panel
+  - Fig4b.pdf
+  - Fig4c.pdf                    # fig4cdg_suppfig4f_ECM_niches_v4
+  - Fig4d.pdf
+  - Fig4e.pdf                    # fig4e_suppfig4e_colocalization_plots
+  - Fig4f.pdf                    # fig4f_pathologist_annotation_analyses
+  - Fig4g.pdf
+  - Fig4h.pdf                    # fig4h_suppfig4cd_neighborhood_survival
+
+figure5:
+  - Fig5a.pdf                    # fig5a_TIL_zones_map
+  - Fig5b.pdf                    # fig5b_TIL_survival
+  - Fig5c.pdf                    # fig5c_suppfig5ab_TIL_supplement
+  - Fig5d.pdf                    # fig5de_suppfig5cde_ECM_supplement
+  - Fig5e.pdf
+  - Fig5f.pdf                    # fig5fg_TIL_zone_GSEA
+  - Fig5g_TIL+_vs_BZ1.pdf
+  - Fig5g_BZ1_vs_BZ2.pdf
+
+figure6:
+  # c-f microscopy: crops of the manuscript page
+  - Fig6a.pdf                    # fig6a_suppfig6_NicheNet_circos
+  - Fig6b_hBrain.pdf             # fig6bg_xenium_niches; hBrain = the sections of the published panel
+  - Fig6g_hBrain.pdf
+  - Fig6b_hAtlas.pdf             # same analysis on the hAtlas sections (not composed)
+  - Fig6g_hAtlas.pdf
+
+suppfigure1:
+  - SuppFig1a.pdf                # fig1b_suppfig1_GBM_MS_Summary
+  - SuppFig1b.pdf
+  - SuppFig1c.pdf
+
+suppfigure2:
+  # fig2a_suppfig2_figure2 (UMAPs a, d, g; composition bars b, e, h), fig2bc_suppfig2_marker_dotplots (c, f, i)
+  - SuppFig2a_level1.pdf --nocsv
+  - SuppFig2a_level2.pdf --nocsv
+  - SuppFig2a_level3.pdf --nocsv
+  - SuppFig2a_level4.pdf --nocsv
+  - SuppFig2b_level1.pdf
+  - SuppFig2b_level2.pdf
+  - SuppFig2b_level3.pdf
+  - SuppFig2b_level4.pdf
+  - SuppFig2c_Malignant.pdf
+  - SuppFig2d_level1.pdf --nocsv
+  - SuppFig2d_level2.pdf --nocsv
+  - SuppFig2d_level3.pdf --nocsv
+  - SuppFig2d_level4.pdf --nocsv
+  - SuppFig2e_level1.pdf
+  - SuppFig2e_level2.pdf
+  - SuppFig2e_level3.pdf
+  - SuppFig2e_level4.pdf
+  - SuppFig2f_Lymphoid.pdf
+  - SuppFig2f_Myeloid.pdf
+  - SuppFig2g_level1.pdf --nocsv
+  - SuppFig2g_level2.pdf --nocsv
+  - SuppFig2g_level3.pdf --nocsv
+  - SuppFig2g_level4.pdf --nocsv
+  - SuppFig2h_level1.pdf
+  - SuppFig2h_level2.pdf
+  - SuppFig2h_level3.pdf
+  - SuppFig2h_level4.pdf
+  - SuppFig2i_Glia.pdf
+  - SuppFig2i_Neuron.pdf
+  - SuppFig2i_Vascular.pdf
+  - SuppFig2i_Stromal.pdf
+
+suppfigure3:
+  - SuppFig3a.pdf --nocsv        # fig3b_suppfig3ac_infercnv_wes_analyses
+  - SuppFig3b.pdf                # fig3c_suppfig3b_wes_profile_os_rmst
+  - SuppFig3c.pdf
+  - SuppFig3d.pdf                # suppfig3d_wes_cluster_covariate_rmst
+  - SuppFig3e-f.pdf              # suppfig3ef_analyses_wes_sc_infercnv
+
+suppfigure4:
+  - SuppFig4a.pdf                # fig4ab_suppfig4abg_Cell_Neighborhoods
+  - SuppFig4b.pdf
+  - SuppFig4c.pdf                # fig4h_suppfig4cd_neighborhood_survival
+  - SuppFig4d.pdf                # suppfig4d_CT0_CT3_composition
+  - SuppFig4e.pdf                # fig4e_suppfig4e_colocalization_plots
+  - SuppFig4f.pdf                # fig4cdg_suppfig4f_ECM_niches_v4
+  - SuppFig4g.pdf
+  - SuppFig4g_per_sample.pdf
+
+suppfigure5:
+  - SuppFig5a.pdf                # fig5c_suppfig5ab_TIL_supplement
+  - SuppFig5b.pdf
+  - SuppFig5c.pdf                # fig5de_suppfig5cde_ECM_supplement
+  - SuppFig5d.pdf
+  - SuppFig5e.pdf
+
+suppfigure6:
+  - SuppFig6a.pdf                # fig6a_suppfig6_NicheNet_circos
+  - SuppFig6b.pdf
+
+tables:
+  # CSVs only, linked into tables/data/
+  - Table1a.csv
+  - Table1b-c.csv
+  - SuppTable1b.csv
+  - SuppTable1c.csv
+  - SuppTable3a.csv
+  - SuppTable3a_gene_use.csv
+  - SuppTable3b.csv
+  - SuppTable3c_ECM_neighborhood_celltype_level1_curated.csv
+  - SuppTable3c_ECM_neighborhood_celltype_level2_curated.csv
+  - SuppTable3c_ECM_neighborhood_celltype_level3_curated.csv
+  - SuppTable3c_ECM_neighborhood_celltype_level4_curated.csv
+  - SuppTable3c_TIL_zone_celltype_level1_curated.csv
+  - SuppTable3c_TIL_zone_celltype_level2_curated.csv
+  - SuppTable3c_TIL_zone_celltype_level3_curated.csv
+  - SuppTable3c_TIL_zone_celltype_level4_curated.csv
+  - SuppTable3c_pathology_annotations_celltype_level1_curated.csv
+  - SuppTable3c_pathology_annotations_celltype_level2_curated.csv
+  - SuppTable3c_pathology_annotations_celltype_level3_curated.csv
+  - SuppTable3c_pathology_annotations_celltype_level4_curated.csv
+  - SuppTable4a_ecm_neighborhood_TIL_group_by_zone_pseudobulk.csv
+  - SuppTable4a_ecm_neighborhood_niche_matrisome_summary.csv
+  - SuppTable4a_til_zone_annotations.csv
+  - SuppTable4a_til_zone_celltype_stats_long.csv
+  - SuppTable4a_til_zone_celltype_summary.csv
+  - SuppTable4b.csv
+
+response:
+  # response to reviewers (fig5b_TIL_spline); not composed
+  - Response_TIL_spline_RMST_none.pdf
+  - Response_TIL_spline_RMST_MGMT.pdf
+  - Response_TIL_spline_RMST_MGMT_+_age.pdf
+  - Response_TIL_cutoff_scan.pdf
+  - Response_TIL_spline_tests.csv
+  - Response_TIL_nonlinearity_tests.csv

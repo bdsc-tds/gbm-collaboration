@@ -1,0 +1,6 @@
+# written by compose/figure2.py from its layout; do not edit (rerun the compose script)
+a: ["part:Fig2a.pdf#0.05,0.72,5.25,4.05"]
+b: ["Fig2b.pdf"]
+c: ["Fig2c.pdf"]
+d: ["Fig2d.pdf"]
+e: ["Fig2e.pdf"]

@@ -1,0 +1,4 @@
+# written by compose/suppfigure1.py from its layout; do not edit (rerun the compose script)
+a: ["SuppFig1a.pdf"]
+b: ["SuppFig1b.pdf"]
+c: ["SuppFig1c.pdf"]

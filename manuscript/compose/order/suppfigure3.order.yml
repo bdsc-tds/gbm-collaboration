@@ -1,0 +1,7 @@
+# written by compose/suppfigure3.py from its layout; do not edit (rerun the compose script)
+a: ["SuppFig3a.pdf"]
+b: ["SuppFig3b.pdf"]
+c: ["SuppFig3c.pdf"]
+d: ["SuppFig3d.pdf"]
+e: ["part:SuppFig3e-f.pdf#0,0,6.3,5.84"]
+f: ["part:SuppFig3e-f.pdf#6.3,0,6.26,5.84"]

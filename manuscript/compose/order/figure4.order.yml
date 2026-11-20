@@ -1,0 +1,9 @@
+# written by compose/figure4.py from its layout; do not edit (rerun the compose script)
+a: ["Fig4a.pdf"]
+b: ["part:Fig4b.pdf#0,0,10.1,8.78"]
+c: ["Fig4c.pdf"]
+d: ["Fig4d.pdf"]
+e: ["Fig4e.pdf"]
+f: ["Fig4f.pdf"]
+g: ["part:Fig4g.pdf#0,0,6.85,6.03"]
+h: ["Fig4h.pdf"]

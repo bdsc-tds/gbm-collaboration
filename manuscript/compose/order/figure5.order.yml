@@ -1,0 +1,8 @@
+# written by compose/figure5.py from its layout; do not edit (rerun the compose script)
+a: ["Fig5a.pdf"]
+b: ["Fig5b.pdf"]
+c: ["Fig5c.pdf"]
+d: ["Fig5d.pdf"]
+e: ["Fig5e.pdf"]
+f: ["Fig5f.pdf"]
+g: ["Fig5g_TIL+_vs_BZ1.pdf", "Fig5g_BZ1_vs_BZ2.pdf"]

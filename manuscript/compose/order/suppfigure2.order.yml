@@ -1,0 +1,10 @@
+# written by compose/suppfigure2.py from its layout; do not edit (rerun the compose script)
+a: ["SuppFig2a_level1.pdf", "SuppFig2a_level2.pdf", "SuppFig2a_level3.pdf", "SuppFig2a_level4.pdf"]
+b: ["SuppFig2b_level1.pdf", "SuppFig2b_level2.pdf", "SuppFig2b_level3.pdf", "SuppFig2b_level4.pdf"]
+c: ["SuppFig2c_Malignant.pdf"]
+d: ["SuppFig2d_level1.pdf", "SuppFig2d_level2.pdf", "SuppFig2d_level3.pdf", "SuppFig2d_level4.pdf"]
+e: ["SuppFig2e_level1.pdf", "SuppFig2e_level2.pdf", "SuppFig2e_level3.pdf", "SuppFig2e_level4.pdf"]
+f: ["SuppFig2f_Lymphoid.pdf", "SuppFig2f_Myeloid.pdf"]
+g: ["SuppFig2g_level1.pdf", "SuppFig2g_level2.pdf", "SuppFig2g_level3.pdf", "SuppFig2g_level4.pdf"]
+h: ["SuppFig2h_level1.pdf", "SuppFig2h_level2.pdf", "SuppFig2h_level3.pdf", "SuppFig2h_level4.pdf"]
+i: ["SuppFig2i_Glia.pdf", "SuppFig2i_Neuron.pdf", "SuppFig2i_Vascular.pdf", "SuppFig2i_Stromal.pdf"]
