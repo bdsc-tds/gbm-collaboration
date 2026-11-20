@@ -34,7 +34,7 @@ DUPLICATE_BLOCK_DROP = ["ER_G_290a"]
 CENTER_LABELS = {"CH": "CHUV", "ER": "UKER", "CR": "Charité"}
 
 # --------------------------------------------------------------------------- frozen inputs
-# Outputs of the pipelines in paper/pipelines/, frozen on EFS when the paper was made
+# Outputs of the upstream steps (analysis/paper/fig*_0_*), frozen on EFS when the paper was made
 TIL_ZONES_CSV = EFS / "results/visium/til_zones/til_zone_annotations.csv"
 ECM_ANNOTATIONS_CSV = EFS / "Analysis_Repo/Notebooks/ecm_neighborhood_annotations_v4.csv"
 CT_ANNOTATIONS_CSV = EFS / "Analysis_Repo/Notebooks/celltype_neighborhood_annotations_k10.csv"

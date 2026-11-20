@@ -1,10 +1,10 @@
 """TIL+ spots, TIL zones and TIL-high / TIL-low sections.
 
-The spot calls and zones are frozen in TIL_ZONES_CSV (pipeline: paper/pipelines/
-p07_til_zones.py). A section is TIL-high when its TIL+ spot fraction reaches the upper
+The spot calls and zones are frozen in TIL_ZONES_CSV (pipeline: analysis/paper/
+fig5_0_TIL_zones.ipynb). A section is TIL-high when its TIL+ spot fraction reaches the upper
 quartile over all 228 sections (cut-off 0.0304, 57 sections) and TIL-low otherwise (171),
 including the 23 sections without any TIL+ spot. Comparisons between TIL zones leave
-those 23 out, because border zones are defined around TIL+ spots (57 vs 148) (D3).
+those 23 out, because border zones are defined around TIL+ spots (57 vs 148).
 """
 
 import functools

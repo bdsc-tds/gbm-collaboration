@@ -1,6 +1,6 @@
-"""Survival helpers: survRM2 RMST through rpy2, Kaplan-Meier panels, Cox PH tests.
+"""Survival helpers through rpy2 (loads R survival and survRM2): Kaplan-Meier panels, Cox PH tests.
 
-RMST differences are returned in months; inputs are in years (os_years, os_event).
+Inputs are in years (os_years, os_event).
 """
 
 import numpy as np
@@ -17,37 +17,6 @@ ro.r("suppressPackageStartupMessages({library(survival); library(survRM2)})")
 def to_r(name: str, df: pd.DataFrame) -> None:
     with localconverter(ro.default_converter + pandas2ri.converter):
         ro.globalenv[name] = ro.conversion.py2rpy(df.reset_index(drop=True))
-
-
-def rmst(df: pd.DataFrame, arm: str, covariates=(), tau: float = 3.0,
-         time: str = "os_years", event: str = "os_event") -> dict:
-    """survRM2::rmst2 of arm 1 vs arm 0 at tau, adjusted for covariates if given.
-
-    Rows with a missing value in any used column are dropped (complete cases), so code
-    covariates beforehand if missing values should count as a level.
-    Returns n, n_high (arm 1), n_low, rmst_high, rmst_low, diff_unadj, p_unadj and the
-    (adjusted) diff, lo, hi, p, all in months.
-    """
-    cols = [time, event, arm, *covariates]
-    d = df[cols].dropna()
-    d = d[d[time] > 0]
-    r = d.copy()
-    r.columns = ["time", "event", "arm", *[f"c{i}" for i in range(len(covariates))]]
-    to_r("sd", r)
-    ro.globalenv["tv"] = float(tau)
-    ro.r("a <- rmst2(sd$time, sd$event, sd$arm, tau = tv)")
-    out = dict(n=len(d), n_high=int(d[arm].sum()), n_low=int((d[arm] == 0).sum()),
-               rmst_high=ro.r("a$RMST.arm1$rmst[['Est.']]")[0] * 12,
-               rmst_low=ro.r("a$RMST.arm0$rmst[['Est.']]")[0] * 12)
-    u = list(ro.r("a$unadjusted.result[1,]"))
-    out.update(diff_unadj=u[0] * 12, p_unadj=u[3])
-    if covariates:
-        cs = ", ".join(f"sd$c{i}" for i in range(len(covariates)))
-        a = list(ro.r(f"rmst2(sd$time, sd$event, sd$arm, tau = tv, covariates = cbind({cs}))$adjusted.result[1,]"))
-        out.update(diff=a[0] * 12, lo=a[1] * 12, hi=a[2] * 12, p=a[3])
-    else:
-        out.update(diff=u[0] * 12, lo=u[1] * 12, hi=u[2] * 12, p=u[3])
-    return out
 
 
 def cox_zph(df: pd.DataFrame, covariates, time: str = "os_years", event: str = "os_event") -> pd.DataFrame:
