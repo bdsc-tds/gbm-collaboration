@@ -17,17 +17,15 @@ Outputs (visium/):
 """
 
 import gc
-import io
 import sys
 
 import anndata as ad
 import numpy as np
 import pandas as pd
-import s3fs
 import scanpy as sc
 import scipy.sparse as sp
-from cloudpathlib import S3Path
-from joblib import Parallel, delayed
+
+from gbmcollaboration import AllDataCenters
 
 import config as C
 from common import block_of, out, sum_by_group, til_labels
@@ -36,32 +34,12 @@ HVG_SUBSAMPLE = 300_000
 C2L_PREFIX = "meanscell_abundance_w_sf_"
 
 
-def _read_c2l(sample_id, path):
-    # download whole file first: h5py random access over s3fs is very slow
-    s3 = s3fs.S3FileSystem(anon=False)
-    a = ad.read_h5ad(io.BytesIO(s3.cat_file(str(path).replace("s3://", ""))))
-    names = a.uns["mod"]["factor_names"]
-    m = a.obsm["means_cell_abundance_w_sf"]
-    m = m.toarray() if sp.issparse(m) else np.asarray(m)
-    df = pd.DataFrame(m, index=sample_id + "_" + a.obs_names, columns=list(names)).fillna(0)
-    return df
-
-
 def load_c2l(samples):
-    from gbmcollaboration.definitions import DATA_PATH_CHUV_FILES, DATA_PATH_CR_FILES, DATA_PATH_UKER_FILES
-
-    # paths built directly (listing the Cell2location prefixes on S3 is very slow)
-    bases = {"CH": DATA_PATH_CHUV_FILES, "ER": DATA_PATH_UKER_FILES, "CR": DATA_PATH_CR_FILES}
-    jobs = [(s, S3Path(str(bases[s[:2]]["Cell2location"])) / s / "cohort_level_4.h5ad") for s in sorted(samples)]
-    print(f"cell2location: {len(jobs)} sample files for {len(samples)} samples")
-    # processes, not threads: s3fs reads from many threads stalled
-    dfs = Parallel(n_jobs=16, backend="loky", verbose=5)(delayed(_read_c2l)(s, str(p)) for s, p in jobs)
-    colsets = {tuple(sorted(d.columns)) for d in dfs}
-    if len(colsets) > 1:
-        allc = set().union(*colsets)
-        common = set.intersection(*(set(c) for c in colsets))
-        print(f"cell2location: {len(colsets)} distinct cell-type sets; not in all files: {sorted(allc - common)}")
-    return pd.concat(dfs)
+    """Cell2location abundances (means) per spot, indexed by <section>_<barcode>, one column per cell type."""
+    c2l = AllDataCenters.load_cell2location(sorted(samples)).drop(columns="total_cells")
+    c2l.index = [f"{s}_{b}" for s, b in c2l.index]
+    c2l.columns = c2l.columns.str.replace(C2L_PREFIX, "", regex=False)
+    return c2l
 
 
 def pseudobulk(counts, spots: pd.DataFrame, region_col, var, til, name):

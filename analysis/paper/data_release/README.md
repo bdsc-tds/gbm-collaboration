@@ -141,7 +141,7 @@ The pseudobulks release the union of these genes with 3,000 highly variable gene
 
 ## Rebuilding
 
-Run from this folder with the `gbm_main` conda environment and S3 access, in this order
+Run from this folder (`analysis/paper/data_release/`) with the `gbm_main` conda environment and S3 access, in this order
 (01-06 and 00 write the full-cohort build to `_work/full/`):
 
 ```

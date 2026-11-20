@@ -11,7 +11,7 @@ from gbmcollaboration.paper import config as P
 # --------------------------------------------------------------------------
 # Paths
 # --------------------------------------------------------------------------
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = P.REPO_ROOT
 EFS = P.EFS
 
 OUT_DIR = EFS / "exports" / "mosaic_gbm_watson2027"

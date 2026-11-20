@@ -1,14 +1,12 @@
 """Helpers shared by the export scripts."""
 
-import sys
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import scipy.sparse as sp
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-import config as C  # noqa: E402
+import config as C
 
 
 def out(*parts) -> Path:
@@ -25,8 +23,7 @@ def release_out(*parts) -> Path:
     return p
 
 
-# Identifiers, clinical tables and TIL groups come from the shared paper module, so the
-# release and the paper scripts use one implementation.
+# Identifiers, the cohort and TIL groups are shared with the paper analyses
 from gbmcollaboration.paper import cohort as _cohort  # noqa: E402
 from gbmcollaboration.paper import til as _til  # noqa: E402
 from gbmcollaboration.paper.ids import block_of, patient_of  # noqa: E402,F401

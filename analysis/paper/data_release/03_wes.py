@@ -29,7 +29,7 @@ def main():
     cnv.columns = cnv.columns.astype(int)
     bins = bins.set_index("bin_id").loc[cnv.columns]
     # The saved matrix still holds the 49 chrX bins (and lacks chr21's single bin 1274
-    # and chrY); infercnv_wes_analyses.py removes chrX/Y before clustering, so the
+    # and chrY); fig3b_suppfig3ac_infercnv_wes_analyses.py removes chrX/Y before clustering, so the
     # paper's Fig 3b is autosomal. Release the same autosomal set.
     auto = ~bins.chromosome.isin(["chrX", "chrY"])
     print(f"Dropping {int((~auto).sum())} sex-chromosome bins; chr21 present: {'chr21' in set(bins.chromosome)}")

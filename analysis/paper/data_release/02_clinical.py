@@ -37,7 +37,7 @@ def main():
 
     til = til_labels()
     # TIL-high = top quartile of TIL+ fraction over the 228 sections; TIL-low = the other 171,
-    # including the 23 without any TIL+ spot (Spencer, D3). NA = no Visium.
+    # including the 23 without any TIL+ spot. NA = no Visium.
     df["til_group"] = til["til_group"].reindex(df.index)
 
     df.to_csv(out("clinical", "clinical_binned.csv"))

@@ -1,6 +1,6 @@
 """Xenium 55 um tiles (Fig 6b/6g validation cohort).
 
-Reproduces analysis/xenium/niches.ipynb (cells 1-3, 14) for both panels:
+Tiles of analysis/paper/fig6bg_xenium_niches.ipynb (Fig 6b, 6g) for both panels:
 segmentation 10x_mm_5um (what produced figures/xenium_fig_6.zip), SPLIT
 (split_fully_purified) corrected counts, RCTD (class-aware) level-4 labels.
 
@@ -16,7 +16,6 @@ Outputs (xenium/), per panel:
 """
 
 import argparse
-import sys
 from pathlib import Path
 
 import anndata as ad
@@ -27,8 +26,7 @@ import scanpy as sc
 import config as C
 from common import out
 
-sys.path.insert(0, str(C.REPO_ROOT))
-from gbmcollaboration.utils import xenium_io_utils as xio  # noqa: E402
+from gbmcollaboration.utils import xenium_io_utils as xio
 
 XENIUM_LEVELS = ["segmentation", "condition", "panel", "donor", "sample"]
 LEVEL_KEYS = [f"celltype_level{i}_curated_first_type" for i in range(1, 5)]
@@ -54,7 +52,7 @@ def load_panel(panel):
         xd.obsm["spatial"] = xds["raw"][k][xd.obs_names].obsm["spatial"]
     a = sc.concat(dict(xds[C.XENIUM_CORRECTION].items()), label="dataset_id", join="outer")
     a.obs[XENIUM_LEVELS] = pd.DataFrame(a.obs["dataset_id"].tolist(), index=a.obs.index, columns=XENIUM_LEVELS)
-    a = a[a.obs[LEVEL_KEYS].notna().all(axis=1)].copy()  # as in niches.ipynb cell 3
+    a = a[a.obs[LEVEL_KEYS].notna().all(axis=1)].copy()
     return a
 
 
