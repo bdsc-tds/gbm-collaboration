@@ -153,13 +153,13 @@ Reproduced, but text or legend should change:
 - **Fig 6 text vs plotted axes**: BZ1 RGS2 (axis RGS1); TIL+ SRPX2 (SRPX), FGF2→SNAI1
   (HGF→SNAI2), TGFβ1 / IL-15 from Macrophage_IFN_response, PRELP from APOD; BZ2 COL1A2 and LUM
   from CCN2 and BMP2. The TIL+ axis selection cannot be rebuilt from the current catalog.
-- **TIL burden as a continuous variable** (`fig5b_TIL_spline`, 218 patients): the spline RMST
-  curve rises steeply up to a TIL fraction of ~0.04 and then flattens; its inflection (0.037,
-  75th percentile) coincides with the Fig 5b cutoff (0.0304). Non-linearity is not significant
-  (likelihood-ratio p = 0.21 raw, 0.67 log scale; the module's Wald p = 0.45). survRM2 cutoff scan:
-  ΔRMST is positive for every cutoff from the 50th to the 90th percentile, largest around the
-  75th, which is the only cutoff significant after MGMT adjustment (+4.0 mo, p = 0.022; nominal,
-  cutoffs not corrected for multiplicity).
+- **TIL burden as a continuous variable** (`fig5b_TIL_spline`, 218 patients): on the raw TIL
+  fraction the association is non-linear (spline likelihood-ratio p = 0.012 with 3 knots, 0.050
+  with 4, 0.11 with 5; MGMT-adjusted 0.016 / 0.052 / 0.099): survival rises up to a TIL fraction
+  of ~0.03–0.04 and plateaus beyond, where the Q75 cutoff (0.030) lies; the spline RMST curve has
+  its inflection at 0.037 (75th percentile). On log scales the relationship is close to linear,
+  the same diminishing returns (all 24 specifications reported; 3 have p < 0.05). survRM2 cutoff
+  scan: ΔRMST positive for every cutoff from the 50th to the 90th percentile.
 - **Supp Fig 3d** (reconstruction): MGMT, age and sex unchanged with cluster 2 as covariate,
   but p53 moves from p = 0.082 to 0.033.
 - **Supp Fig 4d** (reconstruction): CT_0 +7.1 pp lymphoid/DC reproduces; CT_3 −6.7 pp

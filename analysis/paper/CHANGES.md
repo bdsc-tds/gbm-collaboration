@@ -748,11 +748,12 @@ Changes:
   as written); `master_threshold_analysis` run unadjusted, with MGMT and with MGMT + age.
 - TIL fraction from the frozen TIL zones (`til.til_groups`) joined by block to the survival cohort
   (218 patients) in place of the notebook's own cell2location TIL call.
-- Added: likelihood-ratio spline tests (R survival + splines; raw and log scale) and a survRM2
-  cutoff scan (50th–90th percentile), the model of Fig 5b.
+- Added: likelihood-ratio non-linearity tests for 24 specifications (4 scales × 3, 4, 5 knots at
+  Harrell's quantiles × unadjusted / MGMT), all reported, and a survRM2 cutoff scan (50th–90th
+  percentile), the model of Fig 5b.
 - Outputs: panels `Response TIL spline …` and `Response TIL cutoff scan`.
 
-Verification: inflection at 0.037 (75th percentile), as in the original run (0.030 with its TIL
+Verification: raw-scale non-linearity p = 0.012 (3 knots); inflection at 0.037 (75th percentile), as in the original run (0.030 with its TIL
 call); Fig 5b cutoff row of the scan equals the corrected Fig 5b model (+4.0 mo, p = 0.022).
 
 ## fig5c_suppfig5ab_TIL_supplement.ipynb
