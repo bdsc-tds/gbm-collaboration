@@ -789,7 +789,7 @@ by_class = freq_table(per_gene=False)
 print("\nPer alteration class:")
 print(by_class.loc[["EGFR_amp", "EGFR_mut", "CDK6_amp", "PTEN_lof", "PTEN_mut", "TERTp_mut", "CDK4_amp",
                     "NTRK2_amp"]].round(1).to_string())
-output.save_table(RESULTS_DIR, "alteration_frequencies_by_gene", freq.round(2))
+output.save_table(RESULTS_DIR, "alteration_frequencies_by_gene", freq.round(2), panel="Fig 3a")
 output.save_table(RESULTS_DIR, "alteration_frequencies_by_class", by_class.round(2))
 
 # %%
