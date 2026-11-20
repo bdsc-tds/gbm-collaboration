@@ -4,7 +4,7 @@ Every panel, supplementary table and number of the manuscript comes from one fil
 in this folder. Files run top to bottom in the `gbm_main` environment; numbers follow the
 manuscript order. Upstream steps that produced the frozen inputs (clustering, inferCNV,
 NicheNet, mutation calling) are in `pipelines/`; they are slow and are not re-run for the
-figures. Code not used in the paper is in `../../scratch/`, in its original folders.
+figures. Code not used in the paper is in `../scratch/`, in its original folders.
 
 Most files are the authors' original notebooks and scripts, moved here with `git mv` and
 edited as little as possible: data loading through the package, exploratory and dead cells
@@ -116,7 +116,7 @@ Where each answer is implemented, with the numbers the scripts print.
 | D15 Supp Fig 5a | TIL scatter of Updated_figures | `fig5c_suppfig5ab_TIL_supplement.ipynb` | 57 TIL-high / 171 TIL-low, the 23 without TIL⁺ spots at the axis floor |
 | D16 Supp Table 4a genes | One row per gene with the analyses it entered | `fig5de_suppfig5cde_ECM_supplement.ipynb` | CTSD, IGFBP7, LGALS3: commented out everywhere, used by no analysis. IGFBP2: only in the NicheNet pathway filter (NicheNet_v3 `ecm_genes_brain`) |
 | D17 versions | Every script prints its package versions | all scripts | |
-| D18 code | Supplement notebooks ported into these scripts | this folder | Spencer's source cells: `scratch/review_2026-11/source_cells_spencer_2026-11.ipynb`; review report: `scratch/review_2026-11/report/index.html` |
+| D18 code | Supplement notebooks ported into these scripts | this folder | Spencer's source cells: `analysis/scratch/review_2026-11/source_cells_spencer_2026-11.ipynb`; review report: `analysis/scratch/review_2026-11/report/index.html` |
 
 Also found while porting:
 - **TIL⁻ zone, Fig 5c / 5d / Supp Fig 5c–e** (D3): with the 23 sections without TIL⁺ spots
