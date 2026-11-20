@@ -9,7 +9,7 @@ Origin: analysis/infercnv/generate_cnv_wes_matrix.py, Part 1 (Part 2, exploratio
 matrix, is not part of the pipeline).
 
 Inputs: the CNVkit .cnr files of the three centres on S3 (<prefix>/WES/CNVs_CNVkit/, needs
-AWS credentials), the bins written by infercnv_sc_analyses.py
+AWS credentials), the bins written by fig3b_0_infercnv_sc.py
 (results/scRNAseq/infercnv/genomic_windows.csv).
 
 Runtime: about 73 minutes (loop over the 1,346 bins for each of ~300 files), < 10 GB RAM.
@@ -40,7 +40,7 @@ from gbmcollaboration.definitions import (
 from gbmcollaboration.paper import output
 
 # Constants
-OUT = output.setup("pipelines_generate_cnv_wes_matrix")
+OUT = output.setup("fig3b_0_cnv_wes_matrix")
 RESULTS_DIR = Path("/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/results/")
 PATH_BINS_SINGLECELL = RESULTS_DIR / "scRNAseq/infercnv/genomic_windows.csv"
 BUCKET_NAME="pa-bi4jtrdsa151p4d3m-jepjxh9qrwgxphe8hd3r6exicahnoeuw1b-s3alias"

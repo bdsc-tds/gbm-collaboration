@@ -2,10 +2,10 @@
 
 Output: boolean matrix, 299 samples x 34 columns, read by fig3a_oncoplot.py (Fig 3a) and the
 data release:
-- <gene>_mut: listed SNV / indel (genes_mut.csv; TERT promoter C228T / C250T as TERTp_mut);
-- <gene>_amp: CNVkit DUP call overlapping the gene with log2 ratio > 0.3 (genes_amp.csv);
+- <gene>_mut: listed SNV / indel (wes_genes_mut.csv; TERT promoter C228T / C250T as TERTp_mut);
+- <gene>_amp: CNVkit DUP call overlapping the gene with log2 ratio > 0.3 (gbmcollaboration/metadata/wes_genes_amp.csv);
 - <gene>_lof: CNVkit DEL call with log2 ratio < -0.3, or a stop-gained / frameshift
-  SNV/indel (genes_lof.csv); PTEN_lof is the "PTEN LOH" of the Results;
+  SNV/indel (gbmcollaboration/metadata/wes_genes_lof.csv); PTEN_lof is the "PTEN LOH" of the Results;
 - EGFR, PTEN: any alteration of the gene (redundant, dropped by fig3a_oncoplot.py).
 Logic in gbmcollaboration.utils.mutation_utils.create_comprehensive_patient_gene_matrix and
 vcf_utils.read_vcf_all_genes.
@@ -35,17 +35,17 @@ from gbmcollaboration.utils.mutation_utils import (
     create_comprehensive_patient_gene_matrix,
 )
 from gbmcollaboration.utils.wes_io_utils import glob_s3_bucket
-from gbmcollaboration.paper import output
+from gbmcollaboration.paper import config, output
 
 # %%
 RESULTS_DIR = output.setup("pipelines_mutations")
-GENE_LIST_DIR = Path(__file__).parent  # genes_mut.csv, genes_amp.csv, genes_lof.csv
+GENE_LIST_DIR = config.REPO_ROOT / "gbmcollaboration/metadata"
 
 # %%
 # Load driver gene lists
-genes_mut_df = pd.read_csv(GENE_LIST_DIR / "genes_mut.csv")
-genes_amp_df = pd.read_csv(GENE_LIST_DIR / "genes_amp.csv", header=None, names=['gene'])
-genes_lof_df = pd.read_csv(GENE_LIST_DIR / "genes_lof.csv", header=None, names=['gene'])
+genes_mut_df = pd.read_csv(GENE_LIST_DIR / "wes_genes_mut.csv")
+genes_amp_df = pd.read_csv(GENE_LIST_DIR / "wes_genes_amp.csv", header=None, names=['gene'])
+genes_lof_df = pd.read_csv(GENE_LIST_DIR / "wes_genes_lof.csv", header=None, names=['gene'])
 
 # Clean gene names and parse mutations
 genes_amp_df['gene'] = genes_amp_df['gene'].apply(clean_gene_name)

@@ -8,7 +8,7 @@ Produces:
   amplification (16%)").
 
 Origin: analysis/mutations/mutations_updated_oncoplot.py. Input: the patient x alteration
-matrix results/WES/mutations/patient_gene_matrix.csv (pipelines/mutations.py).
+matrix results/WES/mutations/patient_gene_matrix.csv (fig3a_0_mutation_calling.py).
 
 Comparison with the published panel and text:
 - Samples: the mutation-matrix blocks present in the clinical tables loaded with the loader

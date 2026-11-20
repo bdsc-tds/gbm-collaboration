@@ -5,7 +5,7 @@ folder, `output.setup`, not over them):
 - Part 1: infercnv_adata.h5ad (all 1,350,338 nuclei of the 266 tumours, loader exclusions,
   inferCNV matrix obsm["X_cnv"], CNV Leiden clusters and CNV score; X emptied),
   genomic_windows.csv (the 1,346 bins of 200 genes, reused as WES bins by
-  generate_cnv_wes_matrix.py), ith_scores.csv, tumor_clone_annotation.csv, cnv heatmaps.
+  fig3b_0_cnv_wes_matrix.py), ith_scores.csv, tumor_clone_annotation.csv, cnv heatmaps.
 - Part 2: infercnv_adata_malignant_only.h5ad (782,542 tumour-lineage nuclei: level-1
   Malignant or Other, doublets and Other_LowCounts removed, re-clustered on their CNV
   profiles with Leiden 0.4: the 15 single-cell CNV clones of Supp Fig 3e-f),
@@ -14,7 +14,7 @@ folder, `output.setup`, not over them):
   paper).
 Read by: fig3b_suppfig3ac_infercnv_wes_analyses.py (sample IDs),
 suppfig3ef_analyses_wes_sc_infercnv.py (obs of the malignant-cell object),
-generate_cnv_wes_matrix.py (bins).
+fig3b_0_cnv_wes_matrix.py (bins).
 
 Origin: analysis/infercnv/infercnv_sc_analyses.py.
 
@@ -57,7 +57,7 @@ from gbmcollaboration.paper import output
 ############### PART 1 ##############################
 ############################################################
 # %% Params
-RESULTS_DIR = output.setup("pipelines_infercnv_sc_analyses")
+RESULTS_DIR = output.setup("fig3b_0_infercnv_sc")
 SIMPLIFIED_ANNOTATION_MAPPING = Path("/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/resources/SingleCell_Annotation_Key_v3.csv")
 REFERENCE_COLUMN = "celltype_level4_scanvi"
 BATCH_KEY = "orig.ident"

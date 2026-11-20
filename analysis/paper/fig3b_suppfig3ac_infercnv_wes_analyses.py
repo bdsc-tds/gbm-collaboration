@@ -13,8 +13,8 @@ Produces:
   and the data release).
 
 Origin: analysis/infercnv/infercnv_wes_analyses.py. Inputs (frozen): the WES CNV matrix
-(pipelines/generate_cnv_wes_matrix.py), the genomic bins and the sample IDs of the
-single-cell inferCNV object (pipelines/infercnv_sc_analyses.py).
+(fig3b_0_cnv_wes_matrix.py), the genomic bins and the sample IDs of the
+single-cell inferCNV object (fig3b_0_infercnv_sc.py).
 
 Comparison with the published outputs (printed by the check cells):
 - The CNV matrix has no column for chr21 (bin 1274, the only chr21 bin) nor chrY and keeps

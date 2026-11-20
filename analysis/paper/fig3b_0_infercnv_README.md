@@ -3,7 +3,7 @@
 </div>
 
 # Part I - Single-cell data
-Script 'infercnv_sc_analyses.py' is used to run InferCNVpy on single-cell data,
+Script 'fig3b_0_infercnv_sc.py' is used to run InferCNVpy on single-cell data,
 using a wrapper found in [infercnv_utils.py](./gbmcollaboration/utils/infercnv_utils.py)
 
 Note: this particular line will generate the bins needed for the WES analysis below
@@ -15,7 +15,7 @@ infercnv_obj.get_bin_positions(
 
 # Part II - Comparison with WES data
 The WES analyses are separated in two scripts:
-- run the script 'generate_cnv_wes_matrix.py', part I, that bin CNV data and compute average log2 copy ratio per bin to create the WES CNV matrix, using the genomic window previously generated with single cell as reference for the genomic bins.
+- run the script 'fig3b_0_cnv_wes_matrix.py', part I, that bin CNV data and compute average log2 copy ratio per bin to create the WES CNV matrix, using the genomic window previously generated with single cell as reference for the genomic bins.
 - run infercnv_wes_analyses.py to run inferCNVpy visualisation tools
 on the WES CNV matrix previously computed.
 

@@ -9,7 +9,7 @@ vs the others ("a chr19-enriched clone disproportionately represented in cluster
 Origin: analysis/infercnv/analyses_wes_sc_infercnv.py. Inputs (frozen): the WES cluster
 labels (results/WES/infercnv/leiden_cluster_wes_baseline_samples.csv, from
 fig3b_suppfig3ac_infercnv_wes_analyses.py) and the obs of the malignant-cell inferCNV object
-(pipelines/infercnv_sc_analyses.py). Only the panels of the paper are kept.
+(fig3b_0_infercnv_sc.py). Only the panels of the paper are kept.
 
 Comparison with the published panel: the malignant-cell object has one sample without a WES
 profile (ER_G_743a, 42 cells, wes_cluster NaN). It is a column of none of the dot-plot rows,
