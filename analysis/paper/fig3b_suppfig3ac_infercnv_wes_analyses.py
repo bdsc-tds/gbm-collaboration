@@ -1,63 +1,99 @@
-"""Script to run infercnv on WES CNV matrix."""
+"""Fig 3b, Supp Fig 3a, Supp Fig 3c: WES copy-number clusters.
 
-# To run successfully this script, you need to have pre-computed the
-# CNV WES matrix of all samples across centers, and this should have been
-# saved in:
-# "/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/results/WES/cnv_matrix/cnv_wes_matrix_full_cohorts.csv"
-# to do so, run PART 1 of the script "generate_cnv_wes_matrix.py"
+Produces:
+- Fig 3b: mean WES log2 copy ratio per genomic bin of each CNV Leiden cluster
+  (`chromosome_heatmap_summary`, clusters ordered by the dendrogram).
+- Supp Fig 3a: UMAP of the WES CNV profiles coloured by cluster and by CNV score.
+- The CNV scores of the Results ("0.196 vs 0.170, 0.172, 0.183").
+- Supp Fig 3c: bins specific to cluster 2 (Tukey HSD vs each other cluster, BH FDR over
+  bins x comparisons, merged into segments), and the genes of each segment
+  (`segment_cluster_genes`).
+- With RUN_CLUSTERING = True: the Leiden clusters (frozen as config.CNV_CLUSTERS_CSV, read by
+  08, 09, 10 and the data release).
+
+Origin: analysis/infercnv/infercnv_wes_analyses.py. Inputs (frozen): the WES CNV matrix
+(pipelines/generate_cnv_wes_matrix.py), the genomic bins and the sample IDs of the
+single-cell inferCNV object (pipelines/infercnv_sc_analyses.py).
+
+Known issues, kept as ran and printed:
+- The CNV matrix has no column for chr21 (bin 1274, the only chr21 bin) nor chrY and keeps
+  chrX, which is dropped here: Fig 3b shows chr1-22 without chr21.
+- The published Supp Fig 3c table and CNV scores (0.196 for cluster 2) were computed with
+  sample ER_G_673a in cluster 2, the label a re-run of the Leiden step gives
+  (RUN_CLUSTERING = True), while the frozen table, used by every other Fig 3 panel, has it in
+  cluster 0. With the frozen table: same three segments (chr10, chr19, chr20), same bins and
+  genes, delta differing in the third decimal, cluster-2 CNV score 0.197. The last check cell
+  prints both.
+
+Changes:
+- Sample IDs: read from the obs of infercnv_adata.h5ad only. The source read the whole
+  object (1.35 M cells, 25 GB) and densified X into a per-sample pseudobulk that served only
+  to list the samples (hundreds of GB of RAM). The pseudobulk was sorted by sample (groupby),
+  so the samples are taken in sorted order, as there.
+- RUN_CLUSTERING = False (default): Leiden is not re-run, `cnv_leiden` is read from
+  config.CNV_CLUSTERS_CSV. PCA and the neighbour graph are still computed (the UMAP uses
+  them). With True, the new table is written to the output folder, not over the frozen one.
+- Outputs go to the output folder (`output.setup`) and the panels folder instead of the
+  scanpy figure folder and hard-coded EFS paths; the Tukey figure, saved as
+  figures/figure3/fig3c.pdf, is Supp Fig 3c (Fig 3c is the Kaplan-Meier plot of
+  10_wes_profile_os_rmst); the strict-loci and gene tables are written to the output folder,
+  not over results/WES/, and compared with those frozen files.
+- `sc = ax.scatter(...)`, which shadowed scanpy, is `sc_plot`; the Tukey plot style is
+  applied in a context so later figures keep the default style.
+- pyranges is not in the environment: GTF genes are read with pandas and overlapped with the
+  segments by the rule of `PyRanges.join` (wes.read_gtf_genes, wes.genes_overlapping_segments;
+  identical table).
+- New: printed checks against the published values, the ER_G_673a check cell.
+"""
 
 # %% -- Imports
-import pandas as pd
-import numpy as np
-from pathlib import Path
-import anndata as ad
-import scanpy as sc
-import matplotlib.pyplot as plt
 import re
-import infercnvpy as cnv
-import pyranges as pr
 
+import anndata as ad
+import infercnvpy as cnv
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import scanpy as sc
 from statsmodels.stats.multicomp import pairwise_tukeyhsd
 from statsmodels.stats.multitest import multipletests
 
-from gbmcollaboration.viz.figure_helpers import savefig, set_mpl_rcparams
-
-set_mpl_rcparams()
+from gbmcollaboration.paper import config, output
+from gbmcollaboration.paper.wes import genes_overlapping_segments, read_gtf_genes, read_h5ad_obs
 
 # %% -- Paths
-RESULTS_DIR = Path("/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/results/")
+OUT = output.setup("07_infercnv_wes_analyses")
+RESULTS_DIR = config.EFS / "results"
 
 SC_ADATA_PATH = RESULTS_DIR / "scRNAseq/infercnv/infercnv_adata.h5ad"
-WES_MATRIX_PATH = RESULTS_DIR / "WES/cnv_matrix/cnv_wes_matrix_full_cohorts.csv"
-WES_BINS_ANNOT_PATH = RESULTS_DIR / "scRNAseq/infercnv/genomic_windows.csv"
+WES_MATRIX_PATH = config.CNV_MATRIX_CSV
+WES_BINS_ANNOT_PATH = config.GENOMIC_WINDOWS_CSV
+GTF_PATH = config.EFS / "resources/infercnv/gencode.v32.annotation.gtf"
 
 SAMPLE_COL = "orig.ident"
 
 EXCLUDE_CHROMS = {"chrX", "chrY"}
 
-# %% -- Load scRNA AnnData
-single_cell_obj = ad.read_h5ad(SC_ADATA_PATH)
+# Re-run the Leiden clustering (True) or read the frozen labels (False)
+RUN_CLUSTERING = False
+LEIDEN_RESOLUTION = 0.4
 
-# %% -- Create pseudobulk expression AnnData (samples x genes)
-# (This is not used for WES plotting, but useful for sample IDs + metadata)
-X = single_cell_obj.X.toarray() if not isinstance(single_cell_obj.X, np.ndarray) else single_cell_obj.X
-df_expr = pd.DataFrame(X, index=single_cell_obj.obs[SAMPLE_COL].astype(str))
+# Published values, for the checks
+PUBLISHED_CNV_SCORE = {"0": 0.170, "1": 0.172, "2": 0.196, "3": 0.183}
+PUBLISHED_STRICT_LOCI = RESULTS_DIR / "WES/cluster2_strict_loci_summary.csv"
+PUBLISHED_STRICT_LONG = RESULTS_DIR / "WES/cluster2_strict_loci_tukey_long.csv"
+PUBLISHED_SEGMENT_GENES = RESULTS_DIR / "WES/segment_cluster_genes.csv"
 
-# sum across cells per sample -> samples x genes
-pseudobulk_matrix = df_expr.groupby(df_expr.index).sum()
-
-pseudobulk_adata = ad.AnnData(X=pseudobulk_matrix.values)
-pseudobulk_adata.obs[SAMPLE_COL] = pseudobulk_matrix.index.astype(str)
-pseudobulk_adata.obs_names = pseudobulk_matrix.index.astype(str)
-pseudobulk_adata.var_names = single_cell_obj.var_names
-pseudobulk_adata.var = single_cell_obj.var.copy()
+# %% -- Sample IDs of the scRNA inferCNV object (obs only)
+# (the source summed the cells of each sample into a pseudobulk, used only for the sample IDs)
+sc_obs = read_h5ad_obs(SC_ADATA_PATH, [SAMPLE_COL])
+pb_ids = pd.Series(np.sort(sc_obs[SAMPLE_COL].astype(str).unique()), name=SAMPLE_COL)
 
 # %% -- Load WES CNV matrix (samples x bins)
 wes_profile = pd.read_csv(WES_MATRIX_PATH, index_col=0)
 wes_profile.index = wes_profile.index.astype(str)
 
 # %% -- Align samples between pseudobulk and WES
-pb_ids = pseudobulk_adata.obs[SAMPLE_COL].astype(str)
 wes_ids = wes_profile.index.astype(str)
 
 missing = pb_ids[~pb_ids.isin(wes_ids)]
@@ -67,12 +103,10 @@ if len(missing) > 0:
 # %% -- Run if WES profiles are missing
 keep_mask = pb_ids.isin(wes_ids).values
 print(f"Dropping {(~keep_mask).sum()} pseudobulk sample(s): {pb_ids[~keep_mask].unique().tolist()}")
-
-pseudobulk_adata = pseudobulk_adata[keep_mask].copy()
-pseudobulk_adata.obs[SAMPLE_COL] = pseudobulk_adata.obs[SAMPLE_COL].astype(str)
+pb_ids = pb_ids[keep_mask]
 
 # reorder WES to match pseudobulk sample order
-wes_sub = wes_profile.loc[pseudobulk_adata.obs[SAMPLE_COL]].copy()
+wes_sub = wes_profile.loc[pb_ids].copy()
 
 # %% -- Load bin annotation (bin, chromosome, start, end)
 bins_annot = pd.read_csv(WES_BINS_ANNOT_PATH, index_col=0)
@@ -83,6 +117,10 @@ bins_annot["chromosome"] = bins_annot["chromosome"].astype(str)
 bins_annot["start"] = bins_annot["start"].astype(int)
 bins_annot["end"] = bins_annot["end"].astype(int)
 bins_annot = bins_annot.set_index("bin")
+
+absent = bins_annot.index.difference(wes_profile.columns.astype(int))
+print("Bins of the genomic windows absent from the WES matrix:",
+      {int(b): bins_annot.loc[b, "chromosome"] for b in absent})
 
 # %% -- Map WES columns -> bin IDs (preserves the WES column order)
 def col_to_bin_id(col) -> int:
@@ -106,7 +144,7 @@ if missing_bins:
 # %% -- Build WES-bin AnnData (samples x bins) with proper .var coordinates
 wes_adata = ad.AnnData(
     X=wes_sub.values,  # samples x bins
-    obs=pseudobulk_adata.obs.copy(),
+    obs=pd.DataFrame({SAMPLE_COL: pb_ids.to_numpy()}, index=pb_ids.to_numpy()),
     var=pd.DataFrame(index=[str(b) for b in wes_bin_ids])  # var_names are bin ids
 )
 
@@ -167,11 +205,21 @@ for i, c in enumerate(chroms):
 
 # infercnvpy expects this structure
 wes_adata.uns["cnv"] = {"chr_pos": chr_pos}
+print(f"{wes_adata.n_obs} samples x {wes_adata.n_vars} bins; chromosomes: {list(chr_pos)}")
 
 # %% -- Start calculation and plotting (infercnvpy, on WES bins)
 cnv.tl.pca(wes_adata)
 cnv.pp.neighbors(wes_adata)
-cnv.tl.leiden(wes_adata, resolution=0.4)
+frozen_clusters = pd.read_csv(config.CNV_CLUSTERS_CSV).set_index(SAMPLE_COL)["cnv_leiden"].astype(str)
+if RUN_CLUSTERING:
+    cnv.tl.leiden(wes_adata, resolution=LEIDEN_RESOLUTION)
+    new = wes_adata.obs["cnv_leiden"].astype(str)
+    diff = new.index[new != frozen_clusters.reindex(new.index)]
+    print("Samples with a label different from the frozen table (frozen -> new):",
+          {s: f"{frozen_clusters.get(s)} -> {new[s]}" for s in diff})
+else:
+    assert set(frozen_clusters.index) == set(wes_adata.obs_names), "frozen table and samples differ"
+    wes_adata.obs["cnv_leiden"] = pd.Categorical(frozen_clusters.loc[wes_adata.obs_names].to_numpy())
 
 # %% -- Dendrogram using WES CNV
 sc.tl.dendrogram(
@@ -183,30 +231,37 @@ sc.tl.dendrogram(
     optimal_ordering=True
 )
 
-# %% -- Plotting using infercnvpy
+# %% -- Plotting using infercnvpy (Fig 3b)
 cnv.pl.chromosome_heatmap_summary(
     wes_adata,
     groupby="cnv_leiden",
     figsize=(15,5),
     dendrogram=True,
-    save=True
+    show=False
     )
+fig3b_data = pd.DataFrame(wes_adata.obsm["X_cnv"], columns=wes_adata.var_names).groupby(
+    wes_adata.obs["cnv_leiden"].to_numpy()).mean()
+output.save(OUT, "heatmap_summary_wes_cnv_leiden", plt.gcf(), fig3b_data, panel="Fig 3b")
+plt.show()
+plt.close("all")
+print("Dendrogram order:", wes_adata.uns["dendrogram_cnv_leiden"]["categories_ordered"])
 
 # %% -- Count how many samples found in each cluster
 print(wes_adata.obs["cnv_leiden"].value_counts())
 
 # %% -- Save the Leiden cluster
-leiden_cluster_baseline = pd.DataFrame(wes_adata.obs["cnv_leiden"])
-leiden_cluster_baseline.to_csv(RESULTS_DIR / "WES/infercnv/leiden_cluster_wes_baseline_samples.csv", sep=",", index=True)
+if RUN_CLUSTERING:
+    leiden_cluster_baseline = pd.DataFrame(wes_adata.obs["cnv_leiden"])
+    leiden_cluster_baseline.index.name = SAMPLE_COL
+    output.save_table(OUT, "leiden_cluster_wes_baseline_samples", leiden_cluster_baseline)
 
-# %% -- Calculate CNV score on the WES profile
+# %% -- Calculate CNV score on the WES profile (Supp Fig 3a)
 # Generate UMAP
 cnv.tl.umap(wes_adata)
 cnv.tl.cnv_score(wes_adata, groupby="cnv_leiden")
 
 # Create composite figure
 fig, ((ax1, ax2)) = plt.subplots(1, 2, figsize=(11, 5))
-#ax4.axis("off")  # turn off the empty subplot
 
 # Plot UMAPs into specific axes
 cnv.pl.umap(
@@ -217,10 +272,16 @@ cnv.pl.umap(
     ax=ax1,
     show=False
 )
-cnv.pl.umap(wes_adata, color="cnv_score", ax=ax2, show=True)
+cnv.pl.umap(wes_adata, color="cnv_score", ax=ax2, show=False)
+output.save(OUT, "umap_wes_cnv", fig, panel="Supp Fig 3a")
+plt.show()
+plt.close(fig)
 
 # %% -- Calculate CNV scores per WES CNA cluster to report in manuscript
-wes_adata.obs.groupby("cnv_leiden").agg({"cnv_score": "mean"})
+cnv_scores = wes_adata.obs.groupby("cnv_leiden", observed=True).agg({"cnv_score": "mean"})
+cnv_scores["published"] = pd.Series(PUBLISHED_CNV_SCORE)
+print(cnv_scores.round(4))
+output.save_table(OUT, "cnv_score_per_cluster", cnv_scores)
 
 # %% -- Pursue exploration to highlight the difference between cluster 2 and the other clusters
 # ============================================================
@@ -248,18 +309,16 @@ GROUP_TO_SEGMENTS = True              # True = merge consecutive bins into segme
 GAP_BP = 2_000_000                    # max gap between consecutive bins to be in same segment
 
 # Plot typography
-plt.rcParams.update({
+TUKEY_RC = {
     "font.size": 12,
     "axes.titlesize": 14,
     "axes.labelsize": 12,
     "xtick.labelsize": 12,
     "ytick.labelsize": 12,
-})
+}
 
 # %% -- inputs
-if "cluster_labels" not in globals():
-    cluster_labels = wes_adata.obs["cnv_leiden"].astype(str)
-cluster_labels = cluster_labels.astype(str)
+cluster_labels = wes_adata.obs["cnv_leiden"].astype(str)
 
 cnv_df = pd.DataFrame(
     wes_adata.obsm["X_cnv"],
@@ -281,14 +340,7 @@ for c in [CL2] + COMPARISONS:
 print("Cluster sizes:")
 print(cluster_labels.value_counts().sort_index())
 
-# orders genes by genomic position
-def chr_rank(c):
-    c = str(c).replace("chr", "")
-    if c.isdigit(): return int(c)
-    if c == "X": return 23
-    if c == "Y": return 24
-    return 99
-
+# orders genes by genomic position (chr_rank defined above)
 var2 = var.loc[cnv_df.columns, ["chromosome","start","end"]].copy()
 var2["chr_rank"] = var2["chromosome"].map(chr_rank)
 bin_order = var2.sort_values(["chr_rank","start","end"]).index.astype(str)
@@ -444,51 +496,50 @@ for chr_ in pd.unique(chroms_x):
     idx = np.where(chroms_x == chr_)[0]
     chr_centers[chr_] = idx.mean()
 
-# %% -- Plotting
-fig_w = max(6, 0.18 * n_x)
-fig_h = 2.8
-fig, ax = plt.subplots(figsize=(fig_w, fig_h))
+# %% -- Plotting (Supp Fig 3c)
+with plt.rc_context(TUKEY_RC):
+    fig_w = max(6, 0.18 * n_x)
+    fig_h = 2.8
+    fig, ax = plt.subplots(figsize=(fig_w, fig_h))
 
-sc = ax.scatter(
-    P["x"], P["y"],
-    c=P["delta"], s=sizes,
-    cmap="bwr", vmin=vmin, vmax=vmax,
-    edgecolors="black", linewidths=0.5, alpha=0.95,
-    rasterized=True
-)
+    sc_plot = ax.scatter(
+        P["x"], P["y"],
+        c=P["delta"], s=sizes,
+        cmap="bwr", vmin=vmin, vmax=vmax,
+        edgecolors="black", linewidths=0.5, alpha=0.95,
+        rasterized=True
+    )
 
-for pos in chr_change:
-    ax.axvline(pos + 0.5, color="black", lw=0.7, alpha=0.6)
+    for pos in chr_change:
+        ax.axvline(pos + 0.5, color="black", lw=0.7, alpha=0.6)
 
-ax.set_yticks(range(len(COMP_ORDER)))
-ax.set_yticklabels(COMP_ORDER)
-ax.set_ylabel("Clusters")
+    ax.set_yticks(range(len(COMP_ORDER)))
+    ax.set_yticklabels(COMP_ORDER)
+    ax.set_ylabel("Clusters")
 
-# Chromosome ticks at centers
-chr_items = sorted(chr_centers.items(), key=lambda kv: kv[1])
-chr_ticks = [v for _, v in chr_items]
-chr_labels = [k for k, _ in chr_items]
-ax.set_xticks(chr_ticks)
-ax.set_xticklabels(chr_labels, rotation=30, ha="right")
-ax.set_xlabel("")
+    # Chromosome ticks at centers
+    chr_items = sorted(chr_centers.items(), key=lambda kv: kv[1])
+    chr_ticks = [v for _, v in chr_items]
+    chr_labels = [k for k, _ in chr_items]
+    ax.set_xticks(chr_ticks)
+    ax.set_xticklabels(chr_labels, rotation=30, ha="right")
+    ax.set_xlabel("")
 
-ax.set_title(
-    "Segment-level comparison between WES CNV clusters")
+    ax.set_title(
+        "Segment-level comparison between WES CNV clusters")
 
-ax.set_xlim(-0.8, n_x - 0.2)
-ax.set_ylim(-0.6, len(COMP_ORDER) - 0.4)
-ax.set_axisbelow(True)
-ax.grid(axis="y", linewidth=0.3, alpha=0.25)
+    ax.set_xlim(-0.8, n_x - 0.2)
+    ax.set_ylim(-0.6, len(COMP_ORDER) - 0.4)
+    ax.set_axisbelow(True)
+    ax.grid(axis="y", linewidth=0.3, alpha=0.25)
 
-cbar = fig.colorbar(sc, ax=ax, fraction=0.02, pad=0.02)
-cbar.set_label("Δ mean log2ratio")
+    cbar = fig.colorbar(sc_plot, ax=ax, fraction=0.02, pad=0.02)
+    cbar.set_label("Δ mean log2ratio")
 
-plt.tight_layout(pad=1)
-savefig(
-    df=P,
-    out_file="/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/figures/figure3/fig3c.pdf"
-)
-plt.show()
+    plt.tight_layout(pad=1)
+    output.save(OUT, "suppfig3c", fig, P, panel="Supp Fig 3c")
+    plt.show()
+    plt.close(fig)
 
 # %% -- EXPORT TABLES (for gene overlap)
 # Long-form table (one row per locus × comparison)
@@ -524,8 +575,49 @@ else:
 print("\nStrict loci kept:", strict_summary.shape[0])
 print(strict_summary.head(10))
 
-strict_long.to_csv(RESULTS_DIR / "WES/cluster2_strict_loci_tukey_long.csv", index=False)
-strict_summary.to_csv(RESULTS_DIR / "WES/cluster2_strict_loci_summary.csv", index=False)
+output.save_table(OUT, "cluster2_strict_loci_tukey_long", strict_long, index=False)
+output.save_table(OUT, "cluster2_strict_loci_summary", strict_summary, index=False)
+
+published_loci = pd.read_csv(PUBLISHED_STRICT_LOCI)
+cmp_cols = ["segment", "chromosome", "start", "end", "n_bins", "min_q", "max_abs_delta", "comps"]
+same = strict_summary[cmp_cols].reset_index(drop=True).round(4).equals(published_loci[cmp_cols].round(4))
+print(f"Identical to the published {PUBLISHED_STRICT_LOCI.name}: {same}")
+print(f"Same segments and bins: "
+      f"{strict_summary[['chromosome', 'start', 'end', 'n_bins']].reset_index(drop=True).equals(published_loci[['chromosome', 'start', 'end', 'n_bins']])}")
+
+# %% -- Labels behind the published Supp Fig 3c and CNV scores
+# The published tables and the CNV score 0.196 are reproduced exactly with ER_G_673a in
+# cluster 2 (as a re-clustering gives), not in cluster 0 as in the frozen table. Per-segment
+# delta (difference of cluster means, as Tukey's meandiff) and CNV scores with both labels.
+RELABELLED = {"ER_G_673a": "2"}
+labels_rerun = cluster_labels.copy()
+for s_id, lab in RELABELLED.items():
+    print(f"{s_id}: cluster {labels_rerun[s_id]} in the labels used here -> {lab}")
+    labels_rerun[s_id] = lab
+
+published_long = pd.read_csv(PUBLISHED_STRICT_LONG).set_index(["segment", "comp"])
+rows = []
+for seg, seg_bins in seg_coords.set_index("segment")["bins"].items():
+    seg_bins = seg_bins.split(",")
+    for lab_name, labs in (("labels used", cluster_labels), ("ER_G_673a in cluster 2", labels_rerun)):
+        mu = cnv_df[seg_bins].groupby(labs.to_numpy()).mean()
+        for k in COMPARISONS:
+            d_bins = mu.loc[CL2] - mu.loc[k]
+            rows.append(dict(segment=seg, comp=f"2 vs {k}", labels=lab_name,
+                             delta=d_bins.mean(), abs_delta=d_bins.abs().max()))
+seg_check = pd.DataFrame(rows).pivot_table(index=["segment", "comp"], columns="labels",
+                                            values=["delta", "abs_delta"])
+seg_check.columns = [f"{v} ({lab})" for v, lab in seg_check.columns]
+seg_check["delta (published)"] = published_long["delta"]
+seg_check["abs_delta (published)"] = published_long["abs_delta"]
+print(seg_check.round(4).to_string())
+
+score_check = pd.DataFrame({
+    "labels used": cnv_df.abs().groupby(cluster_labels.to_numpy()).mean().mean(axis=1),
+    "ER_G_673a in cluster 2": cnv_df.abs().groupby(labels_rerun.to_numpy()).mean().mean(axis=1),
+    "published": pd.Series(PUBLISHED_CNV_SCORE)})
+print(score_check.round(4))
+output.save_table(OUT, "cluster2_labels_check", seg_check)
 
 # %% -- Identify the genes on those segments and append them to the table
 segments = strict_summary.copy()
@@ -539,25 +631,13 @@ segments_df = pd.DataFrame({
     "Segment": segments["segment"].astype(str) if "segment" in segments.columns else segments.index.astype(str)
 })
 
-gr_segs = pr.PyRanges(segments_df)
-
-# -- read gtf
-gtf_path = "/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/resources/infercnv/gencode.v32.annotation.gtf"  # mets ton chemin
-gtf = pr.read_gtf(gtf_path)
-
-# -- keep only genes (no exon/transcript)
-genes = gtf[gtf.Feature == "gene"]
-
-# -- keep useful columns
-genes_df = genes.df[["Chromosome","Start","End","gene_name","gene_id","Strand"]].drop_duplicates()
-
-gr_genes = pr.PyRanges(genes_df)
+# -- read gtf: genes only (no exon/transcript), useful columns
+genes_df = read_gtf_genes(GTF_PATH)
 
 # -- intersection segments x genes
-hits = gr_segs.join(gr_genes)
+hits_df = genes_overlapping_segments(segments_df, genes_df)
 
-hits_df = hits.df.sort_values(["Segment","Chromosome","Start"])
-hits_df.head()
+hits_df = hits_df.sort_values(["Segment","Chromosome","Start"])
 
 # -- list of genes per segment
 genes_by_segment = (hits_df.groupby("Segment")["gene_name"]
@@ -565,7 +645,6 @@ genes_by_segment = (hits_df.groupby("Segment")["gene_name"]
                     .reset_index(name="genes"))
 
 genes_by_segment["n_genes"] = genes_by_segment["genes"].apply(len)
-genes_by_segment.head()
 
 # %% -- Save the gene list inside the previous dataframe
 genes_by_segment.rename(columns={"Segment": "segment"}, inplace=True)
@@ -575,4 +654,12 @@ strict_summary["segment"] = strict_summary["segment"].astype(int)
 merged_df = pd.merge(strict_summary, genes_by_segment, on="segment")
 
 # %% -- Save the table for the supplementary results
-merged_df.to_csv(RESULTS_DIR / "WES/segment_cluster_genes.csv", index=False)
+output.save_table(OUT, "segment_cluster_genes", merged_df, index=False)
+published_genes = pd.read_csv(PUBLISHED_SEGMENT_GENES)
+print(merged_df[["segment", "chromosome", "start", "end", "n_bins", "n_genes"]])
+print("n_genes per segment, published table:", published_genes["n_genes"].tolist())
+print("Same gene lists as the published table:",
+      merged_df["genes"].astype(str).tolist() == published_genes["genes"].tolist())
+
+# %%
+print(output.versions(["numpy", "pandas", "anndata", "scanpy", "infercnvpy", "statsmodels"]).to_string(index=False))

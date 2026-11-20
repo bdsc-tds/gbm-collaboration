@@ -1,42 +1,50 @@
-"""Scripts to generate subfigures of figure 2 in pdf for the manuscript."""
+"""Fig 2a and the Supp Fig 2 UMAPs and per-patient composition bars (snRNA-seq atlas).
+
+Produces (OUT = figures/paper/fig2a_suppfig2_figure2/, and figures/paper/panels/):
+- Fig 2a: UMAP of all annotated nuclei coloured by level-4 cell type (fig2a_umap_level4) and
+  its coordinates (fig2a_umap_coordinates.csv).
+- Supp Fig 2a / 2d / 2g: UMAPs of malignant (BBKNN), immune and stromal + neuronal nuclei,
+  levels 1-4 (supp2a_malignant_umap_<lvl>_bbknn, supp2d_immune_umap_<lvl>,
+  supp2g_stromal_neuronal_umap_<lvl>).
+- Supp Fig 2b / 2e / 2h: per-patient composition stacked bars of the same lineages, levels 1-4
+  (supp2b_malignant_stacked_bar_<lvl>, supp2e_immune_stacked_bar_<lvl>,
+  supp2h_stromal_neuronal_stacked_bar_<lvl>).
+The Fig 2b-c and Supp Fig 2c/f/i dot plots are in fig2bc_suppfig2_marker_dotplots.ipynb.
+
+Origin: figures/figure2.py (Owkin). Published panels: EFS figures/figure2/ (old names fig2a,
+fig2c-h; fig2c-h are now Supp Fig 2a, 2b, 2d, 2e, 2g, 2h).
+
+Comparison: level-1 and level-4 labels are those of the published panels (same nuclei, same
+Fig 2a); with the repo annotation key some level-2/3 names differ (Mono_Mac, cDC1 / cDC2).
+The stacked-bar tables and UMAP coordinates are identical to the previous run
+(figures/paper/03_figure2/).
+"""
 
 # %% -- Import packages
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
-import scanpy as sc
-from pathlib import Path
-import anndata as ad
+import gc
+import time
+
 import bbknn
-from matplotlib.colors import LinearSegmentedColormap
-from scipy.cluster.hierarchy import linkage, leaves_list
-from scipy.spatial.distance import pdist, squareform
-import plotly.graph_objects as go
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import scanpy as sc
+from scipy.cluster.hierarchy import leaves_list, linkage
+from scipy.spatial.distance import pdist
 
 from gbmcollaboration import AllDataCenters
-from gbmcollaboration import (
-    PATIENTS_IDH1_MUT,
-)
-from gbmcollaboration.viz.figure_helpers import set_mpl_rcparams, savefig
+from gbmcollaboration.paper import annotation, output, snrna
+
+# %% -- Parameters
+OUT = output.setup("fig2a_suppfig2_figure2")
 
 SEED = 123
 FILTERING_SAMPLES = ["ER_G_743a"]
-RESULTS_DIR = Path("/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/figures/figure2")
-SIMPLIFIED_ANNOTATION_MAPPING = Path("/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/resources/SingleCell_Annotation_Key_v3.csv")
-REFERENCE_COLUMN = "celltype_level4_scanvi"
 BATCH_KEY = "orig.ident"
+LEVELS = ["level1", "level2", "level3", "level4"]
 
-set_mpl_rcparams()
+T0 = time.time()
 
-# -- Create results dir
-RESULTS_DIR.mkdir(parents=True,exist_ok=True)
-
-# -- Global figure parameters (publication-ready)
-BLUE_ORANGE_SOFT = LinearSegmentedColormap.from_list(
-    "blue_orange_soft",
-    ["#4575b4", "#e0f3f8", "#fee090", "#d73027"],
-)
 
 # -- helper functions
 def compute_pca_umap(
@@ -61,29 +69,6 @@ def compute_pca_umap(
     sc.tl.umap(adata, min_dist=min_dist, random_state=seed)
     return adata
 
-def save_umap(
-    adata,
-    color,
-    path,
-    title=None,
-    legend="right margin",
-    size=4,
-    palette=None,
-    cmap=None,
-    dpi=1000,
-):
-    sc.pl.umap(
-        adata,
-        color=color,
-        title=title,
-        legend_loc=legend,
-        show=False,
-        size=size,
-        palette=palette,   # catégories
-        cmap=cmap,         # continu
-    )
-    plt.savefig(path, bbox_inches="tight", dpi=dpi)
-    plt.close()
 
 def downsample_stratified(
     adata,
@@ -130,20 +115,107 @@ def downsample_stratified(
 
     return adata[keep_mask].copy()
 
+
+def save_umap(
+    adata,
+    color,
+    stem,
+    title=None,
+    legend="right margin",
+    size=4,
+    palette=None,
+    cmap=None,
+    panel=None,
+):
+    sc.pl.umap(
+        adata,
+        color=color,
+        title=title,
+        legend_loc=legend,
+        show=False,
+        size=size,
+        palette=palette,   # catégories
+        cmap=cmap,         # continu
+    )
+    output.save(OUT, stem, fig=plt.gcf(), panel=panel)
+    plt.close()
+
+
+def stacked_bar(obs, reference_column, title, legend_title, stem, panel=None):
+    """STRUCTURE-like stacked bar: per-patient fractions, patients ordered by Ward clustering
+    of their composition."""
+    # 1) counts -> fractions per patient
+    prop = (
+        obs
+        .groupby([BATCH_KEY, reference_column])
+        .size()
+        .unstack(fill_value=0)
+    )
+    prop = prop.div(prop.sum(axis=1), axis=0)
+
+    # 2) order patients by hierarchical clustering on composition
+    Z = linkage(
+        pdist(prop.values, metric="euclidean"),
+        method="ward",
+    )
+    ordered_idx = leaves_list(Z)
+    prop_ord = prop.iloc[ordered_idx]
+
+    # 3) plot (no x labels, packed bars)
+    fig, ax = plt.subplots(figsize=(12, 3))
+
+    prop_ord.plot(
+        kind="bar",
+        stacked=True,
+        ax=ax,
+        width=1.0,     # packed like STRUCTURE
+        linewidth=0,
+    )
+
+    ax.set_xticks([])
+    ax.set_xlabel("")
+    ax.set_ylabel("Fraction")
+    ax.set_title(title)
+
+    ax.legend(
+        title=legend_title,
+        bbox_to_anchor=(1.01, 1),
+        loc="upper left",
+        frameon=False,
+    )
+
+    plt.tight_layout()
+    output.save(OUT, stem, fig=fig, data=prop_ord, panel=panel)
+    plt.close(fig)
+    return prop_ord
+
+
+def lineage_panels(cells, name, letters, bar_title, legend_title, umap_title, batch_key=None):
+    """Supp Fig 2 stacked bars (levels 1-4), then the lineage UMAP (levels 1-4)."""
+    bar_letter, umap_letter = letters
+    for lvl in LEVELS:
+        print(f"{name} stack bar {lvl}")
+        stacked_bar(cells.obs, f"celltype_{lvl}_curated", bar_title, legend_title,
+                    f"supp2{bar_letter}_{name}_stacked_bar_{lvl}", panel=f"Supp Fig 2{bar_letter} {lvl}")
+    print(f"Starting {name} UMAP")
+    cells = compute_pca_umap(cells, batch_key=batch_key, seed=SEED)
+    suffix = "_bbknn" if batch_key else ""
+    for lvl in LEVELS:
+        print(f"{name}-umap {lvl}")
+        save_umap(cells, color=f"celltype_{lvl}_curated", stem=f"supp2{umap_letter}_{name}_umap_{lvl}{suffix}",
+                  title=umap_title, panel=f"Supp Fig 2{umap_letter} {lvl}")
+
+
 # %% -- Load data
 adata = AllDataCenters.load_singlecell(
     exclude_idh1_mut=True,
     exclude_patient_ids = True,
     exclude_relapse = True,
     )
+print(f"Loaded {adata.n_obs:,} nuclei x {adata.n_vars:,} genes, {adata.obs[BATCH_KEY].nunique()} samples")
 
 # create simplified annotations from lvl1 to lvl4
-for lvl in ["level1", "level2", "level3", "level4"]:
-    print(f"Mapping {lvl}")
-    ct_mapping = (
-        pd.read_csv(SIMPLIFIED_ANNOTATION_MAPPING)
-        .set_index(REFERENCE_COLUMN)[f"celltype_{lvl}_curated"])
-    adata.obs[f"celltype_{lvl}_curated"] = adata.obs[REFERENCE_COLUMN].astype(str).replace(ct_mapping)
+snrna.add_curated_levels(adata, annotation.celltype_key(), LEVELS)
 
 # %% -- RESET embeddings (force recompute)
 for key in ["X_pca", "X_umap"]:
@@ -162,31 +234,44 @@ adata = adata[
 adata_filt = adata[
     ~adata.obs["celltype_level1_curated"].isin(["Other", "Doublet", "Doublet_TNK_nos"])
 ].copy()
+del adata
+gc.collect()
 
-# -- Drop the malignant_other_1
+# -- Drop the Malignant_other_1
+n_before = adata_filt.n_obs
 adata_filt = adata_filt[
-    ~adata_filt.obs["celltype_level4_curated"].isin(["malignant_other_1"])
+    ~adata_filt.obs["celltype_level4_curated"].isin(["Malignant_other_1"])
 ]
+print(f"Malignant_other_1 filter removed {n_before - adata_filt.n_obs} nuclei")
+print(f"Annotated nuclei: {adata_filt.n_obs:,} from {adata_filt.obs[BATCH_KEY].nunique()} samples, "
+      f"{adata_filt.obs['celltype_level4_curated'].nunique()} level-4 cell types")
+print(adata_filt.obs["celltype_level1_curated"].value_counts().to_string())
 
 ############################################################
 ############### ALL CELLS ##################################
 ############################################################
-# %% Fig 2a — Single cell UMAP detailed
-adata_filt = compute_pca_umap(adata_filt)
+# %% Fig 2a — Single cell UMAP, level 4
+adata_umap = compute_pca_umap(adata_filt.copy(), seed=SEED)
 
-for lvl in ["level1", "level2", "level3", "level4"]:
-    save_umap(
-        adata_filt,
-        color=f"celltype_{lvl}_curated",
-        path=RESULTS_DIR / f"fig2a_umap_detailed_{lvl}.pdf",
-        title="Single-cell MOSAIC GBM UMAP",
-    )
+save_umap(
+    adata_umap,
+    color="celltype_level4_curated",
+    stem="fig2a_umap_level4",
+    title="Single-cell MOSAIC GBM UMAP",
+    panel="Fig 2a",
+)
+umap_coords = pd.DataFrame(adata_umap.obsm["X_umap"], index=adata_umap.obs_names, columns=["UMAP1", "UMAP2"])
+umap_coords[BATCH_KEY] = adata_umap.obs[BATCH_KEY].astype(str).values
+umap_coords["celltype_level4_curated"] = adata_umap.obs["celltype_level4_curated"].astype(str).values
+output.save_table(OUT, "fig2a_umap_coordinates", umap_coords)
+del adata_umap, umap_coords
+gc.collect()
+print(f"Fig 2a done ({(time.time() - T0) / 60:.0f} min)")
 
 ############################################################
 ############### MALIGNANT ##################################
 ############################################################
-# %% Subset tumor cells
-# Subset tumor cells (keep samples only if more than 30 cells)
+# %% Supp Fig 2a-b — Subset tumor cells (keep samples only if more than 30 cells)
 tumor_cells = adata_filt[adata_filt.obs["celltype_level1_curated"] == "Malignant"].copy()
 min_cells = 30
 counts = tumor_cells.obs[BATCH_KEY].value_counts()
@@ -203,229 +288,40 @@ tumor_cells_ds = downsample_stratified(
 )
 print("Tumor cells before:", tumor_cells.n_obs)
 print("Tumor cells after :", tumor_cells_ds.n_obs)
+del tumor_cells, tumor_cells_f
+gc.collect()
 
-# %%
-print("Starting tumor-UMAP")
-# Now run BBKNN pipeline on downsampled data
-tumor_cells_ds = compute_pca_umap(
-    tumor_cells_ds,
-    batch_key=BATCH_KEY  # BBKNN patient-normalized
-)
-
-# %% -- plot
-for lvl in ["level1", "level2", "level3", "level4"]:
-    print(f"tumor-umap {lvl}")
-    save_umap(
-        tumor_cells_ds,
-        color=f"celltype_{lvl}_curated",
-        path=RESULTS_DIR / f"fig2c_tumor_umap_{lvl}_bbknn.pdf",
-        title="Tumor cells UMAP (BBKNN)",
-    )
-
-# %% Fig 2d — Tumor stacked barplot (STRUCTURE-like)
-for lvl in ["level1", "level2", "level3", "level4"]:
-    print(f"Tumor stack bar {lvl}")
-    REFERENCE_COLUMN = f"celltype_{lvl}_curated"
-
-    tumor_prop = (
-        tumor_cells_ds.obs
-        .groupby([BATCH_KEY, REFERENCE_COLUMN])
-        .size()
-        .unstack(fill_value=0)
-    )
-
-    # Convert to fractions
-    tumor_prop = tumor_prop.div(tumor_prop.sum(axis=1), axis=0)
-
-    # Hierarchical clustering on composition profiles
-    Z = linkage(
-        pdist(tumor_prop.values, metric="euclidean"),
-        method="ward",
-    )
-
-    # Order patients to maximize similarity between neighbors
-    ordered_idx = leaves_list(Z)
-    tumor_prop_ord = tumor_prop.iloc[ordered_idx]
-
-    fig, ax = plt.subplots(figsize=(12, 3))
-
-    tumor_prop_ord.plot(
-        kind="bar",
-        stacked=True,
-        ax=ax,
-        width=1.0,
-        linewidth=0,
-    )
-
-    # Remove x labels and ticks
-    ax.set_xticks([])
-    ax.set_xlabel("")
-
-    ax.set_ylabel("Fraction")
-    ax.set_title("Tumor cell composition by patient")
-
-    # Optional: legend outside
-    ax.legend(
-        title="Tumor cell state",
-        bbox_to_anchor=(1.01, 1),
-        loc="upper left",
-        frameon=False,
-    )
-
-    plt.tight_layout()
-    savefig(
-        df=tumor_prop_ord,
-        out_file=RESULTS_DIR / f"fig2d_tumor_stacked_bar_{lvl}.pdf",
-        dpi=1000,
-        bbox_inches="tight",
-    )
-    plt.close()
+# BBKNN pipeline on the downsampled data (patient-normalized)
+lineage_panels(tumor_cells_ds, "malignant", ("b", "a"), "Tumor cell composition by patient",
+               "Tumor cell state", "Tumor cells UMAP (BBKNN)", batch_key=BATCH_KEY)
+del tumor_cells_ds
+gc.collect()
 
 ############################################################
 ############### IMMUNE #####################################
 ############################################################
-
-# %% -- Fig2e immune umap
+# %% Supp Fig 2d-e — immune
 immune_cells = adata_filt[
     adata_filt.obs["celltype_level1_curated"].isin(["Myeloid", "Lymphoid"])
 ].copy()
-
-immune_cells = compute_pca_umap(immune_cells)
-
-for lvl in ["level1", "level2", "level3", "level4"]:
-    print(f"Immune-umap {lvl}")
-    save_umap(
-        immune_cells,
-        color=f"celltype_{lvl}_curated",
-        path=RESULTS_DIR / f"fig2e_immune_umap_{lvl}.pdf",
-        title="Immune cell UMAP",
-    )
-
-# %% Fig 2f — Immune stacked barplot (STRUCTURE-like)
-for lvl in ["level1", "level2", "level3", "level4"]:
-    print(f"Immune stack bar {lvl}")
-    REFERENCE_COLUMN = f"celltype_{lvl}_curated"
-    # 1) counts -> fractions per patient
-    immune_prop = (
-        immune_cells.obs
-        .groupby([BATCH_KEY, REFERENCE_COLUMN])
-        .size()
-        .unstack(fill_value=0)
-    )
-    immune_prop = immune_prop.div(immune_prop.sum(axis=1), axis=0)
-
-    # 2) order patients by hierarchical clustering on composition
-    Z = linkage(
-        pdist(immune_prop.values, metric="euclidean"),
-        method="ward",
-    )
-    ordered_idx = leaves_list(Z)
-    immune_prop_ord = immune_prop.iloc[ordered_idx]
-
-    # 3) plot (no x labels, packed bars)
-    fig, ax = plt.subplots(figsize=(12, 3))
-
-    immune_prop_ord.plot(
-        kind="bar",
-        stacked=True,
-        ax=ax,
-        width=1.0,     # packed like STRUCTURE
-        linewidth=0,
-    )
-
-    ax.set_xticks([])
-    ax.set_xlabel("")
-    ax.set_ylabel("Fraction")
-    ax.set_title("Immune cell composition by patient")
-
-    ax.legend(
-        title="Immune cell state",
-        bbox_to_anchor=(1.01, 1),
-        loc="upper left",
-        frameon=False,
-    )
-
-    plt.tight_layout()
-    savefig(
-        df=immune_prop_ord,
-        out_file=RESULTS_DIR / f"fig2f_immune_stacked_bar_{lvl}.pdf",
-        dpi=1000,
-        bbox_inches="tight",
-    )
-    plt.close()
+lineage_panels(immune_cells, "immune", ("e", "d"), "Immune cell composition by patient",
+               "Immune cell state", "Immune cell UMAP")
+del immune_cells
+gc.collect()
 
 ############################################################
 ############### STROMAL / NEURONAL #########################
 ############################################################
-# %% -- Fig2g stromal neuronal umap
+# %% Supp Fig 2g-h — stromal neuronal
 sn_cells = adata_filt[
     adata_filt.obs["celltype_level1_curated"].isin(["Glia", "Neuron", "Vascular"])
 ].copy()
-
-sn_cells = compute_pca_umap(sn_cells)
-
-# %%
-for lvl in ["level1", "level2", "level3", "level4"]:
-    print(f"stromal-umap {lvl}")
-    save_umap(
-        sn_cells,
-        color=f"celltype_{lvl}_curated",
-        path=RESULTS_DIR / f"fig2g_stromal_neuronal_umap_{lvl}.pdf",
-        title="Stromal + Neuronal UMAP",
-    )
-
-# %% Fig 2h — Stromal + Neuronal stacked barplot (STRUCTURE-like)
-for lvl in ["level1", "level2", "level3", "level4"]:
-    print(f"Stromal stack bar {lvl}")
-    REFERENCE_COLUMN = f"celltype_{lvl}_curated"
-
-    # 1) counts -> fractions per patient
-    sn_prop = (
-        sn_cells.obs
-        .groupby([BATCH_KEY, REFERENCE_COLUMN])
-        .size()
-        .unstack(fill_value=0)
-    )
-    sn_prop = sn_prop.div(sn_prop.sum(axis=1), axis=0)
-
-    # 2) order patients by hierarchical clustering on composition
-    Z = linkage(
-        pdist(sn_prop.values, metric="euclidean"),
-        method="ward",
-    )
-    ordered_idx = leaves_list(Z)
-    sn_prop_ord = sn_prop.iloc[ordered_idx]
-
-    # 3) plot (no x labels, packed bars)
-    fig, ax = plt.subplots(figsize=(12, 3))
-
-    sn_prop_ord.plot(
-        kind="bar",
-        stacked=True,
-        ax=ax,
-        width=1.0,
-        linewidth=0,
-    )
-
-    ax.set_xticks([])
-    ax.set_xlabel("")
-    ax.set_ylabel("Fraction")
-    ax.set_title("Stromal + Neuronal composition by patient")
-
-    ax.legend(
-        title="Stromal/Neuronal state",
-        bbox_to_anchor=(1.01, 1),
-        loc="upper left",
-        frameon=False,
-    )
-
-    plt.tight_layout()
-    savefig(
-        df=sn_prop_ord,
-        out_file=RESULTS_DIR / f"fig2h_stromal_neuronal_stacked_bar_{lvl}.pdf",
-        dpi=1000,
-        bbox_inches="tight",
-    )
-    plt.close()
+lineage_panels(sn_cells, "stromal_neuronal", ("h", "g"), "Stromal + Neuronal composition by patient",
+               "Stromal/Neuronal state", "Stromal + Neuronal UMAP")
+del sn_cells
+gc.collect()
+print(f"Done ({(time.time() - T0) / 60:.0f} min)")
 
 # %%
+print(output.versions(("scanpy", "anndata", "bbknn", "umap-learn", "pynndescent", "scikit-learn",
+                       "pandas", "numpy")).to_string(index=False))

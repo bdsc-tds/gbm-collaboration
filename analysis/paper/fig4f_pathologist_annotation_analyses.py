@@ -1,6 +1,14 @@
 """
 ECM neighborhood vs pathologist annotation association analysis.
 
+Produces Fig 4f (Fig_residual_heatmap: standardized residuals of ECM neighborhood x pathology
+annotation, dots at BH q < 0.05) and the chi-square / batch-adjusted test statistics
+(figures/paper/fig4f_pathologist_annotation_analyses/, Fig 4f also in the panels folder).
+
+Origin: analysis/hne/pathologist_annotation_analyses.py (Owkin). Comparison: the Fig 4f table is
+compared at the end with the published one (results/hne/ecm_pathology_figures/
+Fig_residual_heatmap.csv): same rows, columns and order, identical values.
+
 Pipeline:
   1) Load ECM table + annotations from S3
   2) Clean / standardize annotations, build spot_id
@@ -11,9 +19,6 @@ Pipeline:
       - Batch-adjusted interaction test controlling for center (Negative Binomial GLM)
   5) Figures:
       - Publication-style residual heatmap with significance dots
-      - 3-panel replication (All / UKER / CHUV) with shared scale
-      - Dotplot (color=residual, size=significance)
-      - Sparse/top-effects heatmap (only |resid|>=2 & q<0.05)
   6) Optional metrics:
       - Shannon diversity of annotations within each ECM neighborhood (and vice versa)
       - Jaccard similarity of "enriched associations" between centers
@@ -21,8 +26,7 @@ Pipeline:
 """
 # %% -- Load packages
 import os
-from dataclasses import dataclass
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -33,10 +37,11 @@ from statsmodels.stats.multitest import multipletests
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
 
-from gbmcollaboration.utils import concat_pathology_annotations_from_s3
-from gbmcollaboration.viz.figure_helpers import savefig, set_mpl_rcparams
+from gbmcollaboration.paper import config, output
+from gbmcollaboration.utils import pathology_annotation_loader as patho
+from gbmcollaboration.utils.pathology_annotation_loader import AnalysisConfig, DataConfig
 
-set_mpl_rcparams()
+OUT = output.setup("fig4f_pathologist_annotation_analyses")
 
 plt.rcParams.update({
         "font.size": 11,
@@ -46,150 +51,7 @@ plt.rcParams.update({
         "ytick.labelsize": 10,
 })
 
-# -- Config
-
-@dataclass(frozen=True)
-class DataConfig:
-    ecm_cluster_path: str
-    s3_bucket: str
-    s3_prefixes: Tuple[str, ...]
-    sample_col: str = "sample_name"
-    barcode_col: str = "Barcode"
-    annot_col: str = "pathology_annotations"
-    ecm_col: str = "ECM_neighborhood"
-    spot_id_col: str = "spot_id"
-
-
-@dataclass(frozen=True)
-class AnalysisConfig:
-    # Filtering
-    min_spots_per_annotation: int = 0  # 0 keeps all
-    keep_only_shared_annotations: bool = True
-    shared_annotations: Tuple[str, ...] = (
-        "blood vessels",
-        "cortex with tumor infiltration",
-        "cortex without visible tumor infiltration",
-        "infiltration zone",
-        "necrosis",
-        "tumor",
-    )
-
-    # plotting
-    clip_residuals: float = 3.0
-    q_threshold: float = 0.05
-
-
 # -- Functions
-
-def load_ecm_cluster(path: str, index_col: str = "spot_id") -> pd.DataFrame:
-    ecm = pd.read_csv(path)
-    if index_col in ecm.columns:
-        ecm = ecm.set_index(index_col)
-    else:
-        raise ValueError(f"ECM file must contain column '{index_col}'.")
-    return ecm
-
-
-def load_annotations_from_s3(bucket: str, prefixes: Iterable[str]) -> pd.DataFrame:
-    dfs = []
-    for p in prefixes:
-        dfs.append(concat_pathology_annotations_from_s3(bucket=bucket, prefix=p))
-    out = pd.concat(dfs, ignore_index=False)
-    return out
-
-
-def standardize_annotations(df: pd.DataFrame, annot_col: str) -> pd.DataFrame:
-    """Lowercase + fix known typos/variants from your script."""
-    out = df.copy()
-
-    out[annot_col] = out[annot_col].astype(str).str.lower()
-
-    mapping = {
-        "necrose": "necrosis",
-        "white matter with tumor" : "infiltration zone",
-        "white matter with tumor " : "infiltration zone",
-        "infiltration zone with tumor" : "infiltration zone",
-        "blood vessel" : "blood vessels",
-        "cortex without visible tumor cell infiltration" : "cortex without visible tumor infiltration",
-        "cortex" : "cortex without visible tumor infiltration",
-        "gray matter (cortex) with tumor infiltration" : "cortex with tumor infiltration",
-        "non-tumoral (gray matter)" : "cortex without visible tumor infiltration",
-        "tumour (microvascular proliferation)" : "microvascular proliferation",
-        "tumor (microvascular prolifeation)" : "microvascular proliferation",
-        "tumor (mircovascular proliferation)" : "microvascular proliferation",
-        "tumor (microvascular proliferations)" : "microvascular proliferation",
-        "tumor (microvacular proliferation)" : "microvascular proliferation",
-        "tumor (microvascular proliferation)" : "microvascular proliferation",
-        "tumor (with microvascular proliferation)" : "microvascular proliferation",
-        "tumor - divergent morphology - partially necrotic?" : "necrosis",
-        "tumor (necrotic)" : "necrosis",
-        "blood with necrosis" : "necrosis",
-        "tumor (gliosarcoma phenotype)" : "tumor",
-        "tumor (high cellularity)" : "tumor",
-        "tumor - component with divergent morphology" : "tumor",
-        "tumor (inflammatory)" : "tumor",
-        "tumor (gliosarcoma phenotype)" : "tumor",
-        "tumor (lymphocyte-rich)" : "tumor",
-        "tumor (morphologically distinct component)" : "tumor",
-        "tumor (with cautery artifacts)" : "tumor",
-        "blood only" : "hemorrhage",
-        "tumor (hemorrhage)" : "hemorrhage",
-        "tumor with fibrosis" : "fibrosis",
-        "tumor with fibrotic changes" : "fibrosis",
-        "fibrous tissue" : "fibrosis",
-        "infiltration zone with fibrosis" : "fibrosis",
-        "connective tissue" : "other",
-        "white matter" : "other",
-        "intratumoral lymphocytic infiltrate" : "other"
-    }
-    out[annot_col] = out[annot_col].replace(mapping)
-    return out
-
-
-def exclude_bad_spots(df: pd.DataFrame, annot_col: str) -> pd.DataFrame:
-    """Exclude folds/shifted/no tissue items from your script."""
-    bad = {
-        "tumor (section fold)",
-        "tumor (attention: spots seem shifted compared to the h&e)",
-        "no tissue",
-        "empty (detachment, maybe tumor in vis)",
-        "potentially tumor in vis (fold in he) ",
-        "tumor (attention: spots seem shifted compared to h&e ) on h&e the smaller part is superimposed on the bigger one",
-        "no tissue (attention: spots seem shifted compared to h&e)",
-        "potentially tumor in vis (fold in he)",
-    }
-    out = df[~df[annot_col].isin(bad)].copy()
-    out = out.dropna(subset=[annot_col])
-    return out
-
-
-def build_spot_id_and_index(df: pd.DataFrame, sample_col: str, barcode_col: str, spot_id_col: str) -> pd.DataFrame:
-    out = df.copy()
-
-    # Your one-off correction
-    out[sample_col] = out[sample_col].replace({"CH_G_1789c_vis": "CH_G_189c_vis"})
-
-    out[spot_id_col] = out[sample_col].astype(str) + "_" + out[barcode_col].astype(str)
-    out = out.set_index(spot_id_col)
-    return out
-
-
-def add_center_from_sample(df: pd.DataFrame, sample_col: str) -> pd.DataFrame:
-    mapping = {"E": "UKER", "C": "CHUV"}
-    out = df.copy()
-    first = out[sample_col].astype(str).str[0].fillna("")
-    out["center"] = first.map(mapping).fillna("Other")
-    return out
-
-
-def merge_annotation_ecm(df_annot: pd.DataFrame, ecm: pd.DataFrame) -> pd.DataFrame:
-    return pd.merge(df_annot, ecm, how="inner", left_index=True, right_index=True)
-
-
-def filter_to_shared_annotations(df: pd.DataFrame, annot_col: str, shared: Iterable[str]) -> pd.DataFrame:
-    shared = set(shared)
-    return df[df[annot_col].isin(shared)].copy()
-
 
 def build_contingency(df: pd.DataFrame, ecm_col: str, annot_col: str, min_spots: int = 0) -> pd.DataFrame:
     ct = pd.crosstab(df[ecm_col], df[annot_col])
@@ -328,6 +190,7 @@ def fig_residual_heatmap(
     out_pdf: str,
     order_by: Optional[str] = "tumor",
     figsize: Tuple[float, float] = (6.5, 5.5),
+    panel: Optional[str] = None,
 ):
 
     Z = resid.copy()
@@ -362,180 +225,9 @@ def fig_residual_heatmap(
     cbar = fig.colorbar(im, ax=ax, fraction=0.02, pad=0.02)
     cbar.set_label("Standardized residual (enrichment ↔ depletion)")
 
-    savefig(
-        df=Zc,
-        out_file=out_pdf, dpi=300
-    )
+    output.save(os.path.dirname(out_pdf), os.path.splitext(os.path.basename(out_pdf))[0], fig, Zc, panel=panel)
     plt.show()
-
-
-def fig_three_panel_centers(
-    df: pd.DataFrame,
-    ecm_col: str,
-    annot_col: str,
-    clip: float,
-    q_thr: float,
-    out_pdf: str,
-    min_spots: int = 0,
-    figsize: Tuple[float, float] = (11, 4.5),
-):
-    # ALL reference ordering
-    ct_all = build_contingency(df, ecm_col, annot_col, min_spots=min_spots)
-    chi = chi2_independence(ct_all)
-    resid_all = standardized_residuals(ct_all, chi["expected"])
-    q_all = residuals_fdr(resid_all)
-
-    if "tumor" in resid_all.columns:
-        resid_all = resid_all.loc[resid_all["tumor"].sort_values(ascending=False).index]
-        q_all = q_all.loc[resid_all.index, resid_all.columns]
-
-    cols = resid_all.columns
-    rows = resid_all.index
-
-    panels = [("Both centers", df), ("UKER", df[df["center"] == "UKER"]), ("CHUV", df[df["center"] == "CHUV"])]
-
-    fig, axes = plt.subplots(1, 3, figsize=figsize, constrained_layout=True)
-    ims = []
-
-    for ax, (name, sub) in zip(axes, panels):
-        ct = build_contingency(sub, ecm_col, annot_col, min_spots=0).reindex(index=rows, columns=cols, fill_value=0)
-        chi = chi2_independence(ct)
-        resid = standardized_residuals(ct, chi["expected"]).clip(-clip, clip)
-        qvals = residuals_fdr(standardized_residuals(ct, chi["expected"])).loc[rows, cols]
-        sig = (qvals < q_thr).to_numpy()
-
-        im = ax.imshow(resid.to_numpy(), aspect="auto", interpolation="nearest", vmin=-clip, vmax=clip)
-        ims.append(im)
-
-        ax.set_title(name, pad=6)
-
-        ax.set_xticks(np.arange(len(cols)))
-        ax.set_xticklabels(cols, rotation=45, ha="right")
-
-        ax.set_yticks(np.arange(len(rows)))
-        if name == "Both centers":
-            ax.set_yticklabels(rows)
-        else:
-            ax.set_yticklabels([])
-
-        ax.set_xlabel("")
-        ys, xs = np.where(sig)
-        ax.scatter(xs, ys, s=8)
-
-        ax.set_xticks(np.arange(-.5, len(cols), 1), minor=True)
-        ax.set_yticks(np.arange(-.5, len(rows), 1), minor=True)
-        ax.grid(which="minor", linewidth=0.2)
-        ax.tick_params(which="minor", bottom=False, left=False)
-
-    cbar = fig.colorbar(ims[0], ax=axes, fraction=0.02, pad=0.02)
-    cbar.set_label("Standardized residual")
-
-    savefig(
-        df=resid,
-        out_file=out_pdf, dpi=600
-    )
-    plt.show()
-
-
-def fig_dotplot(
-    df: pd.DataFrame,
-    ecm_col: str,
-    annot_col: str,
-    clip: float,
-    out_pdf: str,
-    min_spots: int = 0,
-    figsize: Tuple[float, float] = (6.5, 5.5),
-):
-    ct = build_contingency(df, ecm_col, annot_col, min_spots=min_spots)
-    chi = chi2_independence(ct)
-    resid = standardized_residuals(ct, chi["expected"])
-    qvals = residuals_fdr(resid)
-
-    # order by tumor if available
-    if "tumor" in resid.columns:
-        resid = resid.loc[resid["tumor"].sort_values(ascending=False).index]
-        qvals = qvals.loc[resid.index, resid.columns]
-
-    long = resid.clip(-clip, clip).stack().rename("resid").reset_index()
-    long.columns = [ecm_col, annot_col, "resid"]
-    long["q"] = qvals.stack().values
-    long["mlog10q"] = (-np.log10(long["q"].clip(lower=1e-300))).clip(upper=10)
-
-    xcats = list(resid.columns)
-    ycats = list(resid.index)
-    xmap = {k: i for i, k in enumerate(xcats)}
-    ymap = {k: i for i, k in enumerate(ycats)}
-    long["x"] = long[annot_col].map(xmap)
-    long["y"] = long[ecm_col].map(ymap)
-
-    fig, ax = plt.subplots(figsize=figsize, constrained_layout=True)
-    sc = ax.scatter(
-        long["x"], long["y"],
-        c=long["resid"],
-        s=8 + 10 * long["mlog10q"],
-        vmin=-clip, vmax=clip
-    )
-
-    ax.set_xticks(range(len(xcats)))
-    ax.set_xticklabels(xcats, rotation=45, ha="right")
-    ax.set_yticks(range(len(ycats)))
-    ax.set_yticklabels(ycats)
-    ax.set_xlabel("")
-    ax.set_ylabel("ECM neighborhood")
-    ax.set_title("")
-
-    cbar = fig.colorbar(sc, ax=ax, fraction=0.02, pad=0.02)
-    cbar.set_label("Standardized residual")
-
-    savefig(
-        df=long[["x","y","resid","mlog10q"]],
-        out_file=out_pdf, dpi=600
-    )
-    plt.show()
-
-
-def fig_sparse_top_effects(
-    df: pd.DataFrame,
-    ecm_col: str,
-    annot_col: str,
-    clip: float,
-    q_thr: float,
-    resid_thr: float,
-    out_pdf: str,
-    min_spots: int = 0,
-    figsize: Tuple[float, float] = (6.5, 5.5), #(11.0, 3.6),
-):
-    ct = build_contingency(df, ecm_col, annot_col, min_spots=min_spots)
-    chi = chi2_independence(ct)
-    resid = standardized_residuals(ct, chi["expected"])
-    qvals = residuals_fdr(resid)
-
-    if "tumor" in resid.columns:
-        resid = resid.loc[resid["tumor"].sort_values(ascending=False).index]
-        qvals = qvals.loc[resid.index, resid.columns]
-
-    keep = (qvals < q_thr) & (np.abs(resid) >= resid_thr)
-    Z = resid.clip(-clip, clip).where(keep, other=np.nan)
-
-    fig, ax = plt.subplots(figsize=figsize, constrained_layout=True)
-    im = ax.imshow(Z.to_numpy(), aspect="auto", interpolation="nearest", vmin=-clip, vmax=clip)
-    ax.set_facecolor("0.92")
-
-    ax.set_xticks(np.arange(Z.shape[1]))
-    ax.set_xticklabels(Z.columns, rotation=45, ha="right")
-    ax.set_yticks(np.arange(Z.shape[0]))
-    ax.set_yticklabels(Z.index)
-    ax.set_title(f"Top associations (|resid|≥{resid_thr}, q<{q_thr})")
-
-    cbar = fig.colorbar(im, ax=ax, fraction=0.02, pad=0.02)
-    cbar.set_label("Standardized residual")
-
-    savefig(
-        df=Z,
-        out_file=out_pdf,
-        dpi=600
-    )
-    plt.show()
+    return Zc
 
 
 def run_analysis(df: pd.DataFrame, cfg: DataConfig, acfg: AnalysisConfig) -> Dict[str, object]:
@@ -631,63 +323,23 @@ def make_all_figures(df: pd.DataFrame, cfg: DataConfig, acfg: AnalysisConfig, ou
         q_thr=acfg.q_threshold,
         out_pdf=os.path.join(outdir, "Fig_residual_heatmap.pdf"),
         order_by="tumor",
-    )
-
-    # replication panel
-    fig_three_panel_centers(
-        df=df,
-        ecm_col=cfg.ecm_col,
-        annot_col=cfg.annot_col,
-        clip=acfg.clip_residuals,
-        q_thr=acfg.q_threshold,
-        min_spots=acfg.min_spots_per_annotation,
-        out_pdf=os.path.join(outdir, "Fig_three_panel_centers.pdf")
-    )
-
-    # dot plot
-    fig_dotplot(
-        df=df,
-        ecm_col=cfg.ecm_col,
-        annot_col=cfg.annot_col,
-        clip=acfg.clip_residuals,
-        min_spots=acfg.min_spots_per_annotation,
-        out_pdf=os.path.join(outdir, "Fig_dotplot.pdf")
-    )
-
-    # sparse top effects
-    fig_sparse_top_effects(
-        df=df,
-        ecm_col=cfg.ecm_col,
-        annot_col=cfg.annot_col,
-        clip=acfg.clip_residuals,
-        q_thr=acfg.q_threshold,
-        resid_thr=2.0,
-        min_spots=acfg.min_spots_per_annotation,
-        out_pdf=os.path.join(outdir, "Fig_sparse_top_effects.pdf")
+        panel="Fig 4f",
     )
 
 
 def load_and_prepare(cfg: DataConfig, acfg: AnalysisConfig) -> pd.DataFrame:
-    ecm = load_ecm_cluster(cfg.ecm_cluster_path, index_col=cfg.spot_id_col)
+    ecm = pd.read_csv(cfg.ecm_cluster_path).set_index(cfg.spot_id_col)
 
-    df_annot = load_annotations_from_s3(cfg.s3_bucket, cfg.s3_prefixes)
-    df_annot = build_spot_id_and_index(df_annot, cfg.sample_col, cfg.barcode_col, cfg.spot_id_col)
-    df_annot = standardize_annotations(df_annot, cfg.annot_col)
-    df_annot = exclude_bad_spots(df_annot, cfg.annot_col)
+    # annotations from S3: standardised, bad spots / nan / arachnoid removed, optional shared subset
+    df_annot = patho.load_and_prepare(cfg, acfg)
 
-    merged = merge_annotation_ecm(df_annot, ecm)
-    # filter nan and arachnoid values in annotation
-    merged = merged[~merged["pathology_annotations"].isin(["nan", "arachnoid"])]
-    merged = add_center_from_sample(merged, cfg.sample_col)
-
-    if acfg.keep_only_shared_annotations:
-        merged = filter_to_shared_annotations(merged, cfg.annot_col, acfg.shared_annotations)
-
+    merged = pd.merge(df_annot, ecm, how="inner", left_index=True, right_index=True)
+    merged = patho.add_center_from_sample(merged, cfg.sample_col)
     return merged
 
 # %% -- Run code to derive the plots
 cfg = DataConfig(
-    ecm_cluster_path="/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/Analysis_Repo/Notebooks/ecm_neighborhood_annotations_v4.csv",
+    ecm_cluster_path=str(config.ECM_ANNOTATIONS_CSV),
     s3_bucket="pa-bi4jtrdsa151p4d3m-jepjxh9qrwgxphe8hd3r6exicahnoeuw1b-s3alias",
     s3_prefixes=(
         "fd319842-9157-4f04-bd4f-7a36ce6a0ba7/Non_mosaic_upload/Mosaic Annotations/",  # CHUV
@@ -704,6 +356,12 @@ acfg = AnalysisConfig(
 
 df = load_and_prepare(cfg, acfg)
 results = run_analysis(df, cfg, acfg)
-make_all_figures(df, cfg, acfg, outdir="/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/results/hne/ecm_pathology_figures")
+make_all_figures(df, cfg, acfg, outdir=str(OUT))
+
+# Compare Fig 4f with the published data (results/hne/ecm_pathology_figures/)
+pub = pd.read_csv(config.EFS / "results/hne/ecm_pathology_figures/Fig_residual_heatmap.csv", index_col=0)
+new = pd.read_csv(OUT / "Fig_residual_heatmap.csv", index_col=0)
+print(f"Fig 4f: same rows/columns/order as published: {pub.index.equals(new.index) and pub.columns.equals(new.columns)}; "
+      f"max |difference| = {np.abs(pub.to_numpy() - new.to_numpy()).max():.2e}")
 
 # %%

@@ -1,4 +1,43 @@
-"""Script to infer CNV using inferCNVpy."""
+"""Pipeline: inferCNV on the single-nucleus data, and the malignant-cell object.
+
+Outputs (frozen on EFS in results/scRNAseq/infercnv/; this file now writes to its output
+folder, `output.setup`, not over them):
+- Part 1: infercnv_adata.h5ad (all 1,350,338 nuclei of the 266 tumours, loader exclusions,
+  inferCNV matrix obsm["X_cnv"], CNV Leiden clusters and CNV score; X emptied),
+  genomic_windows.csv (the 1,346 bins of 200 genes, reused as WES bins by
+  generate_cnv_wes_matrix.py), ith_scores.csv, tumor_clone_annotation.csv, cnv heatmaps.
+- Part 2: infercnv_adata_malignant_only.h5ad (782,542 tumour-lineage nuclei: level-1
+  Malignant or Other, doublets and Other_LowCounts removed, re-clustered on their CNV
+  profiles with Leiden 0.4: the 15 single-cell CNV clones of Supp Fig 3e-f),
+  tumor_clone_annotation_clean.csv, ith_scores_clean and the exploratory figures in between
+  (iCNV heatmaps, KDE, Sankey, UMAP composites, clustermap, heterogeneity violin; not in the
+  paper).
+Read by: 07_infercnv_wes_analyses.py (sample IDs), 08_analyses_wes_sc_infercnv.py (obs of the
+malignant-cell object), generate_cnv_wes_matrix.py (bins).
+
+Inputs: AllDataCenters.load_singlecell (loader exclusions), the EFS annotation key
+resources/SingleCell_Annotation_Key_v3.csv (as it ran).
+
+Runtime and memory: hours (inferCNV on 1.35 M nuclei, then ITH scores), well over 60 GB of
+RAM (run under `flock /tmp/claude-1000/paper_heavy.lock`). Not re-run for the paper.
+
+Known issues:
+- The committed Part 2 cannot have written the frozen malignant-cell object: it subset on
+  obs["tumor_lineage"], a column it never creates (KeyError). The frozen object has
+  `tumor_lineage` (all True), `cnv_status`, `cnv_burden` and `tumor_cnv_group`, so it was
+  written by an earlier version with other column names. The definitions are the same: on
+  the frozen obs, level-1 Malignant or Other after the filters gives exactly the 782,542
+  frozen cells. Fixed: the subset uses lineage_status == "tumor-lineage" and stores
+  `tumor_lineage`.
+- `ithgex` is computed on the Part 1 object whose X was emptied before saving, so it is not
+  informative (not used in the paper).
+- Leiden on 1.16 M / 0.78 M cells is not bit-for-bit reproducible across igraph versions;
+  the figures use the frozen clone labels.
+
+Changes: header; output folder instead of the frozen EFS folder (Part 2 reloads Part 1's
+object from it); the tumor_lineage fix above; `display(dominant_df)` (notebook-only, NameError
+in a script) -> print; unused imports removed.
+"""
 
 # %% -- Import packages and prepare functions
 import time
@@ -9,24 +48,20 @@ import matplotlib as mpl
 import seaborn as sns
 import scanpy as sc
 import scipy
-import scipy.sparse as sp
 import infercnvpy as cnv
 from pathlib import Path
 import anndata as ad
-from scipy.stats import mannwhitneyu
 import plotly.graph_objects as go
 
 from gbmcollaboration import AllDataCenters
 from gbmcollaboration.utils.infercnv_utils import InferCNVAnalyzer
-from gbmcollaboration import (
-    PATIENTS_IDH1_MUT,
-)
+from gbmcollaboration.paper import output
 
 ############################################################
 ############### PART 1 ##############################
 ############################################################
 # %% Params
-RESULTS_DIR = Path("/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/results/scRNAseq/infercnv")
+RESULTS_DIR = output.setup("pipelines_infercnv_sc_analyses")  # frozen: results/scRNAseq/infercnv
 SIMPLIFIED_ANNOTATION_MAPPING = Path("/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/resources/SingleCell_Annotation_Key_v3.csv")
 REFERENCE_COLUMN = "celltype_level4_scanvi"
 BATCH_KEY = "orig.ident"
@@ -148,8 +183,7 @@ infercnv_obj.adata.write(RESULTS_DIR / "infercnv_adata.h5ad")
 ############## PART 2 POST-HOC ANALYSES ##############
 ########################################################
 # %% -- Reload the adata object
-RESULTS_DIR = Path("/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/results/scRNAseq/infercnv")
-SC_ADATA_PATH = "/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/results/scRNAseq/infercnv/infercnv_adata.h5ad"
+SC_ADATA_PATH = RESULTS_DIR / "infercnv_adata.h5ad"
 single_cell_obj = ad.read_h5ad(SC_ADATA_PATH)
 celltype_col = "celltype_level1_curated"
 
@@ -447,6 +481,8 @@ fig.show()
 print("Saved:", html_path)
 
 # %% -- Now treat only the malignant cells for visualization
+# (the source used obs["tumor_lineage"], which this file never creates: KeyError)
+single_cell_obj_filt.obs["tumor_lineage"] = single_cell_obj_filt.obs["lineage_status"] == "tumor-lineage"
 adata_tumor = single_cell_obj_filt[
     single_cell_obj_filt.obs["tumor_lineage"]
 ].copy()
@@ -727,7 +763,7 @@ dominant_df = (
     .sort_index()
 )
 
-display(dominant_df)
+print(dominant_df)
 
 plt.figure(figsize=(10, 6), dpi=300)
 

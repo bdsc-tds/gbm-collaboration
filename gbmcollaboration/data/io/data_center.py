@@ -29,6 +29,81 @@ from gbmcollaboration.utils.spatial_obj_to_df import (
 CENTERS: dict[str, DataCenter] = {}
 
 
+def apply_exclusions(
+    df: pd.DataFrame,
+    exclude_idh1_mut: bool,
+    exclude_patient_ids: bool,
+    exclude_relapse: bool,
+    exclude_low_quality_visium: bool = False,
+):
+    """Apply the exclusion lists of definitions.py to a dataframe.
+
+    Rows and columns whose label contains a listed ID are dropped. Used by
+    DataCenter.load_tabular, and by code that reads frozen per-sample or per-spot
+    tables (e.g. Visium annotations), so the same lists apply everywhere.
+    exclude_low_quality_visium additionally drops the BAD_QUALITY_*_VISIUM sections.
+    """
+
+    # --- Exclude IDH1-mut patients ---
+    if exclude_idh1_mut:
+        patients_set = set(PATIENTS_IDH1_MUT)
+        pattern = "|".join(patients_set)
+
+        col_matches = df.columns[df.columns.astype(str).str.contains(pattern)]
+        idx_matches = df.index[df.index.astype(str).str.contains(pattern)]
+
+        if not col_matches.empty:
+            print(f"IDH1mut: excluding {len(col_matches)} columns.")
+            df = df.drop(columns=col_matches)
+        if not idx_matches.empty:
+            print(f"IDH1mut: excluding {len(idx_matches)} rows.")
+            df = df.drop(index=idx_matches)
+
+    # --- Exclude specific patients ---
+    if exclude_patient_ids:
+        patients_set = set(PATIENT_EXCLUSION)
+        pattern = "|".join(patients_set)
+
+        col_matches = df.columns[df.columns.astype(str).str.contains(pattern)]
+        idx_matches = df.index[df.index.astype(str).str.contains(pattern)]
+
+        if not col_matches.empty:
+            print(f"Patients: excluding {len(col_matches)} columns.")
+            df = df.drop(columns=col_matches)
+        if not idx_matches.empty:
+            print(f"Patients: excluding {len(idx_matches)} rows.")
+            df = df.drop(index=idx_matches)
+
+    # --- Exclude low-quality Visium sections ---
+    if exclude_low_quality_visium:
+        pattern = "|".join(set(BAD_QUALITY_CHUV_VISIUM) | set(BAD_QUALITY_UKER_VISIUM) | set(BAD_QUALITY_CR_VISIUM))
+        col_matches = df.columns[df.columns.astype(str).str.contains(pattern)]
+        idx_matches = df.index[df.index.astype(str).str.contains(pattern)]
+        if not col_matches.empty:
+            print(f"Low-quality Visium: excluding {len(col_matches)} columns.")
+            df = df.drop(columns=col_matches)
+        if not idx_matches.empty:
+            print(f"Low-quality Visium: excluding {len(idx_matches)} rows.")
+            df = df.drop(index=idx_matches)
+
+    # --- Exclude relapse sample ---
+    if exclude_relapse:
+        patients_set = set(RELAPSE_EXCLUSION)
+        pattern = "|".join(patients_set)
+
+        col_matches = df.columns[df.columns.astype(str).str.contains(pattern)]
+        idx_matches = df.index[df.index.astype(str).str.contains(pattern)]
+
+        if not col_matches.empty:
+            print(f"Relapse samples: excluding {len(col_matches)} columns.")
+            df = df.drop(columns=col_matches)
+        if not idx_matches.empty:
+            print(f"Relapse samples: excluding {len(idx_matches)} rows.")
+            df = df.drop(index=idx_matches)
+
+    return df
+
+
 def register_center(cls):
     """Define decorator to register instances of DataCenter."""
 
@@ -73,60 +148,6 @@ class DataCenter(NamedTuple):
             Dictionary of dataframes for each source that are tabular.
         """
 
-        def apply_exclusions(
-            df: pd.DataFrame,
-            exclude_idh1_mut: bool,
-            exclude_patient_ids: bool,
-            exclude_relapse: bool
-        ):
-            """Apply all exclusion rules to a dataframe."""
-
-            # --- Exclude IDH1-mut patients ---
-            if exclude_idh1_mut:
-                patients_set = set(PATIENTS_IDH1_MUT)
-                pattern = "|".join(patients_set)
-
-                col_matches = df.columns[df.columns.str.contains(pattern)]
-                idx_matches = df.index[df.index.str.contains(pattern)]
-
-                if not col_matches.empty:
-                    print(f"IDH1mut: excluding {len(col_matches)} columns.")
-                    df = df.drop(columns=col_matches)
-                if not idx_matches.empty:
-                    print(f"IDH1mut: excluding {len(idx_matches)} rows.")
-                    df = df.drop(index=idx_matches)
-
-            # --- Exclude specific patients ---
-            if exclude_patient_ids:
-                patients_set = set(PATIENT_EXCLUSION)
-                pattern = "|".join(patients_set)
-
-                col_matches = df.columns[df.columns.str.contains(pattern)]
-                idx_matches = df.index[df.index.str.contains(pattern)]
-
-                if not col_matches.empty:
-                    print(f"Patients: excluding {len(col_matches)} columns.")
-                    df = df.drop(columns=col_matches)
-                if not idx_matches.empty:
-                    print(f"Patients: excluding {len(idx_matches)} rows.")
-                    df = df.drop(index=idx_matches)
-
-            # --- Exclude relapse sample ---
-            if exclude_relapse:
-                patients_set = set(RELAPSE_EXCLUSION)
-                pattern = "|".join(patients_set)
-
-                col_matches = df.columns[df.columns.str.contains(pattern)]
-                idx_matches = df.index[df.index.str.contains(pattern)]
-
-                if not col_matches.empty:
-                    print(f"Relapse samples: excluding {len(col_matches)} columns.")
-                    df = df.drop(columns=col_matches)
-                if not idx_matches.empty:
-                    print(f"Relapse samples: excluding {len(idx_matches)} rows.")
-                    df = df.drop(index=idx_matches)
-
-            return df
 
         return {
             source_name: {
@@ -283,8 +304,13 @@ class DataCenter(NamedTuple):
     def load_singlecell(
         self, exclude_idh1_mut: bool = False,
         exclude_patient_ids: bool = False,
-        exclude_relapse: bool = False):
+        exclude_relapse: bool = False,
+        obs_only: bool = False):
         """Load single-cell data.
+
+        obs_only: return only the cell metadata (obs) as a DataFrame, read from the same zarr
+        store without the expression matrices (seconds instead of the full object), with the
+        same exclusions.
 
         Returns
         -------
@@ -303,7 +329,14 @@ class DataCenter(NamedTuple):
         if "sc_rna" in self.sources:
             file_path = self.sources["sc_rna"].files["Single-cell RNA"].name
             print("Loading the single-cell data.")
-            adata = SingleCellLoader(path_data=file_path).load_sc_zarr()
+            if obs_only:
+                import anndata as ad
+                import s3fs
+                import zarr
+                store = s3fs.S3Map(root=file_path, s3=s3fs.S3FileSystem(anon=False))
+                adata = ad.AnnData(obs=ad.io.read_elem(zarr.open_group(store, mode="r")["obs"]))
+            else:
+                adata = SingleCellLoader(path_data=file_path).load_sc_zarr()
             if exclude_idh1_mut:
                 print("Excluding IDH1 mutated samples if any present.")
                 adata = adata[~adata.obs["orig.ident"].isin(PATIENTS_IDH1_MUT)]
@@ -319,9 +352,39 @@ class DataCenter(NamedTuple):
                     PATIENT_EXCLUSION_MATCHES.extend(matches)
                 print(f"Excluding {len(PATIENT_EXCLUSION_MATCHES)} samples from predefined patients ids.")
                 adata = adata[~adata.obs["orig.ident"].isin(PATIENT_EXCLUSION_MATCHES)]
-            return adata
+            return adata.obs.copy() if obs_only else adata
         else:
             raise ValueError("Single-cell data is not available in this data center.")
+
+    def load_cell2location(self, list_sample_id: list[str], abundance: str = "means_cell_abundance_w_sf",
+                           file_name: str = "cohort_level_4.h5ad", n_jobs: int = 16) -> pd.DataFrame:
+        """Cell2location abundances of the given Visium sections (one h5ad per section under
+        the centre's "Cell2location" folder), indexed by (sample, barcode), one column
+        "<abundance prefix>_<cell type>" per cell type (meanscell_abundance_w_sf_<type> for the
+        default) plus "total_cells". Each file is read whole into memory: random access through
+        s3fs is very slow."""
+        import io
+
+        import anndata as ad
+        import s3fs
+        from scipy.sparse import issparse
+
+        prefix = abundance.replace("means_cell", "meanscell").replace("_w_sf", "_w_sf_")
+
+        def read(sample_id):
+            base = next(iter(self.sources["cell2location"].files.values())).name
+            path = f"{base}/{sample_id}/{file_name}"
+            fs = s3fs.S3FileSystem(anon=False)
+            a = ad.read_h5ad(io.BytesIO(fs.cat_file(path.replace("s3://", ""))))
+            m = a.obsm[abundance]
+            m = m.toarray() if issparse(m) else np.asarray(m)
+            df = pd.DataFrame(m, index=a.obs_names, columns=[prefix + n for n in a.uns["mod"]["factor_names"]]).fillna(0)
+            df.index = pd.MultiIndex.from_tuples([(sample_id, b) for b in df.index], names=["sample", "barcode"])
+            df["total_cells"] = df.sum(axis=1)
+            return df
+
+        dfs = Parallel(n_jobs=n_jobs, backend="loky")(delayed(read)(s) for s in list_sample_id)
+        return pd.concat(dfs).fillna(0.0) if dfs else pd.DataFrame()
 
 
     def __repr__(self):
@@ -348,7 +411,28 @@ class DataCenters:
         return self._apply("load_tabular", *args, **kwargs)
 
     def load_singlecell(self, *args, **kwargs):
-        return sc.concat(self._apply("load_singlecell", *args, **kwargs),label='center')
+        loaded = self._apply("load_singlecell", *args, **kwargs)
+        if kwargs.get("obs_only"):
+            return pd.concat({k: v for k, v in loaded.items()}, names=["center"]).reset_index(level=0)
+        return sc.concat(loaded, label='center')
+
+    def load_clinical(self, exclude_idh1_mut: bool = False, exclude_patient_ids: bool = False,
+                      exclude_relapse: bool = False, table: str = "processed gbm clinical") -> pd.DataFrame:
+        """The processed clinical tables of all centres concatenated (CHUV, UKER, Charité), with
+        a "center" column ("CHUV", "UKER", "Charite"), index = tumour block."""
+        names = {"mosaic_chuv": "CHUV", "mosaic_uker": "UKER", "mosaic_cr": "Charite"}
+        loaded = self.load_tabular(exclude_idh1_mut=exclude_idh1_mut, exclude_patient_ids=exclude_patient_ids,
+                                   exclude_relapse=exclude_relapse)
+        return pd.concat([loaded[k]["clinical"][table].assign(center=names.get(k, k)) for k in self.data_centers],
+                         sort=False)
+
+    def load_cell2location(self, list_sample_id: list[str], **kwargs) -> pd.DataFrame:
+        """DataCenter.load_cell2location for the sections of every centre (section IDs start
+        with the centre's prefix: CH, ER, CR)."""
+        prefixes = {"mosaic_chuv": "CH", "mosaic_uker": "ER", "mosaic_cr": "CR"}
+        parts = [dc.load_cell2location([s for s in list_sample_id if s.startswith(prefixes[name])], **kwargs)
+                 for name, dc in self.data_centers.items()]
+        return pd.concat([p for p in parts if len(p)])
 
     def load_spatial(self, *args, **kwargs):
         return self._apply("load_spatial", *args, **kwargs)
@@ -364,9 +448,24 @@ class DataCenters:
         radius: int = 1,
         deconvolution_slot_name: str = "deconv_cohort_level_4",
         load_images: bool = False,
-        load_deconvolution: bool = True
+        load_deconvolution: bool = True,
+        genes: Optional[list[str]] = None,
+        batch_size: int = 20,
     ):
-        """Load entire Visium cohort as anndata."""
+        """Load entire Visium cohort as anndata.
+
+        genes: keep only these genes (requires list_sample_id). The cohort is then read per centre in batches of
+        `batch_size` sections (the dense frames of the whole cohort exceed 100 GB), without
+        deconvolution or images, and returned with obs['sample']; the gene space is the same
+        (union within a centre, intersection across centres) and genes outside it are listed
+        in uns['absent_genes'].
+        """
+        if genes is not None:
+            if list_sample_id is None:
+                raise ValueError("genes= needs list_sample_id (the sections to load)")
+            return self._load_spatial_genes(genes, exclude_low_quality_visium, exclude_idh1_mut,
+                                            exclude_patient_ids, exclude_relapse, list_sample_id,
+                                            normalization, radius, batch_size)
 
         # Load all data
         loaded_objects = self.load_spatial(
@@ -425,4 +524,34 @@ class DataCenters:
         del counts_df, obs_df
         gc.collect()
 
+        return adata
+
+    def _load_spatial_genes(self, genes, exclude_low_quality_visium, exclude_idh1_mut, exclude_patient_ids,
+                            exclude_relapse, list_sample_id, normalization, radius, batch_size):
+        prefixes = {"mosaic_chuv": "CH", "mosaic_uker": "ER", "mosaic_cr": "CR"}
+        parts, index, centre_genes = [], [], []
+        for name, dc in self.data_centers.items():
+            secs = sorted(s for s in list_sample_id if s.startswith(prefixes[name]))
+            if not secs:
+                continue
+            union = set()
+            for i in range(0, len(secs), batch_size):
+                obj = dc.load_spatial(exclude_low_quality_visium=exclude_low_quality_visium,
+                                      exclude_idh1_mut=exclude_idh1_mut, exclude_patient_ids=exclude_patient_ids,
+                                      exclude_relapse=exclude_relapse, list_sample_id=secs[i:i + batch_size],
+                                      normalization=normalization, radius=radius, load_deconvolution=False)
+                df = obj.genecounts_df
+                union |= set(df.columns) - {"imagerow", "imagecol"}
+                parts.append(df.reindex(columns=list(genes), fill_value=0.0).astype(np.float32))
+                index += [f"{a}_{b}" for a, b in df.index]
+                del obj, df
+                gc.collect()
+            centre_genes.append(union)
+        var_names = set.intersection(*centre_genes)
+        X = pd.concat(parts, axis=0).fillna(0.0)
+        keep = [g for g in X.columns if g in var_names]
+        adata = sc.AnnData(obs=pd.DataFrame(index=pd.Index(index)), var=pd.DataFrame(index=keep),
+                           layers={normalization: X[keep].to_numpy()})
+        adata.obs["sample"] = adata.obs_names.str.rsplit("_", n=1).str[0]
+        adata.uns["absent_genes"] = sorted(set(X.columns) - set(keep))
         return adata

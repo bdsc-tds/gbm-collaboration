@@ -1,39 +1,66 @@
-"""Script to perform additional analyses on WES and single cell CNV clustering."""
+"""Supp Fig 3e-f: single-cell CNV clones and WES CNV clusters.
 
-# %% -- Import packages and prepare functions
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib as mpl
-import seaborn as sns
-import scanpy as sc
-import scipy
-import scipy.sparse as sp
-import infercnvpy as cnv
-from pathlib import Path
+Produces Supp Fig 3e-f (`WES_scCNV_integration_dot_facets`): (e) fraction of each
+single-cell inferCNV clone per WES CNV cluster, coloured by the log2 enrichment over the
+mean of the other WES clusters; (f) per-patient fraction of the most frequent clones in WES
+cluster 2 vs the others. Also the Mann-Whitney test of clone 4 (the chr19 clone), cluster 2
+vs the others ("a chr19-enriched clone disproportionately represented in cluster 2 tumors").
+
+Origin: analysis/infercnv/analyses_wes_sc_infercnv.py. Inputs (frozen): the WES cluster
+labels (config.CNV_CLUSTERS_CSV, 07_infercnv_wes_analyses.py) and the obs of the
+malignant-cell inferCNV object (pipelines/infercnv_sc_analyses.py).
+
+Known issue, kept as ran: the malignant-cell object has one sample without a WES profile
+(ER_G_743a, 42 cells, wes_cluster NaN). It is a column of none of the dot-plot rows, but
+`wes_cluster != 2` counts it in "WES clusters 0, 1, 3" in panel f and in the clone 4 test
+(the printed n of the other group includes it).
+
+Changes:
+- Only the obs of infercnv_adata_malignant_only.h5ad is read (the source read the whole
+  16 GB object).
+- The WES label is added with a join on orig.ident, which keeps the cell index (the source's
+  `obs.merge` replaced it with 0..n-1; same values).
+- The figure is saved with `output.save` (and to the panels folder) instead of
+  results/WES/infercnv/.
+- Dropped (not in the paper): the preview dot plot (redrawn as panel e), the unused
+  `df_zoom_frac` table and `add_group_medians` helper, the clone 4 cell-state heatmap, and the
+  cluster-2-vs-others cell-type composition test (its conclusion: "don't see significant
+  differences").
+"""
+
+# %% -- Import packages
 import anndata as ad
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import seaborn as sns
 from scipy.stats import mannwhitneyu
-from statsmodels.stats.multitest import multipletests
+
+from gbmcollaboration.paper import config, output
+from gbmcollaboration.paper.wes import read_h5ad_obs
+
+OUT = output.setup("08_analyses_wes_sc_infercnv")
+RESULTS_DIR = config.EFS / "results"
+SC_ADATA_PATH = RESULTS_DIR / "scRNAseq/infercnv/infercnv_adata_malignant_only.h5ad"
 
 # %% -- Load cluster label WES
-RESULTS_DIR = Path("/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/results")
-
-df_wes_leiden_cluster = pd.read_csv(
-    RESULTS_DIR / "WES/infercnv/leiden_cluster_wes_baseline_samples.csv"
-)
+df_wes_leiden_cluster = pd.read_csv(config.CNV_CLUSTERS_CSV)
 df_wes_leiden_cluster.rename(columns={"cnv_leiden": "wes_cluster"}, inplace=True)
 
-# merge with the adata
-SC_ADATA_PATH = RESULTS_DIR / "scRNAseq/infercnv/infercnv_adata_malignant_only.h5ad"
-adata_tumor = ad.read_h5ad(SC_ADATA_PATH)
-adata_tumor.obs = adata_tumor.obs.merge(
-    df_wes_leiden_cluster[["orig.ident", "wes_cluster"]],
+# merge with the adata (obs only)
+adata_tumor = ad.AnnData(obs=read_h5ad_obs(SC_ADATA_PATH, ["orig.ident", "cnv_leiden"]))
+adata_tumor.obs = adata_tumor.obs.join(
+    df_wes_leiden_cluster.set_index("orig.ident")[["wes_cluster"]],
     on="orig.ident",
     how="left"
 )
 
 # check
-adata_tumor.obs["wes_cluster"].value_counts()
+print(f"{adata_tumor.n_obs:,} malignant cells from {adata_tumor.obs['orig.ident'].nunique()} samples")
+print(adata_tumor.obs["wes_cluster"].value_counts(dropna=False))
+no_wes = adata_tumor.obs.loc[adata_tumor.obs["wes_cluster"].isna(), "orig.ident"].value_counts()
+print("Samples without a WES cluster (counted in 'WES clusters 0, 1, 3' below):", no_wes.to_dict())
 
 # -----------------------------
 # 1) Dotplot: CNV clone composition across WES clusters
@@ -65,34 +92,6 @@ df_dot = (
     .rename(columns={"level_0": "wes_cluster", "level_1": "cnv_leiden"})
 )
 
-# Dot plot
-fig, ax = plt.subplots(figsize=(10, 3.5), dpi=300)
-sns.scatterplot(
-    data=df_dot,
-    x="cnv_leiden",
-    y="wes_cluster",
-    size="fraction",
-    hue="log2_enrichment",
-    palette="RdBu_r",
-    sizes=(20, 300),
-    edgecolor="black",
-    linewidth=0.3,
-    ax=ax
-)
-ax.set_xlabel("Single-cell-derived CNV clones")
-ax.set_ylabel("WES-derived CNV cluster")
-
-# Clean legend: keep seaborn's combined legend but move it outside
-ax.legend(
-    title="",
-    bbox_to_anchor=(1.02, 1),
-    loc="upper left",
-    frameon=False
-)
-
-plt.tight_layout()
-plt.show()
-
 # -----------------------------
 # 2) Patient-level test: is clone 4 enriched in WES cluster 2?
 # -----------------------------
@@ -106,7 +105,7 @@ clone4_mask = (cnv_series == 4) if cnv_is_int else (cnv_series.astype(str) == "4
 # Fraction of clone 4 per patient (patient is the unit)
 frac_clone4 = (
     adata_tumor.obs.assign(is_clone4=clone4_mask)
-    .groupby("orig.ident")["is_clone4"]
+    .groupby("orig.ident", observed=True)["is_clone4"]
     .mean()
     .rename("frac_clone4")
 )
@@ -136,47 +135,8 @@ print(f"Mann–Whitney U = {u_stat:.1f}, p = {pval:.3e}")
 print(f"Median difference (cluster2 - others) = {median_diff:.3f}")
 
 # -----------------------------
-# 3) Final figure with the stripplot
+# 3) Final figure with the stripplot (Supp Fig 3e-f)
 # -----------------------------
-# %%
-# ---------- choisir une représentation robuste ----------
-adata_tumor.obs["cnv_leiden_plot"] = adata_tumor.obs["cnv_leiden"].astype(str)
-clones_zoom = ["5", "7", "1", "2", "4"]
-
-# ---------- construire df_zoom_frac (patient-level fractions) ----------
-df_zoom = (
-    adata_tumor.obs
-    .loc[adata_tumor.obs["cnv_leiden_plot"].isin(clones_zoom)]
-    .assign(
-        WES_group=lambda x: np.where(x["wes_cluster"] == 2, "WES cluster 2", "Other")
-    )
-)
-
-# Si df_zoom est vide, on stoppe avec un message explicite
-if df_zoom.shape[0] == 0:
-    raise ValueError("df_zoom est vide. Vérifie le type de cnv_leiden et clones_zoom.")
-
-counts = (
-    df_zoom
-    .groupby(["orig.ident", "WES_group", "cnv_leiden_plot"], observed=True)
-    .size()
-    .rename("n_cells")
-    .reset_index()
-)
-
-totals = (
-    counts
-    .groupby("orig.ident", observed=True)["n_cells"]
-    .sum()
-    .rename("total_cells")
-    .reset_index()
-)
-
-df_zoom_frac = (
-    counts.merge(totals, on="orig.ident")
-    .assign(fraction=lambda x: x["n_cells"] / x["total_cells"])
-)
-
 # %%
 # ============================================================
 # Figure: (A) Dotplot WES clusters x single-cell CNV clones
@@ -225,22 +185,6 @@ df_long = (
 df_long_sel = df_long[df_long["cnv_leiden"].isin(clones_keep)].copy()
 df_long_sel["cnv_leiden"] = pd.Categorical(df_long_sel["cnv_leiden"],
                                            categories=clones_keep, ordered=True)
-
-# -----------------------------
-# Helper: add dashed medians in FacetGrid panels
-# -----------------------------
-def add_group_medians(data, **kws):
-    ax = plt.gca()
-    for grp, sub in data.groupby("WES_group"):
-        med = sub["fraction"].median()
-        ax.axvline(
-            med,
-            color=palette_groups.get(grp, "black"),
-            linestyle="--",
-            linewidth=1.2,
-            alpha=0.9,
-            zorder=6
-        )
 
 # ============================================================
 # Build the full figure canvas
@@ -398,266 +342,10 @@ axes[0].text(
 # Global margins
 fig.subplots_adjust(left=0.06, right=0.80, top=0.90, bottom=0.12, wspace=0.25)
 
+output.save(OUT, "WES_scCNV_integration_dot_facets", fig, df_dot, panel="Supp Fig 3e-f")
 plt.show()
-
-# Optional save:
-fig.savefig(RESULTS_DIR / "WES/infercnv/WES_scCNV_integration_dot_facets.pdf", bbox_inches="tight")
-
-# %% -- Heatmap showing the log2FC of malignant transcriptional states
-# between cluster 4 and the other clusters
-
-clone_of_interest = "4"
-
-# distributions des états dans clone 4 et dans le reste
-s4 = adata_tumor.obs.loc[adata_tumor.obs["cnv_leiden"] == clone_of_interest, "celltype_level4_scanvi"]
-sR = adata_tumor.obs.loc[adata_tumor.obs["cnv_leiden"] != clone_of_interest, "celltype_level4_scanvi"]
-
-p4 = (s4.value_counts(normalize=True)).rename("p_clone4")
-pR = (sR.value_counts(normalize=True)).rename("p_rest")
-
-df = pd.concat([p4, pR], axis=1).fillna(0)
-
-# pseudo-count pour éviter division par 0
-eps = 1e-4
-df["log2FC_clone4_vs_rest"] = np.log2((df["p_clone4"] + eps) / (df["p_rest"] + eps))
-
-# tri par déplétion (valeurs les plus négatives)
-df_sorted = df.sort_values("log2FC_clone4_vs_rest")
-df_sorted.head(10)
-
-# garder tous les états, mais ordonner par log2FC
-heat = df_sorted[["log2FC_clone4_vs_rest"]].T
-
-plt.figure(figsize=(10, 1.2), dpi=300)
-sns.heatmap(
-    heat,
-    cmap="coolwarm",
-    center=0,
-    cbar_kws={"label": "log2FC (clone 4 vs rest)"}
-)
-plt.yticks([0.5], ["Clone 4 vs others"], rotation=0)
-plt.xticks(rotation=45, ha="right")
-plt.tight_layout()
-plt.show()
+plt.close(fig)
+print(log2_enrich.round(2).to_string())
 
 # %%
-# ============================================================
-# Differential cell-type composition: WES cluster 2 vs others
-# Patient-level stats + publication-ready figure
-# ============================================================
-
-RESULTS_DIR = Path("/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/results/scRNAseq/infercnv")
-SC_ADATA_PATH = RESULTS_DIR / "infercnv_adata.h5ad"
-
-WES_CLUSTER_PATH = Path(
-    "/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/results/WES/infercnv/leiden_cluster_wes_baseline_samples.csv"
-)
-
-# -----------------------------
-# Load + basic filtering
-# -----------------------------
-adata = ad.read_h5ad(SC_ADATA_PATH)
-
-celltype_col = "celltype_level4_scanvi"  # <-- use level4 since you plot level4
-drop_level1 = ["Doublet", "Doublet_TNK_nos"]
-drop_level4 = ["Other_LowCounts"]
-
-# If you want to keep your original "celltype_level1_curated" filtering too:
-if "celltype_level1_curated" in adata.obs.columns:
-    adata = adata[~adata.obs["celltype_level1_curated"].isin(drop_level1)].copy()
-
-if celltype_col in adata.obs.columns:
-    adata = adata[~adata.obs[celltype_col].isin(drop_level4)].copy()
-else:
-    raise ValueError(f"{celltype_col} not found in adata.obs")
-
-# -----------------------------
-# Add WES clusters (patient-level label)
-# -----------------------------
-df_wes = pd.read_csv(WES_CLUSTER_PATH).rename(columns={"cnv_leiden": "wes_cluster"})
-df_wes = df_wes[["orig.ident", "wes_cluster"]].drop_duplicates()
-
-# map (safer than merge into .obs)
-adata.obs = adata.obs.join(df_wes.set_index("orig.ident"), on="orig.ident")
-
-# keep only patients with wes_cluster defined
-adata = adata[adata.obs["wes_cluster"].notna()].copy()
-adata.obs["wes_cluster"] = adata.obs["wes_cluster"].astype(int)
-
-# define group of interest
-cluster_of_interest = 2
-adata.obs["WES_group"] = np.where(
-    adata.obs["wes_cluster"].eq(cluster_of_interest),
-    "WES cluster 2",
-    "Other"
-)
-
-# -----------------------------
-# Patient-level fractions per cell type
-# (THIS avoids pseudo-replication)
-# -----------------------------
-# %% counts per patient x celltype
-df_counts = (
-    adata.obs
-    .groupby(["orig.ident", "WES_group", celltype_col], observed=True)
-    .size()
-    .rename("n_cells")
-    .reset_index()
-)
-
-# total malignant/tumor cells per patient (within the filtered adata)
-df_counts["total_cells_patient"] = df_counts.groupby(["orig.ident"], observed=True)["n_cells"].transform("sum")
-df_counts["fraction"] = df_counts["n_cells"] / df_counts["total_cells_patient"]
-
-# to ensure celltypes absent in a patient appear as 0, build a full grid
-patients = (
-    adata.obs[["orig.ident", "WES_group"]]
-    .drop_duplicates()
-    .set_index("orig.ident")
-)
-
-celltypes = pd.Index(sorted(adata.obs[celltype_col].dropna().unique()), name=celltype_col)
-
-full_index = pd.MultiIndex.from_product(
-    [patients.index, ["WES cluster 2", "Other"], celltypes],
-    names=["orig.ident", "WES_group", celltype_col]
-)
-
-df_full = (
-    df_counts
-    .set_index(["orig.ident", "WES_group", celltype_col])[["fraction", "n_cells"]]
-    .reindex(full_index)
-    .fillna({"fraction": 0.0, "n_cells": 0})
-    .reset_index()
-)
-
-# However the product above duplicates patients in the wrong group. Fix by merging true group:
-df_full = df_full.drop(columns=["WES_group"]).merge(
-    patients.reset_index(),
-    on="orig.ident",
-    how="left"
-)
-
-# Recompute fraction is already correct (0 for missing celltypes)
-# Also keep per-patient total cells for filtering if needed:
-df_full = df_full.merge(
-    df_counts.groupby("orig.ident", observed=True)["total_cells_patient"].first().rename("total_cells_patient"),
-    on="orig.ident",
-    how="left"
-)
-
-# -----------------------------
-# Filter cell types (avoid very rare types)
-# -----------------------------
-min_cells_overall = 50
-celltype_totals = adata.obs[celltype_col].value_counts()
-keep_celltypes = celltype_totals[celltype_totals >= min_cells_overall].index
-
-df_full = df_full[df_full[celltype_col].isin(keep_celltypes)].copy()
-
-# optional: keep only celltypes seen in >= N patients in at least one group
-min_patients = 5
-pt_counts = (
-    df_full.assign(present=df_full["fraction"] > 0)
-    .groupby(["WES_group", celltype_col], observed=True)["present"]
-    .sum()
-    .unstack("WES_group")
-    .fillna(0)
-)
-keep2 = pt_counts[(pt_counts["WES cluster 2"] >= min_patients) | (pt_counts["Other"] >= min_patients)].index
-df_full = df_full[df_full[celltype_col].isin(keep2)].copy()
-
-# -----------------------------
-# Stats per cell type: Mann–Whitney + FDR
-# Effect size = median difference + log2FC of medians (with epsilon)
-# -----------------------------
-eps = 1e-6
-rows = []
-
-for ct in sorted(df_full[celltype_col].unique()):
-    sub = df_full[df_full[celltype_col] == ct]
-    g2 = sub.loc[sub["WES_group"] == "WES cluster 2", "fraction"].values
-    go = sub.loc[sub["WES_group"] == "Other", "fraction"].values
-
-    # require some minimal sample size per group
-    if (len(g2) < 5) or (len(go) < 5):
-        continue
-
-    stat, p = mannwhitneyu(g2, go, alternative="two-sided")
-
-    med2 = np.median(g2)
-    medO = np.median(go)
-
-    rows.append({
-        "celltype": ct,
-        "median_cluster2": med2,
-        "median_other": medO,
-        "median_diff": med2 - medO,
-        "log2FC_median": np.log2((med2 + eps) / (medO + eps)),
-        "pval": p
-    })
-
-df_stats = pd.DataFrame(rows)
-df_stats["padj"] = multipletests(df_stats["pval"], method="fdr_bh")[1]
-
-# sort by effect size (log2FC of medians)
-df_stats = df_stats.sort_values("log2FC_median")
-
-# -----------------------------
-# Figure: barplot of log2FC + FDR marks
-# -----------------------------
-plt.figure(figsize=(16, 3.2), dpi=300)
-
-ax = sns.barplot(
-    data=df_stats,
-    x="celltype",
-    y="log2FC_median",
-    palette=sns.color_palette("vlag", as_cmap=False),
-    edgecolor="none"
-)
-
-ax.axhline(0, color="black", linewidth=0.8)
-ax.set_ylabel("log2 fold-change of median fraction\n(WES cluster 2 vs others)")
-ax.set_xlabel("")
-ax.set_title("Differential cell-type composition in WES CNV cluster 2", pad=10)
-
-# annotate significance (FDR)
-for i, row in enumerate(df_stats.itertuples(index=False)):
-    if row.padj < 0.05:
-        y = row.log2FC_median
-        ax.text(
-            i,
-            y + (0.03 if y >= 0 else -0.03),
-            "*" if row.padj >= 1e-3 else "**" if row.padj >= 1e-6 else "***",
-            ha="center",
-            va="bottom" if y >= 0 else "top",
-            fontsize=9
-        )
-
-plt.xticks(rotation=45, ha="right")
-sns.despine(ax=ax)
-plt.tight_layout()
-plt.show()
-
-# -----------------------------
-# Optional: if still want the 1-row heatmap style
-# now with the patient-level log2FC (median) and stats table
-# -----------------------------
-# heat = df_stats.set_index("celltype")[["log2FC_median"]].T
-# fig, ax = plt.subplots(figsize=(16, 2.6), dpi=300)
-# sns.heatmap(heat, ax=ax, cmap="vlag", center=0, cbar_kws={"label": "log2FC (median fraction)"},
-#             linewidths=0.3, linecolor="white")
-# ax.set_yticks([0.5])
-# ax.set_yticklabels(["WES cluster 2 vs others"], rotation=0)
-# ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha="right")
-# plt.tight_layout()
-# plt.show()
-
-# %%
-df_stats.head(3)
-
-# %%
-df_stats.tail(3)
-
-## don't see significant differences in the cell type composition
-# between cluster 2 and the others.
+print(output.versions(["numpy", "pandas", "scipy", "seaborn", "matplotlib"]).to_string(index=False))

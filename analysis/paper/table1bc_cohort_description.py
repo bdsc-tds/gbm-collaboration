@@ -1,4 +1,9 @@
-"""Script for describing the cohort data."""
+"""Table 1b-1c: demographic and clinical description of the cohort, per centre and overall.
+
+Origin: analysis/cohort_desc/cohort_description.py.
+Output: demographic_table.csv (273 baseline patients: UKER 135, CHUV 65, Charite 73),
+identical to the published descriptive_stats/processed/demographic_table_2026-06-10_Glimmer.csv.
+"""
 
 # %% load packages, function and data
 import pandas as pd
@@ -7,10 +12,10 @@ import numpy as np
 # load clinical data
 from gbmcollaboration import CHUVDataCenter, UKERDataCenter, CRDataCenter, AllDataCenters
 from gbmcollaboration.data.utils.descriptive_stats import create_demographic_table
+from gbmcollaboration.paper import output
 
 # constants
-PROJECT = "Glimmer"
-DATE = "2026-06-10"  # e.g., "2025-08-18" if you want it in the filename
+OUT = output.setup("table1bc_cohort_description")
 BASE_DATA_DIR = "/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/descriptive_stats"
 ADD_OVERALL_ROW = True  # set False if you don't want an overall summary
 
@@ -103,8 +108,7 @@ combined = combined.sort_values(["Variable", "Center"], kind="stable").reset_ind
 combined = combined[~combined["Variable"].isin(excluded_features)]
 
 # saving
-data_path = f"{BASE_DATA_DIR}/processed/demographic_table_{DATE}_{PROJECT}.csv"
-combined.to_csv(data_path, index=False)
-print("Saved:", data_path)
+output.save_table(OUT, "demographic_table", combined, panel="Table 1b-c", index=False)
+print("Saved:", OUT / "demographic_table.csv")
 
 # %%

@@ -1,6 +1,7 @@
 """Top level package for the :mod:`gbmcollaboration`."""
 
 from gbmcollaboration.data import CHUVDataCenter, UKERDataCenter, CRDataCenter, AllDataCenters
+from gbmcollaboration.data.io.data_center import apply_exclusions
 from gbmcollaboration.definitions import (
     BAD_QUALITY_CHUV_VISIUM,
     BAD_QUALITY_UKER_VISIUM,
