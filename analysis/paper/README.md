@@ -27,7 +27,9 @@ Upstream steps sit next to the figure they feed, with `_0_` in the name:
 `fig3a_0_mutation_calling.py` (WES mutation matrix), `fig3b_0_infercnv_sc.py` (snRNA
 inferCNV), `fig3b_0_cnv_wes_matrix.py` (WES CNV matrix), `fig5_0_TIL_zones.ipynb` (TIL zones),
 `fig6a_0_NicheNet_runs.ipynb` (zone DE and NicheNet). The ECM, cell-type and WES CNV clusterings
-are cells of their figure files, off by default (`RUN_CLUSTERING = False` reads the frozen labels).
+are cells of their figure files, off by default (`RUN_CLUSTERING = False` reads the frozen labels);
+`ecm_neighborhood_annotations_v4.csv` (Supp Table 4a) is written by the clustering cells of
+`fig4cdg_suppfig4f_ECM_niches_v4.ipynb`.
 
 ## Data loading and shared code
 
@@ -64,7 +66,7 @@ aggregate results (RMST, n, CI, p), never per-patient times.
 |---|---|---|
 | `table1a_sample_number_per_modality.ipynb` | Table 1a | analysis/cohort_desc/ |
 | `table1bc_cohort_description.py` | Table 1b–1c | analysis/cohort_desc/cohort_description.py |
-| `supptables_1bc_pathology_clinical_variables.ipynb` | Supp Tables 1b–1c | new |
+| `supptables_1bc_pathology_clinical_variables.ipynb` | Supp Tables 1b–1c (pathology labels, clinical variables) | annotation loading of colocalization_plots; a commented line of scratch/survival/survival_patient_features.ipynb |
 | `fig1b_suppfig1_GBM_MS_Summary.ipynb` | Cohort numbers, Fig 1b, Supp Fig 1a–c | analysis/survival/ (Spencer) |
 | `fig2a_suppfig2_figure2.py` | Fig 2a, Supp Fig 2 UMAPs and composition bars | figures/figure2.py |
 | `fig2bc_suppfig2_marker_dotplots.ipynb` | Fig 2b–c, Supp Fig 2 dot plots | analysis/annotation/ |
@@ -83,22 +85,23 @@ aggregate results (RMST, n, CI, p), never per-patient times.
 | `fig4f_pathologist_annotation_analyses.py` | Fig 4f | analysis/hne/ |
 | `fig4h_suppfig4cd_neighborhood_survival.ipynb` | Fig 4h and †, Supp Fig 4c | Updated_figures (Spencer) |
 | `suppfig4d_CT0_CT3_composition.ipynb` | Supp Fig 4d | reconstruction (no code found) |
-| `fig5_0_TIL_zones.ipynb` | TIL zones (upstream), Supp Table 4a TIL-zone annotations | TIL_Niche_Comparisons_v2_clean (Spencer) |
+| `fig5_0_TIL_zones.ipynb` | TIL zones (upstream) = Supp Table 4a til_zone_annotations | TIL_Niche_Comparisons_v2_clean cells 20–24 (Spencer) |
 | `fig5a_TIL_zones_map.ipynb` | Fig 5a | TIL_Niche_Comparisons_v2_clean facet cell (Spencer) |
 | `fig5b_TIL_survival.ipynb` | Fig 5b, TIL vs age, sensitivity table | TIL_Niche_Comparisons RMST cell (Spencer) |
 | `fig5c_suppfig5ab_TIL_supplement.ipynb` | TIL groups, Supp Fig 5a–b, Fig 5c | TIL_supplement (Spencer) |
-| `fig5de_suppfig5cde_ECM_supplement.ipynb` | Fig 5d–e, Supp Fig 5c–e, Supp Table 4a gene use | ECM_supplement (Spencer) |
+| `fig5de_suppfig5cde_ECM_supplement.ipynb` | Fig 5d–e, Supp Fig 5c–e, gene use of the Supp Table 3a genes | ECM_supplement (Spencer) |
 | `fig5fg_TIL_zone_GSEA.ipynb` | Fig 5f–g | TIL_Niche_Comparisons_v2_clean (Spencer) |
-| `supptables_4a_ecm_til_zone_tables.ipynb` | Supp Table 4a (ECM × TIL zone tables) | new |
-| `supptables_4a_til_zone_celltype_stats.ipynb` | Supp Table 4a (TIL-zone cell-type tables) | new |
-| `supptables_4b_gsea_TIL_zones.ipynb` | Supp Table 4b (zone GSEA run) | TIL_Niche_Comparisons_v2_clean (Spencer) |
+| `supptables_4a_ecm_til_zone_tables.ipynb` | Supp Table 4a ecm_neighborhood_TIL_group_by_zone_pseudobulk, ecm_neighborhood_niche_matrisome_summary | TIL_Niche_Comparisons_v2_clean cells 70–72 (Spencer); matrisome summary rebuilt from its columns |
+| `supptables_4a_til_zone_celltype_stats.ipynb` | Supp Table 4a til_zone_celltype_stats_long, til_zone_celltype_summary | reconstruction (no code found) |
+| `supptables_4b_gsea_TIL_zones.ipynb` | Supp Table 4b (zone GSEA run behind Fig 5f–g) | TIL_Niche_Comparisons_v2_clean cells 60–61 (Spencer) |
 | `fig6a_0_NicheNet_runs.ipynb` | zone DE, NicheNet runs, selected axes (upstream) | NicheNet_v3 (Spencer) |
 | `fig6a_suppfig6_NicheNet_circos.ipynb` | Fig 6a, Supp Fig 6a–b | NicheNet_v3 circos cells (Spencer) |
 | `fig6bg_xenium_niches.ipynb` | Fig 6b, 6g | analysis/xenium/niches.ipynb |
 
 Not produced by code: Fig 1a, 1c (schematics), Fig 6c–f (microscopy), and the supplementary
 tables that are gene lists or vendor panels (2a marker workbook, 3a matrisome genes, 5 Xenium
-panels).
+panels). Every other supplementary table regenerates and matches the published file (Supp
+Table 4b: one of seven comparisons differs by < 1e-3 in NES / FDR, from ties in the ranking).
 
 ## Review answers (D1–D18, Spencer, November 2026)
 
@@ -156,5 +159,15 @@ Reproduced, but text or legend should change:
 - **Table 1a**: published WES / all-modality counts came from two bugs (clinical table read as
   WES; backup Visium sections unmatched). Corrected: WES 263 (250 with follow-up),
   Visium + snRNA + WES 213 (204).
+- **Supp Table 4a, ECM tables (decision needed)**: the published
+  ecm_neighborhood_TIL_group_by_zone_pseudobulk and ecm_neighborhood_niche_matrisome_summary were
+  built on an earlier ECM clustering (`ecm_neighborhood_annotations.csv`, not the v4
+  neighborhoods of the paper; 13% of spots share a label) and include section CR_G_335a_vis
+  (excluded since 12 Dec 2025; 58 / 171 groups). `supptables_4a_ecm_til_zone_tables.ipynb`
+  reproduces them as published and also writes the paper-cohort version (v4 labels, 228
+  sections, `*_paper_cohort_v4.csv`), which differs markedly (max |Δ log2FC| 3.1). Replace or
+  footnote.
+- **Supp Table 3a**: the 117-gene panel written by `fig4cdg…` differs from the published list in
+  ordering (COL16A1) and one gene (TNR).
 - **Supp Table numbering**: the text's numbering differs from the files (e.g. the Fig 5f GSEA
   table is cited as 4b).

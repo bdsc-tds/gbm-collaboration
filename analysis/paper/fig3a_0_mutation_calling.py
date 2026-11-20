@@ -38,7 +38,7 @@ from gbmcollaboration.utils.wes_io_utils import glob_s3_bucket
 from gbmcollaboration.paper import config, output
 
 # %%
-RESULTS_DIR = output.setup("pipelines_mutations")
+RESULTS_DIR = output.setup("fig3a_0_mutation_calling")
 GENE_LIST_DIR = config.REPO_ROOT / "gbmcollaboration/metadata"
 
 # %%
