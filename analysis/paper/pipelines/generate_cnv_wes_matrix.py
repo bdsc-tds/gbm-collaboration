@@ -3,25 +3,25 @@
 Output: for each WES sample and each genomic bin of the single-cell inferCNV
 (genomic_windows.csv, 200-gene windows), the mean CNVkit log2 copy ratio of the target bins
 (.cnr, antitargets removed) lying entirely inside the bin. Frozen file: 272 samples x 1,344
-bins (config.CNV_MATRIX_CSV), read by 07_infercnv_wes_analyses.py and 10_wes_profile_os_rmst.
+bins, read by fig3b_suppfig3ac_infercnv_wes_analyses.py and the data release.
+
+Origin: analysis/infercnv/generate_cnv_wes_matrix.py, Part 1 (Part 2, exploration of the
+matrix, is not part of the pipeline).
 
 Inputs: the CNVkit .cnr files of the three centres on S3 (<prefix>/WES/CNVs_CNVkit/, needs
-AWS credentials), the bins written by infercnv_sc_analyses.py (config.GENOMIC_WINDOWS_CSV).
+AWS credentials), the bins written by infercnv_sc_analyses.py
+(results/scRNAseq/infercnv/genomic_windows.csv).
 
 Runtime: about 73 minutes (loop over the 1,346 bins for each of ~300 files), < 10 GB RAM.
 Not re-run for the paper.
 
-Known issues (not fixed; the frozen file is what the figures use):
-- The code drops chrX and chrY (`bins_to_exclude`; the comment says chr21 and chrY have a
-  single bin and chr21 is kept). The frozen matrix does the opposite: it lacks chr21 (bin
-  1274) and chrY (bin 1345) and keeps chrX (bins 1296-1344), so it was written by an earlier
-  version of this line. chrX is dropped again before clustering and plotting (07), so chr21
-  is absent from the clustering and from Fig 3b.
+Comparison with the frozen matrix:
+- The code drops chrX and chrY (`bins_to_exclude`). The frozen matrix lacks chr21 (bin 1274)
+  and chrY (bin 1345) and keeps chrX (bins 1296-1344), so it was written by an earlier
+  version of this line. chrX is dropped again before clustering and plotting (Fig 3b), so
+  chr21 is absent from the clustering and from Fig 3b.
 - Samples are excluded by substring match of PATIENT_EXCLUSION, RELAPSE_EXCLUSION and
   PATIENTS_IDH1_MUT; `_S000021` is stripped from the IDs.
-
-Changes: the matrix is written to the output folder (`output.setup`), not over the frozen
-file; dropped Part 2 (exploration: PCA, outlier QC, single-sample plots).
 """
 
 # --------------------PART 1--------------------------------
@@ -30,17 +30,19 @@ import pandas as pd
 import numpy as np
 import os
 from typing import List
+from pathlib import Path
 import subprocess
 from gbmcollaboration.definitions import (
     PATIENT_EXCLUSION,
     RELAPSE_EXCLUSION,
     PATIENTS_IDH1_MUT,
 )
-from gbmcollaboration.paper import config, output
+from gbmcollaboration.paper import output
 
 # Constants
 OUT = output.setup("pipelines_generate_cnv_wes_matrix")
-PATH_BINS_SINGLECELL = config.GENOMIC_WINDOWS_CSV
+RESULTS_DIR = Path("/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/results/")
+PATH_BINS_SINGLECELL = RESULTS_DIR / "scRNAseq/infercnv/genomic_windows.csv"
 BUCKET_NAME="pa-bi4jtrdsa151p4d3m-jepjxh9qrwgxphe8hd3r6exicahnoeuw1b-s3alias"
 PREFIX_UKER="3205eea0-5076-4294-8876-08cf98474603"
 PREFIX_CHUV="a3857b67-3f28-40e6-b1f9-4842a2ad49af"

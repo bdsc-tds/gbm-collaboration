@@ -6,62 +6,94 @@ Produces:
   4.56, p = 0.001).
 - Fig 3d: mean proportion of the 15 level-4 cell types with the lowest FDR per CNV cluster,
   stars from a Kruskal-Wallis test across the four clusters, BH FDR over all level-4 types
-  (* < 0.05, ** < 0.01, *** < 0.001). The source saved it as figures/figure3/fig3e.pdf; its
+  (* < 0.05, ** < 0.01, *** < 0.001). The original script saved it as figures/figure3/fig3e.pdf; its
   table (fig3e.csv) is the published Fig 3d's, and is compared below. The figure legend's
   "T-test of significant association vs total cohort" is not what ran.
 
 Origin: analysis/multimodal_correlation/correlation_cnv_wes_ecm.py, Part 1 (ECM) and Part 2
-(cellular landscape). Inputs (frozen): the WES cluster labels (config.CNV_CLUSTERS_CSV), the
-ECM neighborhood labels per spot (config.ECM_ANNOTATIONS_CSV, 11_ECM_niches_v4) and the
-single-cell obs (level-4 scANVI labels).
+(cellular landscape); only the outputs of the paper are kept. Inputs (frozen): the WES
+cluster labels (results/WES/infercnv/leiden_cluster_wes_baseline_samples.csv), the ECM
+neighborhood labels per spot (Analysis_Repo/Notebooks/ecm_neighborhood_annotations_v4.csv)
+and the single-cell obs (level-4 scANVI labels).
 
-Known differences from the Methods, printed:
-- The code ran 999 permutations (Methods: 9,999); the p values depend on the permutations,
-  the pseudo-F statistics do not.
+Comparison with the published values (printed):
+- The Fig 3d table is identical to the published figures/figure3/fig3e.csv.
+- The code runs 999 permutations (Methods: 9,999); the p values depend on the permutations,
+  the pseudo-F statistics do not. The PERMANOVA is computed here with numpy/scipy (scikit-bio
+  is not in the environment), same pseudo-F, p from a seeded permutation.
 - Cell-type PERMANOVA: the Methods say level-4 proportions; the published pseudo-F 4.56 is
-  the one of the level-3 curated proportions (27 types). This file's level-4 table (the one
-  of Fig 3d) gives 4.02 (p = 0.001 for both). Both are computed below. (The AC/OPC ratio
-  cell of the source, which needs the level-3 column "Malignant_AC-like", shows that the
-  script was also run with level 3.)
-
-Changes:
-- PERMANOVA: scikit-bio is not in the environment; `wes.permanova` computes the same
-  Bray-Curtis PERMANOVA (pseudo-F identical, p values from a seeded permutation).
-- Visium sample -> block with `ids.block_of` (the source's `str[:9]`; identical here).
-- Single-cell data: only the obs of each centre's zarr is read, with the exclusions of
-  `AllDataCenters.load_singlecell(exclude_idh1_mut, exclude_patient_ids, exclude_relapse)`
-  (the source loaded the whole expression cohort). Curated labels from
-  `annotation.celltype_key()` (repo key v3b; the EFS v3 key the source read differs only for
-  Doublet_TNK_nos, removed at level 1 either way).
-- Outputs to the output folder and the panels folder instead of figures/figure3/ and
-  results/RNAseq/wes_cluster_rna/.
-- Dropped (not in the paper): the ECM Kruskal-Wallis and mean-proportion prints, the stacked
-  barplot (stacked_barplot_lvl4_top15), the AC/OPC ratio test (KeyError on the level-4
-  table, which has no "Malignant_AC-like" column), unused parameters (REF_CELL_TYPES, count thresholds)
-  and Part 3 (pseudobulk DESeq2 of cluster 2 vs others vs bulk RNA, its supplementary
-  dot plot).
+  the one of the level-3 curated proportions (27 types). The level-4 table (the one of
+  Fig 3d) gives 4.02 (p = 0.001 for both). Both are computed below.
 """
 
 # %% -- Load packages
+from pathlib import Path
+
 import anndata as ad
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import statsmodels.stats.multitest as smm
+from scipy.spatial.distance import pdist, squareform
 from scipy.stats import kruskal
 
-from gbmcollaboration.paper import annotation, config, output, snrna
-from gbmcollaboration.paper.ids import block_of
-from gbmcollaboration.paper.wes import permanova
+from gbmcollaboration import AllDataCenters
+from gbmcollaboration.paper import output
 
-RESULTS_DIR = output.setup("09_correlation_cnv_wes_ecm")
+RESULTS_DIR = output.setup("fig3d_correlation_cnv_wes_ecm")
 
 PERMUTATIONS = 999
-PUBLISHED_FIG3D_TABLE = config.EFS / "figures/figure3/fig3e.csv"
+PUBLISHED_FIG3D_TABLE = "/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/figures/figure3/fig3e.csv"
 
-# -- Load data
-wes_cluster = pd.read_csv(config.CNV_CLUSTERS_CSV)
-ecm_cluster = pd.read_csv(config.ECM_ANNOTATIONS_CSV)
+
+# %% -- Functions
+def permanova(X, grouping, permutations: int = 999, seed: int = 0) -> pd.Series:
+    """PERMANOVA on the Bray-Curtis dissimilarities of the rows of X, as scikit-bio's
+    `permanova(beta_diversity("braycurtis", X, ids), grouping, permutations)`.
+
+    The pseudo-F statistic is deterministic; the p value depends on the permutations
+    (seeded here, scikit-bio used the global numpy state).
+    """
+    d2 = squareform(pdist(np.asarray(X, dtype=float), metric="braycurtis")) ** 2
+    grouping = np.asarray(grouping)
+    n = len(grouping)
+    _, codes = np.unique(grouping, return_inverse=True)
+    n_groups = codes.max() + 1
+    s_t = d2[np.triu_indices(n, 1)].sum() / n
+
+    def pseudo_f(c):
+        sizes = np.bincount(c)
+        s_w = sum(np.triu(d2[np.ix_(c == k, c == k)], 1).sum() / sizes[k] for k in range(n_groups))
+        return ((s_t - s_w) / (n_groups - 1)) / (s_w / (n - n_groups))
+
+    f_obs = pseudo_f(codes)
+    rng = np.random.default_rng(seed)
+    f_perm = np.array([pseudo_f(rng.permutation(codes)) for _ in range(permutations)])
+    p = ((f_perm >= f_obs).sum() + 1) / (permutations + 1)
+    return pd.Series({"method name": "PERMANOVA", "test statistic name": "pseudo-F",
+                      "sample size": n, "number of groups": n_groups,
+                      "test statistic": f_obs, "p-value": p, "number of permutations": permutations})
+
+
+# -- stars helper
+def stars(p):
+    if pd.isna(p):
+        return ""
+    if p < 0.001:
+        return "***"
+    elif p < 0.01:
+        return "**"
+    elif p < 0.05:
+        return "*"
+    return ""
+
+
+# %% -- Load data
+cnv_wes_cluster_path = "/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/results/WES/infercnv/leiden_cluster_wes_baseline_samples.csv"
+ecm_cluster_path = "/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/Analysis_Repo/Notebooks/ecm_neighborhood_annotations_v4.csv"
+
+wes_cluster = pd.read_csv(cnv_wes_cluster_path)
+ecm_cluster = pd.read_csv(ecm_cluster_path)
 ecm_cluster = ecm_cluster.set_index("spot_id")
 
 print(wes_cluster.head(2))
@@ -73,9 +105,9 @@ print(ecm_cluster.head(2))
 # %%
 # -- spot-level dataframe
 ecm_df = ecm_cluster.copy()
-# Processing of sample ids (Visium section -> block)
+# Processing of sample ids
 ecm_df["sample"] = ecm_df["sample"].astype(str).str.strip()
-ecm_df["sample"] = block_of(ecm_df["sample"]).to_numpy()
+ecm_df["sample"] = ecm_df["sample"].str[:9]
 
 ecm_df["ECM_neighborhood"] = pd.to_numeric(ecm_df["ECM_neighborhood"], errors="raise").astype(int)
 
@@ -132,18 +164,25 @@ permanova_results = {"ECM neighborhoods": res}
 ## Part 2 : correlation with cellular landscape ####################
 ####################################################################
 # %% Params
+SIMPLIFIED_ANNOTATION_MAPPING = Path("/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/resources/SingleCell_Annotation_Key_v3.csv")
 REFERENCE_COLUMN = "celltype_level4_scanvi"
 BATCH_KEY = "orig.ident"
 
 
-# %% -- Load single data (obs only) with the exclusions of AllDataCenters.load_singlecell
-adata = ad.AnnData(obs=snrna.load_singlecell_obs((BATCH_KEY, REFERENCE_COLUMN), exclusions=True))
+# %% -- Load single data (obs only)
+adata = ad.AnnData(obs=AllDataCenters.load_singlecell(
+    exclude_idh1_mut=True,
+    exclude_patient_ids = True,
+    exclude_relapse = True,
+    obs_only=True,
+    ))
 
 # create simplified annotations from lvl1 to lvl4
-key = annotation.celltype_key()
 for lvl in ["level1", "level2", "level3", "level4"]:
     print(f"Mapping {lvl}")
-    ct_mapping = key[f"celltype_{lvl}_curated"]
+    ct_mapping = (
+        pd.read_csv(SIMPLIFIED_ANNOTATION_MAPPING)
+        .set_index(REFERENCE_COLUMN)[f"celltype_{lvl}_curated"])
     adata.obs[f"celltype_{lvl}_curated"] = adata.obs[REFERENCE_COLUMN].astype(str).replace(ct_mapping)
 
 # -- drop the "doublet" compartment before running initial analysis
@@ -195,7 +234,7 @@ res = permanova(X, grouping=grouping, permutations=PERMUTATIONS)
 print(res)
 permanova_results["Level-4 cell types"] = res
 
-# the published pseudo-F (4.56) is the one of the level-3 curated proportions
+# level-3 curated proportions (published pseudo-F 4.56)
 counts_l3 = pd.crosstab(single_cell_obj_filt.obs["orig.ident"].astype(str),
                         single_cell_obj_filt.obs["celltype_level3_curated"].astype(str))
 props_l3 = counts_l3.div(counts_l3.sum(axis=1), axis=0).loc[data_cells.index]
@@ -266,18 +305,6 @@ plot_df = plot_df.sort_values(by=2, ascending=True)
 # -- map adjusted p-values onto displayed cell types
 p_map = res_df.set_index("cell_type")["p_adj"]
 plot_df["p_adj"] = plot_df.index.map(p_map)
-
-# -- stars helper
-def stars(p):
-    if pd.isna(p):
-        return ""
-    if p < 0.001:
-        return "***"
-    elif p < 0.01:
-        return "**"
-    elif p < 0.05:
-        return "*"
-    return ""
 
 y = np.arange(plot_df.shape[0])
 

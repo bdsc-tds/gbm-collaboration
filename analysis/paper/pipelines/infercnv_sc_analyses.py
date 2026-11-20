@@ -12,31 +12,27 @@ folder, `output.setup`, not over them):
   tumor_clone_annotation_clean.csv, ith_scores_clean and the exploratory figures in between
   (iCNV heatmaps, KDE, Sankey, UMAP composites, clustermap, heterogeneity violin; not in the
   paper).
-Read by: 07_infercnv_wes_analyses.py (sample IDs), 08_analyses_wes_sc_infercnv.py (obs of the
-malignant-cell object), generate_cnv_wes_matrix.py (bins).
+Read by: fig3b_suppfig3ac_infercnv_wes_analyses.py (sample IDs),
+suppfig3ef_analyses_wes_sc_infercnv.py (obs of the malignant-cell object),
+generate_cnv_wes_matrix.py (bins).
+
+Origin: analysis/infercnv/infercnv_sc_analyses.py.
 
 Inputs: AllDataCenters.load_singlecell (loader exclusions), the EFS annotation key
-resources/SingleCell_Annotation_Key_v3.csv (as it ran).
+resources/SingleCell_Annotation_Key_v3.csv.
 
 Runtime and memory: hours (inferCNV on 1.35 M nuclei, then ITH scores), well over 60 GB of
 RAM (run under `flock /tmp/claude-1000/paper_heavy.lock`). Not re-run for the paper.
 
-Known issues:
-- The committed Part 2 cannot have written the frozen malignant-cell object: it subset on
-  obs["tumor_lineage"], a column it never creates (KeyError). The frozen object has
-  `tumor_lineage` (all True), `cnv_status`, `cnv_burden` and `tumor_cnv_group`, so it was
-  written by an earlier version with other column names. The definitions are the same: on
-  the frozen obs, level-1 Malignant or Other after the filters gives exactly the 782,542
-  frozen cells. Fixed: the subset uses lineage_status == "tumor-lineage" and stores
-  `tumor_lineage`.
+Comparison with the frozen outputs:
+- The frozen malignant-cell object was written by an earlier version of Part 2 with other
+  column names (`tumor_lineage`, `cnv_status`, `cnv_burden`, `tumor_cnv_group`). On the
+  frozen obs, level-1 Malignant or Other after the filters gives exactly the 782,542 frozen
+  cells, the subset made here (lineage_status == "tumor-lineage", stored as `tumor_lineage`).
 - `ithgex` is computed on the Part 1 object whose X was emptied before saving, so it is not
   informative (not used in the paper).
 - Leiden on 1.16 M / 0.78 M cells is not bit-for-bit reproducible across igraph versions;
   the figures use the frozen clone labels.
-
-Changes: header; output folder instead of the frozen EFS folder (Part 2 reloads Part 1's
-object from it); the tumor_lineage fix above; `display(dominant_df)` (notebook-only, NameError
-in a script) -> print; unused imports removed.
 """
 
 # %% -- Import packages and prepare functions
@@ -61,7 +57,7 @@ from gbmcollaboration.paper import output
 ############### PART 1 ##############################
 ############################################################
 # %% Params
-RESULTS_DIR = output.setup("pipelines_infercnv_sc_analyses")  # frozen: results/scRNAseq/infercnv
+RESULTS_DIR = output.setup("pipelines_infercnv_sc_analyses")
 SIMPLIFIED_ANNOTATION_MAPPING = Path("/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/resources/SingleCell_Annotation_Key_v3.csv")
 REFERENCE_COLUMN = "celltype_level4_scanvi"
 BATCH_KEY = "orig.ident"
@@ -481,7 +477,6 @@ fig.show()
 print("Saved:", html_path)
 
 # %% -- Now treat only the malignant cells for visualization
-# (the source used obs["tumor_lineage"], which this file never creates: KeyError)
 single_cell_obj_filt.obs["tumor_lineage"] = single_cell_obj_filt.obs["lineage_status"] == "tumor-lineage"
 adata_tumor = single_cell_obj_filt[
     single_cell_obj_filt.obs["tumor_lineage"]

@@ -7,28 +7,19 @@ cluster 2 vs the others. Also the Mann-Whitney test of clone 4 (the chr19 clone)
 vs the others ("a chr19-enriched clone disproportionately represented in cluster 2 tumors").
 
 Origin: analysis/infercnv/analyses_wes_sc_infercnv.py. Inputs (frozen): the WES cluster
-labels (config.CNV_CLUSTERS_CSV, 07_infercnv_wes_analyses.py) and the obs of the
-malignant-cell inferCNV object (pipelines/infercnv_sc_analyses.py).
+labels (results/WES/infercnv/leiden_cluster_wes_baseline_samples.csv, from
+fig3b_suppfig3ac_infercnv_wes_analyses.py) and the obs of the malignant-cell inferCNV object
+(pipelines/infercnv_sc_analyses.py). Only the panels of the paper are kept.
 
-Known issue, kept as ran: the malignant-cell object has one sample without a WES profile
-(ER_G_743a, 42 cells, wes_cluster NaN). It is a column of none of the dot-plot rows, but
-`wes_cluster != 2` counts it in "WES clusters 0, 1, 3" in panel f and in the clone 4 test
-(the printed n of the other group includes it).
-
-Changes:
-- Only the obs of infercnv_adata_malignant_only.h5ad is read (the source read the whole
-  16 GB object).
-- The WES label is added with a join on orig.ident, which keeps the cell index (the source's
-  `obs.merge` replaced it with 0..n-1; same values).
-- The figure is saved with `output.save` (and to the panels folder) instead of
-  results/WES/infercnv/.
-- Dropped (not in the paper): the preview dot plot (redrawn as panel e), the unused
-  `df_zoom_frac` table and `add_group_medians` helper, the clone 4 cell-state heatmap, and the
-  cluster-2-vs-others cell-type composition test (its conclusion: "don't see significant
-  differences").
+Comparison with the published panel: the malignant-cell object has one sample without a WES
+profile (ER_G_743a, 42 cells, wes_cluster NaN). It is a column of none of the dot-plot rows,
+but `wes_cluster != 2` counts it in "WES clusters 0, 1, 3" in panel f and in the clone 4 test
+(the printed n of the other group includes it), as in the published figure.
 """
 
 # %% -- Import packages
+from pathlib import Path
+
 import anndata as ad
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -37,19 +28,30 @@ import pandas as pd
 import seaborn as sns
 from scipy.stats import mannwhitneyu
 
-from gbmcollaboration.paper import config, output
-from gbmcollaboration.paper.wes import read_h5ad_obs
+from gbmcollaboration.paper import output
 
-OUT = output.setup("08_analyses_wes_sc_infercnv")
-RESULTS_DIR = config.EFS / "results"
+OUT = output.setup("suppfig3ef_analyses_wes_sc_infercnv")
+RESULTS_DIR = Path("/home/sagemaker-user/custom-file-systems/efs/fs-09913c1f7db79b6fd/results")
 SC_ADATA_PATH = RESULTS_DIR / "scRNAseq/infercnv/infercnv_adata_malignant_only.h5ad"
 
+
+# %% -- Functions
+def frac_to_area(f):
+    if fmax == fmin:
+        return (size_min + size_max) / 2
+    return size_min + (f - fmin) * (size_max - size_min) / (fmax - fmin)
+
+
 # %% -- Load cluster label WES
-df_wes_leiden_cluster = pd.read_csv(config.CNV_CLUSTERS_CSV)
+df_wes_leiden_cluster = pd.read_csv(
+    RESULTS_DIR / "WES/infercnv/leiden_cluster_wes_baseline_samples.csv"
+)
 df_wes_leiden_cluster.rename(columns={"cnv_leiden": "wes_cluster"}, inplace=True)
 
 # merge with the adata (obs only)
-adata_tumor = ad.AnnData(obs=read_h5ad_obs(SC_ADATA_PATH, ["orig.ident", "cnv_leiden"]))
+adata_backed = ad.read_h5ad(SC_ADATA_PATH, backed="r")
+adata_tumor = ad.AnnData(obs=adata_backed.obs.copy())
+adata_backed.file.close()
 adata_tumor.obs = adata_tumor.obs.join(
     df_wes_leiden_cluster.set_index("orig.ident")[["wes_cluster"]],
     on="orig.ident",
@@ -234,11 +236,6 @@ cbar.set_label("log2 enrichment")
 size_vals = [0.05, 0.15, 0.25]
 size_min, size_max = dot_sizes
 fmin, fmax = df_dot["fraction"].min(), df_dot["fraction"].max()
-
-def frac_to_area(f):
-    if fmax == fmin:
-        return (size_min + size_max) / 2
-    return size_min + (f - fmin) * (size_max - size_min) / (fmax - fmin)
 
 handles = [
     plt.Line2D([], [], linestyle="none", marker="o",
