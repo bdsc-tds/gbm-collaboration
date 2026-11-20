@@ -738,6 +738,23 @@ Verification (re-run 2026-11-20, 58 s): all printed numbers identical to the pre
 check line above. fig5b CSVs and PNG byte-identical to `figures/paper/17_TIL_survival/` (PDF differs
 only in its creation date).
 
+## fig5b_TIL_spline.ipynb
+
+Origin: `continuous_hr.py` and the continuous-modelling cell of `continuous_rmst.ipynb` (Jonathan
+Bac, `analysis/scratch/survival/`); new notebook for the response to reviewers.
+
+Changes:
+- `continuous_hr.py` copied to `gbmcollaboration/utils/continuous_hr.py` (a general method, kept
+  as written); `master_threshold_analysis` run unadjusted, with MGMT and with MGMT + age.
+- TIL fraction from the frozen TIL zones (`til.til_groups`) joined by block to the survival cohort
+  (218 patients) in place of the notebook's own cell2location TIL call.
+- Added: likelihood-ratio spline tests (R survival + splines; raw and log scale) and a survRM2
+  cutoff scan (50th–90th percentile), the model of Fig 5b.
+- Outputs: panels `Response TIL spline …` and `Response TIL cutoff scan`.
+
+Verification: inflection at 0.037 (75th percentile), as in the original run (0.030 with its TIL
+call); Fig 5b cutoff row of the scan equals the corrected Fig 5b model (+4.0 mo, p = 0.022).
+
 ## fig5c_suppfig5ab_TIL_supplement.ipynb
 
 Origin: Spencer Watson, `TIL_supplement.ipynb` (dropped in the repository root, November 2026; not

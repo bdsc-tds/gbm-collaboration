@@ -88,6 +88,7 @@ aggregate results (RMST, n, CI, p), never per-patient times.
 | `fig5_0_TIL_zones.ipynb` | TIL zones (upstream) = Supp Table 4a til_zone_annotations | TIL_Niche_Comparisons_v2_clean cells 20–24 (Spencer) |
 | `fig5a_TIL_zones_map.ipynb` | Fig 5a | TIL_Niche_Comparisons_v2_clean facet cell (Spencer) |
 | `fig5b_TIL_survival.ipynb` | Fig 5b, TIL vs age, sensitivity table | TIL_Niche_Comparisons RMST cell (Spencer) |
+| `fig5b_TIL_spline.ipynb` | TIL burden as a continuous variable: spline RMST curve, spline tests, survRM2 cutoff scan (response to reviewers) | continuous_hr.py / continuous_rmst.ipynb (Jonathan Bac) |
 | `fig5c_suppfig5ab_TIL_supplement.ipynb` | TIL groups, Supp Fig 5a–b, Fig 5c | TIL_supplement (Spencer) |
 | `fig5de_suppfig5cde_ECM_supplement.ipynb` | Fig 5d–e, Supp Fig 5c–e, gene use of the Supp Table 3a genes | ECM_supplement (Spencer) |
 | `fig5fg_TIL_zone_GSEA.ipynb` | Fig 5f–g | TIL_Niche_Comparisons_v2_clean (Spencer) |
@@ -152,6 +153,13 @@ Reproduced, but text or legend should change:
 - **Fig 6 text vs plotted axes**: BZ1 RGS2 (axis RGS1); TIL+ SRPX2 (SRPX), FGF2→SNAI1
   (HGF→SNAI2), TGFβ1 / IL-15 from Macrophage_IFN_response, PRELP from APOD; BZ2 COL1A2 and LUM
   from CCN2 and BMP2. The TIL+ axis selection cannot be rebuilt from the current catalog.
+- **TIL burden as a continuous variable** (`fig5b_TIL_spline`, 218 patients): the spline RMST
+  curve rises steeply up to a TIL fraction of ~0.04 and then flattens; its inflection (0.037,
+  75th percentile) coincides with the Fig 5b cutoff (0.0304). Non-linearity is not significant
+  (likelihood-ratio p = 0.21 raw, 0.67 log scale; the module's Wald p = 0.45). survRM2 cutoff scan:
+  ΔRMST is positive for every cutoff from the 50th to the 90th percentile, largest around the
+  75th, which is the only cutoff significant after MGMT adjustment (+4.0 mo, p = 0.022; nominal,
+  cutoffs not corrected for multiplicity).
 - **Supp Fig 3d** (reconstruction): MGMT, age and sex unchanged with cluster 2 as covariate,
   but p53 moves from p = 0.082 to 0.033.
 - **Supp Fig 4d** (reconstruction): CT_0 +7.1 pp lymphoid/DC reproduces; CT_3 −6.7 pp
